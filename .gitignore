@@ -1,0 +1,26 @@
+# cloud-echo local state — may contain account topology, CA keys, cassettes
+.cloud-echo/
+
+# Spike scratch: raw API output and findings.tsv. Regenerable; the write-up
+# lives in docs/spikes/ instead.
+spikes/*/.work/
+
+# User-local overrides may contain real credentials for `record`/`passthrough`
+# integrations. Commit a redacted cloud-echo.override.yaml deliberately if you
+# want to share it; by default it stays local.
+cloud-echo.override.local.yaml
+
+# Go
+/cloud-echo
+/dist/
+*.test
+*.out
+
+# UI build output
+/internal/ui/dist/
+node_modules/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
