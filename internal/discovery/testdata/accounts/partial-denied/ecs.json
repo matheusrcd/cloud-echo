@@ -1,0 +1,55 @@
+[
+  {
+    "op": "ListClusters",
+    "response": {
+      "clusterArns": ["arn:aws:ecs:us-east-1:123456789012:cluster/main"]
+    }
+  },
+  {
+    "op": "DescribeClusters",
+    "response": {
+      "clusters": [
+        {
+          "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/main",
+          "clusterName": "main",
+          "status": "ACTIVE",
+          "activeServicesCount": 1,
+          "runningTasksCount": 1
+        }
+      ],
+      "failures": []
+    }
+  },
+  {
+    "op": "ListServices",
+    "response": {
+      "serviceArns": ["arn:aws:ecs:us-east-1:123456789012:service/main/orders-api"]
+    }
+  },
+  {
+    "op": "DescribeServices",
+    "response": {
+      "services": [
+        {
+          "serviceArn": "arn:aws:ecs:us-east-1:123456789012:service/main/orders-api",
+          "serviceName": "orders-api",
+          "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/main",
+          "status": "ACTIVE",
+          "desiredCount": 2,
+          "runningCount": 2,
+          "launchType": "FARGATE",
+          "taskDefinition": "arn:aws:ecs:us-east-1:123456789012:task-definition/orders-api:41"
+        }
+      ],
+      "failures": []
+    }
+  },
+  {
+    "op": "DescribeTaskDefinition",
+    "status": 400,
+    "response": {
+      "__type": "AccessDeniedException",
+      "message": "User: arn:aws:iam::123456789012:user/scanner is not authorized to perform: ecs:DescribeTaskDefinition"
+    }
+  }
+]
