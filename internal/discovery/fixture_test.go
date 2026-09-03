@@ -177,3 +177,76 @@ func specOf(t *testing.T, r inventory.Resource, v any) {
 		t.Fatalf("decoding spec of %s: %v", r.ID, err)
 	}
 }
+
+// assertOpsMatchAllowList is the drift check every collector runs.
+//
+// It compares the operations a collector *actually invoked*, observed by the
+// fixture transport, against the awsx allow-list — deliberately not against a
+// list the collector declares about itself, because a declaration can drift from
+// the code while observed calls cannot.
+//
+// Both directions are failures. An operation called but not allow-listed is a
+// scan that dies against a correctly-permissioned account. An operation
+// allow-listed but never called is a permission users are asked to grant for
+// nothing, and every unnecessary permission is a reason for a security team to
+// refuse the whole tool.
+func assertOpsMatchAllowList(t *testing.T, sdkID string, tr *fixtureTransport) {
+	t.Helper()
+
+	var allowed []string
+	for _, s := range awsx.Services() {
+		if s.SDKID == sdkID {
+			allowed = s.Ops
+		}
+	}
+	if allowed == nil {
+		t.Fatalf("%s is not in the awsx allow-list", sdkID)
+	}
+
+	observed := map[string]bool{}
+	for _, op := range tr.operations() {
+		observed[op] = true
+	}
+
+	allowedSet := map[string]bool{}
+	for _, op := range allowed {
+		allowedSet[op] = true
+		if !observed[op] {
+			t.Errorf("allow-list grants %s:%s but the collector never calls it — "+
+				"either use it or stop asking users for the permission", sdkID, op)
+		}
+	}
+	for op := range observed {
+		if !allowedSet[op] {
+			t.Errorf("collector called %s:%s, which is not on the allow-list", sdkID, op)
+		}
+	}
+}
+
+// loadFixtures merges several service fixtures into one transport, so a test can
+// drive a full multi-collector scan.
+//
+// It fails on an operation name shared by two services, because the transport
+// matches on the last segment of X-Amz-Target: a collision would silently serve
+// one service's response to another's request, and the resulting test failure
+// would point nowhere useful.
+func loadFixtures(t *testing.T, account string, services ...string) *fixtureTransport {
+	t.Helper()
+
+	merged := &fixtureTransport{t: t, observed: map[string]int{}}
+	owner := map[string]string{}
+
+	for _, svc := range services {
+		one := loadFixture(t, account, svc)
+		for _, ex := range one.exchanges {
+			if prev, dup := owner[ex.Op]; dup && prev != svc {
+				t.Fatalf("fixture operation %q is defined by both %s and %s; "+
+					"the transport matches on operation name alone and cannot tell them apart",
+					ex.Op, prev, svc)
+			}
+			owner[ex.Op] = svc
+		}
+		merged.exchanges = append(merged.exchanges, one.exchanges...)
+	}
+	return merged
+}

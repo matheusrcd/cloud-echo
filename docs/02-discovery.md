@@ -65,6 +65,8 @@ make the name unique:
 | `ecs/cluster/main` | cluster |
 | `ecs/main/orders-api` | service — **scoped by cluster** |
 | `ecs/taskdef/orders-api:41` | task definition, family + revision |
+| `sqs/orders-events` | queue — unique per account-region, no scope needed |
+| `ddb/orders` | table — unique per account-region |
 
 ECS service names are only unique *within a cluster*. A bare `ecs/orders-api`
 would silently collapse two different services in any account that reuses names
@@ -89,8 +91,8 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | --- | --- | --- |
 | **ECS** ✅ | `ListClusters`, `DescribeClusters`, `ListServices`, `DescribeServices`, `DescribeTaskDefinition` | container `image`, `environment`, `secrets`, `portMappings`, `command`, `taskRoleArn`, `executionRoleArn`, `networkConfiguration`, `loadBalancers`, `serviceRegistries` |
 | **Lambda** | `ListFunctions`, `GetFunctionConfiguration`, `ListEventSourceMappings`, `GetPolicy`, `ListFunctionUrlConfigs`, `GetFunctionCodeSigningConfig` | `Environment.Variables`, `Role`, `ImageUri`, `Handler`, `Runtime`, event source ARNs, resource-policy principals |
-| **SQS** | `ListQueues`, `GetQueueAttributes`, `ListQueueTags` | `RedrivePolicy` (→ DLQ), `VisibilityTimeout`, `Policy` (→ who can send), `FifoQueue` |
-| **DynamoDB** | `ListTables`, `DescribeTable`, `DescribeTimeToLive`, `DescribeContinuousBackups` | key schema, GSIs/LSIs, `StreamSpecification` |
+| **SQS** ✅ | `ListQueues`, `GetQueueAttributes`, `ListQueueTags` | `RedrivePolicy` (→ DLQ), `VisibilityTimeout`, `Policy` (→ who can send), `FifoQueue` |
+| **DynamoDB** ✅ | `ListTables`, `DescribeTable`, `DescribeTimeToLive`, `ListTagsOfResource` | key schema, GSIs/LSIs, `StreamSpecification` |
 | **RDS** | `DescribeDBInstances`, `DescribeDBClusters`, `DescribeDBSubnetGroups` | `Engine`, `EngineVersion`, `Endpoint`, `Port`, `DBName`, `VpcSecurityGroups` |
 | **API Gateway v1** | `GetRestApis`, `GetResources`, `GetMethod`, `GetIntegration`, `GetStages`, `GetAuthorizers` | integration `uri`, `type`, `connectionId` |
 | **API Gateway v2** | `GetApis`, `GetRoutes`, `GetIntegrations`, `GetStages`, `GetAuthorizers` | same |
@@ -105,6 +107,18 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 > tasks add nothing the materializer uses. They were on the original list, and
 > asking for a permission we never exercise is exactly what the drift test exists
 > to prevent.
+
+> **`DescribeContinuousBackups` was dropped from the DynamoDB list.** Point-in-time
+> recovery has no meaning for a local emulated table, so the permission would buy
+> nothing. The same reasoning removed `ecs:ListTasks`: if a permission cannot be
+> justified by something the materializer uses, it should not be requested.
+
+> **Two DynamoDB calls are load-bearing and easy to miss.** `DescribeTable`
+> returns the key schema and the attribute *types* as two separate lists, and a
+> local table built from either half alone accepts writes in production and
+> rejects them locally. TTL is not in `DescribeTable` at all — it needs
+> `DescribeTimeToLive`, and without it a local table keeps rows the real one
+> would have expired.
 
 > **ElastiCache is two APIs, not one.** Redis and Valkey clusters are *only*
 > visible through `DescribeReplicationGroups`; `DescribeCacheClusters` covers

@@ -18,7 +18,9 @@ type Registry struct {
 // NewRegistry returns the collectors enabled for v1.
 func NewRegistry() *Registry {
 	return &Registry{collectors: []Collector{
+		&DynamoDB{},
 		&ECS{},
+		&SQS{},
 	}}
 }
 

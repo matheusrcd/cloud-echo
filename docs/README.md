@@ -27,11 +27,14 @@ on are validated. Results and the four design changes that came out of it:
 [`spikes/m0/`](../spikes/m0/) runs in ~60 s and doubles as a regression test
 against future Floci releases.
 
-**M1 in progress.** The discovery foundation is in: read-only guard, inventory
-model, scan runner, generated IAM policy, and the ECS collector with fixture-based
-contract tests. Next up in M1 is the rest of the collectors, then the linker —
-the part that decides whether the whole premise holds. See
-[08-roadmap.md](08-roadmap.md).
+**M1 in progress.** The discovery foundation is in — read-only guard, inventory
+model, scan runner, generated IAM policy — with collectors for **ECS, SQS, and
+DynamoDB**, all fixture-tested.
+
+Next: **Lambda and IAM**, which complete the minimum set the linker needs, then
+the linker itself. Note that the linker is the part that decides whether the whole
+premise holds, and it is still unwritten — the discovery work so far is the safe
+half of M1. See [08-roadmap.md](08-roadmap.md).
 
 ## Conventions
 

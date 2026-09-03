@@ -4,8 +4,6 @@ import (
 	"context"
 	"reflect"
 	"testing"
-
-	"github.com/matheusrcd/cloud-echo/internal/awsx"
 )
 
 func collectECS(t *testing.T) (*captureEmitter, *fixtureTransport) {
@@ -187,41 +185,7 @@ func TestECSRecordsProvenance(t *testing.T) {
 
 // TestECSUsesExactlyTheAllowListedOperations is the drift test ADR-0006 layer 3
 // calls for, run against observed behaviour rather than a declaration.
-//
-// Both directions matter. An operation the collector calls but the allow-list
-// omits is a scan that dies against a correctly-permissioned account. An
-// operation on the allow-list that the collector never calls is a permission we
-// ask users to grant for nothing — and every unnecessary permission is a reason
-// for a security team to say no.
 func TestECSUsesExactlyTheAllowListedOperations(t *testing.T) {
 	_, tr := collectECS(t)
-
-	observed := map[string]bool{}
-	for _, op := range tr.operations() {
-		observed[op] = true
-	}
-
-	var allowed []string
-	for _, s := range awsx.Services() {
-		if s.SDKID == "ECS" {
-			allowed = s.Ops
-		}
-	}
-	if allowed == nil {
-		t.Fatal("ECS is not in the awsx allow-list")
-	}
-
-	allowedSet := map[string]bool{}
-	for _, op := range allowed {
-		allowedSet[op] = true
-		if !observed[op] {
-			t.Errorf("allow-list grants ecs:%s but the collector never calls it — "+
-				"either use it or stop asking users for the permission", op)
-		}
-	}
-	for op := range observed {
-		if !allowedSet[op] {
-			t.Errorf("collector called ecs:%s, which is not on the allow-list", op)
-		}
-	}
+	assertOpsMatchAllowList(t, "ECS", tr)
 }
