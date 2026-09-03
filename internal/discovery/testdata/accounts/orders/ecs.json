@@ -1,0 +1,217 @@
+[
+  {
+    "op": "ListClusters",
+    "response": {
+      "clusterArns": [
+        "arn:aws:ecs:us-east-1:123456789012:cluster/main",
+        "arn:aws:ecs:us-east-1:123456789012:cluster/batch"
+      ]
+    }
+  },
+  {
+    "op": "DescribeClusters",
+    "response": {
+      "clusters": [
+        {
+          "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/main",
+          "clusterName": "main",
+          "status": "ACTIVE",
+          "activeServicesCount": 2,
+          "runningTasksCount": 5,
+          "capacityProviders": ["FARGATE", "FARGATE_SPOT"],
+          "defaultCapacityProviderStrategy": [
+            { "capacityProvider": "FARGATE", "weight": 1, "base": 0 }
+          ],
+          "tags": [{ "key": "env", "value": "prod" }]
+        },
+        {
+          "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/batch",
+          "clusterName": "batch",
+          "status": "ACTIVE",
+          "activeServicesCount": 1,
+          "runningTasksCount": 1,
+          "capacityProviders": ["FARGATE"],
+          "tags": []
+        }
+      ],
+      "failures": []
+    }
+  },
+
+  {
+    "op": "ListServices",
+    "match": "\"cluster\":\"main\"",
+    "response": {
+      "serviceArns": [
+        "arn:aws:ecs:us-east-1:123456789012:service/main/orders-api",
+        "arn:aws:ecs:us-east-1:123456789012:service/main/notifications"
+      ]
+    }
+  },
+  {
+    "op": "DescribeServices",
+    "match": "\"cluster\":\"main\"",
+    "response": {
+      "services": [
+        {
+          "serviceArn": "arn:aws:ecs:us-east-1:123456789012:service/main/orders-api",
+          "serviceName": "orders-api",
+          "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/main",
+          "status": "ACTIVE",
+          "desiredCount": 4,
+          "runningCount": 4,
+          "launchType": "FARGATE",
+          "schedulingStrategy": "REPLICA",
+          "taskDefinition": "arn:aws:ecs:us-east-1:123456789012:task-definition/orders-api:41",
+          "loadBalancers": [
+            {
+              "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/orders-api/8f2b1c",
+              "containerName": "app",
+              "containerPort": 8080
+            }
+          ],
+          "networkConfiguration": {
+            "awsvpcConfiguration": {
+              "subnets": ["subnet-0a1b2c3d", "subnet-0e4f5a6b"],
+              "securityGroups": ["sg-0123456789abcdef0"],
+              "assignPublicIp": "DISABLED"
+            }
+          },
+          "tags": [{ "key": "team", "value": "orders" }]
+        },
+        {
+          "serviceArn": "arn:aws:ecs:us-east-1:123456789012:service/main/notifications",
+          "serviceName": "notifications",
+          "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/main",
+          "status": "ACTIVE",
+          "desiredCount": 2,
+          "runningCount": 2,
+          "launchType": "FARGATE",
+          "schedulingStrategy": "REPLICA",
+          "taskDefinition": "arn:aws:ecs:us-east-1:123456789012:task-definition/notifications:7",
+          "tags": []
+        }
+      ],
+      "failures": []
+    }
+  },
+
+  {
+    "op": "ListServices",
+    "match": "\"cluster\":\"batch\"",
+    "response": {
+      "serviceArns": [
+        "arn:aws:ecs:us-east-1:123456789012:service/batch/orders-api"
+      ]
+    }
+  },
+  {
+    "op": "DescribeServices",
+    "match": "\"cluster\":\"batch\"",
+    "response": {
+      "services": [
+        {
+          "serviceArn": "arn:aws:ecs:us-east-1:123456789012:service/batch/orders-api",
+          "serviceName": "orders-api",
+          "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/batch",
+          "status": "ACTIVE",
+          "desiredCount": 1,
+          "runningCount": 1,
+          "launchType": "FARGATE",
+          "schedulingStrategy": "REPLICA",
+          "taskDefinition": "arn:aws:ecs:us-east-1:123456789012:task-definition/orders-api:41",
+          "tags": []
+        }
+      ],
+      "failures": []
+    }
+  },
+
+  {
+    "op": "DescribeTaskDefinition",
+    "match": "orders-api:41",
+    "response": {
+      "taskDefinition": {
+        "taskDefinitionArn": "arn:aws:ecs:us-east-1:123456789012:task-definition/orders-api:41",
+        "family": "orders-api",
+        "revision": 41,
+        "status": "ACTIVE",
+        "networkMode": "awsvpc",
+        "cpu": "1024",
+        "memory": "2048",
+        "taskRoleArn": "arn:aws:iam::123456789012:role/orders-api-task",
+        "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+        "requiresCompatibilities": ["FARGATE"],
+        "containerDefinitions": [
+          {
+            "name": "app",
+            "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/orders-api:v1.42",
+            "essential": true,
+            "portMappings": [
+              { "containerPort": 8080, "hostPort": 8080, "protocol": "tcp", "name": "http" }
+            ],
+            "environment": [
+              { "name": "TABLE_NAME", "value": "orders" },
+              { "name": "QUEUE_URL", "value": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events" },
+              { "name": "DB_HOST", "value": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com" },
+              { "name": "PAYMENTS_URL", "value": "https://api.payments.example.com" },
+              { "name": "LOG_LEVEL", "value": "info" }
+            ],
+            "secrets": [
+              {
+                "name": "DB_PASSWORD",
+                "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/orders/db-AbCdEf"
+              }
+            ],
+            "dependsOn": [{ "containerName": "otel", "condition": "START" }],
+            "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                "awslogs-group": "/ecs/orders-api",
+                "awslogs-region": "us-east-1",
+                "awslogs-stream-prefix": "ecs"
+              }
+            }
+          },
+          {
+            "name": "otel",
+            "image": "public.ecr.aws/aws-observability/aws-otel-collector:v0.41.0",
+            "essential": false,
+            "environment": []
+          }
+        ],
+        "tags": [{ "key": "team", "value": "orders" }]
+      },
+      "tags": [{ "key": "team", "value": "orders" }]
+    }
+  },
+  {
+    "op": "DescribeTaskDefinition",
+    "match": "notifications:7",
+    "response": {
+      "taskDefinition": {
+        "taskDefinitionArn": "arn:aws:ecs:us-east-1:123456789012:task-definition/notifications:7",
+        "family": "notifications",
+        "revision": 7,
+        "status": "ACTIVE",
+        "networkMode": "awsvpc",
+        "cpu": "512",
+        "memory": "1024",
+        "taskRoleArn": "arn:aws:iam::123456789012:role/notifications-task",
+        "requiresCompatibilities": ["FARGATE"],
+        "containerDefinitions": [
+          {
+            "name": "worker",
+            "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/notifications:v0.9",
+            "essential": true,
+            "command": ["node", "worker.js"],
+            "environment": [
+              { "name": "QUEUE_URL", "value": "https://sqs.us-east-1.amazonaws.com/123456789012/notifications" },
+              { "name": "CACHE_HOST", "value": "sessions.abc123.ng.0001.use1.cache.amazonaws.com" }
+            ]
+          }
+        ]
+      }
+    }
+  }
+]

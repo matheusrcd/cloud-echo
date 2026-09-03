@@ -1,0 +1,227 @@
+package discovery
+
+import (
+	"context"
+	"reflect"
+	"testing"
+
+	"github.com/matheusrcd/cloud-echo/internal/awsx"
+)
+
+func collectECS(t *testing.T) (*captureEmitter, *fixtureTransport) {
+	t.Helper()
+	tr := loadFixture(t, "orders", "ecs")
+	out := &captureEmitter{}
+	if err := (&ECS{}).Collect(context.Background(), fixtureSession(tr), out); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	tr.assertAllMatched(t)
+	return out, tr
+}
+
+func TestECSCollectsExpectedResources(t *testing.T) {
+	out, _ := collectECS(t)
+
+	want := []string{
+		"ecs/batch/orders-api",
+		"ecs/cluster/batch",
+		"ecs/cluster/main",
+		"ecs/main/notifications",
+		"ecs/main/orders-api",
+		"ecs/taskdef/notifications:7",
+		"ecs/taskdef/orders-api:41",
+	}
+	if got := out.ids(); !reflect.DeepEqual(got, want) {
+		t.Errorf("resource ids:\n got %q\nwant %q", got, want)
+	}
+	if len(out.warnings) != 0 {
+		t.Errorf("unexpected warnings: %+v", out.warnings)
+	}
+}
+
+// TestECSDistinguishesSameNamedServicesAcrossClusters is the reason service IDs
+// are scoped by cluster.
+//
+// The fixture has an "orders-api" service in both the main and batch clusters —
+// legal in AWS, since service names are only unique per cluster. A bare
+// "ecs/orders-api" ID would silently collapse them into one node, and the loss
+// would only surface much later as a service missing from the graph.
+func TestECSDistinguishesSameNamedServicesAcrossClusters(t *testing.T) {
+	out, _ := collectECS(t)
+
+	main, ok := out.byID("ecs/main/orders-api")
+	if !ok {
+		t.Fatal("missing ecs/main/orders-api")
+	}
+	batch, ok := out.byID("ecs/batch/orders-api")
+	if !ok {
+		t.Fatal("missing ecs/batch/orders-api")
+	}
+
+	var mainSpec, batchSpec serviceSpec
+	specOf(t, main, &mainSpec)
+	specOf(t, batch, &batchSpec)
+
+	if mainSpec.DesiredCount != 4 || batchSpec.DesiredCount != 1 {
+		t.Errorf("the two services were conflated: main=%d batch=%d",
+			mainSpec.DesiredCount, batchSpec.DesiredCount)
+	}
+	if main.ARN == batch.ARN {
+		t.Error("both services resolved to the same ARN")
+	}
+}
+
+// TestECSDescribesEachTaskDefinitionOnce guards the dedup path: both orders-api
+// services run task definition 41, and describing it twice would be a wasted
+// call against every account that shares definitions across clusters.
+func TestECSDescribesEachTaskDefinitionOnce(t *testing.T) {
+	_, tr := collectECS(t)
+
+	tr.mu.Lock()
+	n := tr.observed["DescribeTaskDefinition"]
+	tr.mu.Unlock()
+
+	if n != 2 {
+		t.Errorf("DescribeTaskDefinition called %d times, want 2 (one per distinct definition)", n)
+	}
+}
+
+func TestECSNormalizesContainerDefinitions(t *testing.T) {
+	out, _ := collectECS(t)
+
+	td, ok := out.byID("ecs/taskdef/orders-api:41")
+	if !ok {
+		t.Fatal("missing ecs/taskdef/orders-api:41")
+	}
+
+	var spec taskDefinitionSpec
+	specOf(t, td, &spec)
+
+	if spec.TaskRoleARN != "arn:aws:iam::123456789012:role/orders-api-task" {
+		t.Errorf("task role: got %q", spec.TaskRoleARN)
+	}
+	if len(spec.Containers) != 2 {
+		t.Fatalf("want 2 containers, got %d", len(spec.Containers))
+	}
+
+	app := spec.Containers[0]
+	if app.Name != "app" || !app.Essential {
+		t.Errorf("first container: %+v", app)
+	}
+	if got := app.Env["QUEUE_URL"]; got != "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events" {
+		t.Errorf("QUEUE_URL: got %q", got)
+	}
+	if got := app.LogGroup; got != "/ecs/orders-api" {
+		t.Errorf("log group: got %q", got)
+	}
+	if len(app.PortMappings) != 1 || app.PortMappings[0].ContainerPort != 8080 {
+		t.Errorf("port mappings: %+v", app.PortMappings)
+	}
+
+	// The sidecar is non-essential; conflating that with the app container would
+	// make the materializer treat its exit as a task failure.
+	if spec.Containers[1].Essential {
+		t.Error("otel sidecar should not be essential")
+	}
+}
+
+// TestECSRecordsSecretReferencesNotValues pins Guarantee 2 at the collector
+// level: a secret contributes its ARN, because that ARN is a linking signal, and
+// nothing else.
+func TestECSRecordsSecretReferencesNotValues(t *testing.T) {
+	out, _ := collectECS(t)
+
+	td, _ := out.byID("ecs/taskdef/orders-api:41")
+	var spec taskDefinitionSpec
+	specOf(t, td, &spec)
+
+	got := spec.Containers[0].Secrets["DB_PASSWORD"]
+	want := "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/orders/db-AbCdEf"
+	if got != want {
+		t.Errorf("DB_PASSWORD reference: got %q want %q", got, want)
+	}
+}
+
+// TestECSLinksServiceToTaskDefinitionID checks the cross-reference the linker
+// will follow: a service must name the inventory ID of its task definition, not
+// just the ARN, so traversal never has to re-parse ARNs.
+func TestECSLinksServiceToTaskDefinitionID(t *testing.T) {
+	out, _ := collectECS(t)
+
+	svc, _ := out.byID("ecs/main/orders-api")
+	var spec serviceSpec
+	specOf(t, svc, &spec)
+
+	if spec.TaskDefinitionID != "ecs/taskdef/orders-api:41" {
+		t.Fatalf("task definition id: got %q", spec.TaskDefinitionID)
+	}
+	if _, ok := out.byID(spec.TaskDefinitionID); !ok {
+		t.Errorf("service points at %q, which was never emitted", spec.TaskDefinitionID)
+	}
+}
+
+func TestECSRecordsProvenance(t *testing.T) {
+	out, _ := collectECS(t)
+
+	for _, tc := range []struct{ id, api string }{
+		{"ecs/cluster/main", "ecs:DescribeClusters"},
+		{"ecs/main/orders-api", "ecs:DescribeServices"},
+		{"ecs/taskdef/orders-api:41", "ecs:DescribeTaskDefinition"},
+	} {
+		r, ok := out.byID(tc.id)
+		if !ok {
+			t.Errorf("missing %s", tc.id)
+			continue
+		}
+		if r.Source.API != tc.api {
+			t.Errorf("%s provenance: got %q want %q", tc.id, r.Source.API, tc.api)
+		}
+		if r.Source.CollectedAt.IsZero() {
+			t.Errorf("%s has no collection timestamp", tc.id)
+		}
+		if len(r.Raw) == 0 {
+			t.Errorf("%s kept no raw response — future linker rules need it", tc.id)
+		}
+	}
+}
+
+// TestECSUsesExactlyTheAllowListedOperations is the drift test ADR-0006 layer 3
+// calls for, run against observed behaviour rather than a declaration.
+//
+// Both directions matter. An operation the collector calls but the allow-list
+// omits is a scan that dies against a correctly-permissioned account. An
+// operation on the allow-list that the collector never calls is a permission we
+// ask users to grant for nothing — and every unnecessary permission is a reason
+// for a security team to say no.
+func TestECSUsesExactlyTheAllowListedOperations(t *testing.T) {
+	_, tr := collectECS(t)
+
+	observed := map[string]bool{}
+	for _, op := range tr.operations() {
+		observed[op] = true
+	}
+
+	var allowed []string
+	for _, s := range awsx.Services() {
+		if s.SDKID == "ECS" {
+			allowed = s.Ops
+		}
+	}
+	if allowed == nil {
+		t.Fatal("ECS is not in the awsx allow-list")
+	}
+
+	allowedSet := map[string]bool{}
+	for _, op := range allowed {
+		allowedSet[op] = true
+		if !observed[op] {
+			t.Errorf("allow-list grants ecs:%s but the collector never calls it — "+
+				"either use it or stop asking users for the permission", op)
+		}
+	}
+	for op := range observed {
+		if !allowedSet[op] {
+			t.Errorf("collector called ecs:%s, which is not on the allow-list", op)
+		}
+	}
+}
