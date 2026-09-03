@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The default token is read-only; nothing here needs more.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build & test (go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.24 is the floor declared in go.mod — aws-sdk-go-v2 requires it.
+        # "stable" catches breakage from new releases before users hit it.
+        go: ['1.24', 'stable']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          check-latest: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::these files are not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test -race -count=1 ./...
+
+  tidy:
+    name: go.mod is tidy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go mod tidy
+      - name: check for changes
+        run: |
+          if ! git diff --exit-code go.mod go.sum; then
+            echo "::error::go.mod/go.sum are not tidy — run 'go mod tidy' and commit the result"
+            exit 1
+          fi
+
+  vuln:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: govulncheck ./...
+
+  docs:
+    name: docs links resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check relative markdown links
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+          broken = []
+          for p in list(pathlib.Path('.').rglob('*.md')):
+              if '.git' in p.parts:
+                  continue
+              for m in re.finditer(r'\[[^\]]*\]\(([^)]+)\)', p.read_text()):
+                  link = m.group(1)
+                  if link.startswith(('http://', 'https://', '#', 'mailto:')):
+                      continue
+                  if not (p.parent / link.split('#')[0]).resolve().exists():
+                      broken.append(f'{p}: {link}')
+          for b in broken:
+              print(f'::error::broken link — {b}')
+          sys.exit(1 if broken else 0)
+          PY

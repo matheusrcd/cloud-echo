@@ -1,5 +1,7 @@
 # cloud-echo
 
+[![CI](https://github.com/matheusrcd/cloud-echo/actions/workflows/ci.yml/badge.svg)](https://github.com/matheusrcd/cloud-echo/actions/workflows/ci.yml)
+
 Scans your AWS account and rebuilds it as a containerized local environment using
 [Floci](https://floci.io/).
 
@@ -88,6 +90,15 @@ undecided is in [docs/09-open-questions.md](docs/09-open-questions.md).
 ECS · SQS · Lambda · DynamoDB · RDS · API Gateway · ElastiCache
 
 Roadmap and what's deferred: [docs/08-roadmap.md](docs/08-roadmap.md).
+
+## Contributing
+
+Design feedback is the most useful contribution right now — particularly on
+[the linker](docs/03-linker.md), which is the part most likely to be wrong.
+Collectors are the easiest place to start on code.
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, the invariants a PR must not
+break, and a step-by-step walkthrough for adding a collector.
 
 ## License
 
