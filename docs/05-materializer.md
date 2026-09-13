@@ -66,6 +66,28 @@ its consumer exists either fails or starts dead-lettering into the void.
 Every seeder is **idempotent**: `up` on an already-running environment converges
 rather than erroring. This is what makes the edit → `up` → test loop fast.
 
+### What the M1 round trip adds
+
+Rebuilding a real account's inventory inside Floci and scanning it back
+([m1-real-account-findings.md](spikes/m1-real-account-findings.md)) turned up
+requirements no earlier section had:
+
+- **Queue URLs embed the endpoint.** A workload's `QUEUE_URL` points at
+  production until rewritten; this is what `${ref:sqs/x.url}` is for.
+- **DynamoDB stream ARNs are per-environment** (the label is a creation
+  timestamp). Resolve `${ref:ddb/x.streamArn}` after the table exists; never copy.
+- **Event source mappings are identified by what they connect** — source,
+  function, qualifier. Their UUIDs are minted per environment.
+- **Floci drops mapping qualifiers**: a mapping to `fn:live` invokes `$LATEST`
+  locally. Harmless while local code is the same, wrong the day it is not.
+- **Task definition revision numbers cannot be reproduced** by registering once.
+- **Docker networks must be found by label and id, not by name.** Docker accepts
+  duplicate names, and `docker run --network <name>` then refuses to choose — it
+  broke the spike tooling after three runs.
+- **Verify by exercising, not by describing.** Floci does not return `command`,
+  `dependsOn` or `logConfiguration` from `DescribeTaskDefinition`, yet a real
+  `RunTask` applied `command`. Describing Floci cannot confirm what was built.
+
 ## Talking to Floci
 
 Seeding uses `aws-sdk-go-v2` with a custom endpoint resolver pointing at Floci,

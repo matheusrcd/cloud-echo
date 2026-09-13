@@ -54,6 +54,9 @@ default and we scope a metadata shim.
 - [ ] Remaining collectors: RDS, ElastiCache, API Gateway v1/v2, plus supporting
       ECR, SNS, EC2, ELBv2, Secrets Manager, SSM.
 - [x] Secret-shaped value redaction at collection time (Guarantee 2).
+- [x] Validated against a real account, including a scan with only the shipped
+      policy and a round trip through Floci —
+      [m1-real-account-findings.md](spikes/m1-real-account-findings.md).
 - [x] Read-only guard middleware + the test that proves it.
 - [x] `policies/cloud-echo-scanner.json` and the drift test that keeps it honest.
 - [x] Inventory model, deterministic serialization, scan runner, `scan --dry-run`.

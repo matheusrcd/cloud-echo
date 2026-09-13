@@ -46,6 +46,33 @@ Ties into [Q9](#q9--relationship-with-floci-upstream): a good first contribution
 
 ---
 
+### Q13 — Lambda aliases and versions
+
+**Raised by M1.** The inventory records `$LATEST` and, on event source mappings,
+the qualifier they target (`live`) — but not which version an alias points at or
+what that version's configuration is. The round-trip seeder had to invent the
+alias. Where production traffic goes through an alias pinned to an older version,
+the locally recreated function can differ from what actually runs.
+
+Options: collect aliases (`lambda:ListAliases`) and the configuration of each
+aliased version (`GetFunctionConfiguration` with a qualifier) — two more
+permissions — or treat `$LATEST` as the local truth and flag qualified targets.
+Leaning toward the second for v1, with a visible warning when a mapping or
+integration targets a qualifier whose version differs from `$LATEST`.
+
+---
+
+### Q14 — What `scan --diff` must ignore
+
+**Raised by M1.** Two scans of an unchanged real account minutes apart were
+identical once scan id and per-resource `collectedAt` were set aside — Raw
+included. So determinism holds, but a byte-level diff will always differ on those
+fields. `scan --diff` needs an explicit list of volatile fields, and fields like
+DynamoDB's `itemCountEstimate` or ECS `runningCount` will need the same treatment
+in a busier account.
+
+---
+
 ### Q2 — Stateful mocks
 
 Sequence-dependent responses ("first poll returns `pending`, second returns
@@ -118,6 +145,12 @@ Floci emulates IAM. Should locally-created roles carry the real policies?
 
 Leaning: create the roles with real policies for shape and inspectability, but do
 not rely on enforcement, and say so in the docs.
+
+**Evidence from M1 (2026-09-13):** Floci's IAM is shape-only. Permissions
+boundaries are not returned, and AWS-managed policies exist as stubs granting
+`Action: "*"` — a role with `AWSLambdaBasicExecutionRole` can do anything
+locally. That settles it in practice: local IAM cannot be a source of truth, so
+the leaning stands and "not enforced" is the documented behaviour.
 
 ---
 

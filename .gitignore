@@ -10,6 +10,10 @@ spikes/*/.work/
 # want to share it; by default it stays local.
 cloud-echo.override.local.yaml
 
+# Python bytecode from the spike tooling
+__pycache__/
+*.pyc
+
 # Go
 /cloud-echo
 /dist/

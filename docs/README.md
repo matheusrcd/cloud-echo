@@ -29,7 +29,9 @@ against future Floci releases.
 
 **M1 in progress.** Discovery covers the minimum set the linker needs — **ECS,
 SQS, DynamoDB, Lambda, and IAM** — with secret-shaped values redacted before
-anything reaches disk. The scan has been run once against a real account.
+anything reaches disk. It has been validated against a real account — with only
+the shipped policy, and through a round trip into Floci:
+[m1-real-account-findings.md](spikes/m1-real-account-findings.md).
 
 Next: **the linker**, tiers 1–3 against the `orders` fixture account. It is the
 part that decides whether the whole premise holds, and it is still unwritten —

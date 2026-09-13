@@ -143,6 +143,14 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 > `DescribeTimeToLive`, and without it a local table keeps rows the real one
 > would have expired.
 
+> **`ListQueues` needs `MaxResults` to paginate at all.** Without it AWS returns up
+> to 1000 queues and no `NextToken` — silent truncation, confirmed against the
+> real API. The collector always sends it.
+
+> **Mapping state is tri-state.** `Creating` and `Updating` say nothing about
+> whether a mapping is enabled; a live mapping scanned mid-update read as disabled
+> under a two-state rule. `enabled` is `null` there, with `transitional: true`.
+
 > **Lambda asks for three permissions, not six.** `ListFunctions` already
 > returns environment, role and runtime, so `GetFunctionConfiguration` is
 > redundant. `GetFunction` is deferred to M3, when a container image URI is

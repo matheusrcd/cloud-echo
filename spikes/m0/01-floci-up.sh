@@ -9,9 +9,16 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 section "01 · floci lifecycle"
 
 docker rm -f "$FLOCI_CONTAINER" >/dev/null 2>&1
-docker network create "$FLOCI_NETWORK" >/dev/null 2>&1 \
-  && info "created network $FLOCI_NETWORK" \
-  || info "network $FLOCI_NETWORK already exists"
+# Docker does not guarantee unique network names: `docker network create` with a
+# name that already exists can succeed and make a second network. Found in M1,
+# after three runs left three networks called the same thing and `docker run
+# --network` refused to choose. Look the network up; never create blindly.
+nets=$(docker network ls -q --filter "name=^${FLOCI_NETWORK}$")
+case $(printf '%s' "$nets" | grep -c .) in
+  0) docker network create "$FLOCI_NETWORK" >/dev/null && info "created network $FLOCI_NETWORK" ;;
+  1) info "network $FLOCI_NETWORK already exists" ;;
+  *) record FAIL floci.network "$(printf '%s' "$nets" | grep -c .) networks named $FLOCI_NETWORK — remove the duplicates"; exit 1 ;;
+esac
 
 # Probe 00 records an alternative socket path here when /var/run/docker.sock is
 # absent (common with Docker Desktop and colima on macOS).
