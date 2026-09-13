@@ -7,7 +7,7 @@ Scans your AWS account and rebuilds it as a containerized local environment usin
 
 > **Status: early. Not usable yet.** The architecture is designed and validated
 > ([M0 spike](docs/spikes/m0-findings.md)), and discovery is built and validated
-> against a real account — read-only guard, inventory model, collectors for seven
+> against a real account — read-only guard, inventory model, collectors for eight
 > services — and the linker reads its first three tiers. Everything
 > below marked ⬚ does not exist. Feedback on the design is still the most useful
 > contribution.
@@ -19,7 +19,7 @@ account, infers what talks to what, and rebuilds a runnable slice of that topolo
 locally — with every outgoing integration visible and mockable in real time.
 
 ```bash
-cloud-echo scan                                    # ◐ read-only discovery (7 services so far)
+cloud-echo scan                                    # ◐ read-only discovery (8 services so far)
 cloud-echo graph --explain ecs/orders-api          # ◐ what does it talk to, and why? (Tiers 1–3)
 cloud-echo plan --seed ecs/orders-api --depth 2    # ⬚ → cloud-echo.yaml
 cloud-echo up                                      # ⬚ Floci + your containers, running
@@ -28,7 +28,7 @@ cloud-echo ui                                      # ⬚ graph + live traffic + 
 
 What works today: `cloud-echo scan --dry-run` prints the exact API surface a scan
 would touch, and `cloud-echo scan` reads ECS, SQS, DynamoDB, Lambda, IAM, API
-Gateway and RDS into a normalized inventory, validated against a real account.
+Gateway, RDS and ElastiCache into a normalized inventory, validated against a real account.
 `cloud-echo graph` links it — declared relationships (event source mappings,
 redrive, API integrations, authorizers), what configuration names (queue URLs,
 ARNs, table names, third-party URLs in env vars, command lines and stage
