@@ -58,6 +58,11 @@ because their values differ per environment by construction (measured in
   on a port of its own (7001, 7003… in the RDS round), not the engine's 5432.
 - `${ref:rds/x.masterSecretArn}` — a managed master secret is re-created per
   environment, with a new ARN.
+- `${ref:elb/x.dnsName}` — a load balancer's DNS name is minted locally and has
+  another shape (`<name>-<hex>.elb.localhost.floci.io`); so are its ARN and its
+  listeners' and target groups', which is why references to them are resolved,
+  never copied. Its listener ports are allocated too: locally every load
+  balancer and cache shares one port space.
 
 API Gateway APIs are identified by API id in the inventory, because names are not
 unique; the `apigw/public` in the example below is shorthand the planner derives

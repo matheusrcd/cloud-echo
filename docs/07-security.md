@@ -79,6 +79,10 @@ they are different types.
   API Gateway adds three sources: stage variables and literal parameter mappings
   are redacted (mapping *expressions* are references and kept), and mapping
   templates — free-text VTL — are withheld wholesale, content type only.
+  Load balancer rules add four: header and query-string condition values are
+  redacted (a header is where a CDN's shared secret sits), an OIDC action's
+  client secret and a fixed response's body are dropped, and a redirect's query
+  is sanitized like a URL's.
 - The blueprint is scanned before write for high-entropy strings and
   secret-shaped key names (`*_SECRET`, `*_TOKEN`, `*_PASSWORD`, `*_KEY`,
   `AKIA*`, PEM headers). A hit is a **hard error**, not a warning.

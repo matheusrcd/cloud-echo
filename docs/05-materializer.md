@@ -56,6 +56,7 @@ tables (+ streams)
 secrets / SSM params
 RDS instances  →  wait healthy  →  migrations
 ElastiCache clusters
+target groups  →  load balancers + listeners + rules  →  targets
 ECR repos (only if images are being pushed locally)
 ```
 
@@ -93,6 +94,26 @@ requirements no earlier section had:
   proxy. But the **port changes** per database, Aurora is plain Postgres (no
   members, no reader), and the Data API, Serverless v2 and IAM authentication are
   not emulated.
+- **Load balancers get new ids, and names in configuration must follow**
+  (ELBv2 round). Every load balancer, listener and target group ARN is minted
+  locally, so whatever names one — an ECS service's registration, a Lambda
+  permission's source, a VPC link integration's listener — is re-resolved, never
+  copied (the permission granted before the function is registered, as AWS
+  requires). DNS names change shape too (`<name>-<hex>.elb.localhost.floci.io`):
+  seeded unchanged, `WEB_URL` still named the **production** load balancer, and
+  the linker, run on the local inventory, reported it as a namesake. That check
+  is how to know the rewrite happened. Subnets, security groups and the VPC map
+  to local ones; VPC links are not collected (only their id is), so one is made
+  per id.
+- **Load balancers really route, in one port space.** Floci's data plane served
+  the rules — redirect `301`, fixed response `200` — on real ports inside its
+  container. So an NLB listening on `6379` took the port a Valkey replication
+  group then needed, and the group failed to start: in AWS each has its own
+  address, locally they share one. The materializer must allocate listener and
+  proxy ports, not copy them. And **forwards answer only in Floci's default
+  account**: under the scanned account's id — the ARN-fidelity setup — every
+  forward returned `502 Target group not found`, while the same Lambda target
+  answered in the default account (see [09-open-questions.md](09-open-questions.md)).
 - **Caches run, but are not described** (ElastiCache round): Floci started real
   `valkey` and `memcached` containers that answer `PING` and `version`, and
   describes neither's endpoints (see [04-blueprint.md](04-blueprint.md)). It

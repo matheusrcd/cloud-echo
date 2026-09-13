@@ -140,6 +140,29 @@ of "this value names that resource". Values naming AWS endpoints that are not
 resources (`https://dynamodb.us-east-1.amazonaws.com`, reported as unresolved
 today) need rewriting to the local endpoint too.
 
+The ELBv2 round adds load balancer DNS names, which change shape locally
+(`<name>-<hex>.elb.localhost.floci.io`): the same matcher finds them.
+
+---
+
+### Q19 — ARN fidelity against what Floci does only in its default account
+
+**Raised by the ELBv2 round.** Floci runs with the scanned account's id as its
+access key, so ARNs made locally are byte-identical to production's
+([01-architecture.md](01-architecture.md)) — the premise every round trip rests
+on. Floci's ELBv2 data plane does not follow it: under that account, a listener
+answers (its redirects and fixed responses work) but every forward returns
+`502 Target group not found`; the same Lambda target group, created in Floci's
+default account, answered `200`. Target groups appear to be looked up in the
+default account whatever account the load balancer belongs to.
+
+Options: report it upstream and wait; run load balancers in the default account
+and give up ARN fidelity for them alone (their ARNs are minted locally anyway,
+and references to them are re-resolved, never copied); or put the gateway in
+front and route listener rules itself. Leaning toward the second until Floci is
+fixed — no load balancer ARN survives the trip either way, so nothing that
+depends on fidelity is lost. Check the upstream issue tracker first.
+
 ---
 
 ### Q2 — Stateful mocks

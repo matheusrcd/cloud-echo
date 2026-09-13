@@ -67,13 +67,13 @@ exist yet.
 | `lambda.event-source-mapping` ✅ | `ListEventSourceMappings` | SQS/DynamoDB Stream → Lambda (`consume`, status from the mapping state); on-failure destination (`publish`). Kinesis/MSK sources are reported unresolved |
 | `lambda.dead-letter` ✅ | `DeadLetterConfig` | Lambda → SQS (`publish`) |
 | `apigw.entrypoint` ✅ | every API | the API is an entrypoint (trigger) |
-| `ecs.load-balancer` ✅ | service `loadBalancers[]` | the service is an entrypoint (trigger); no edge until ELBv2 is collected |
+| `ecs.load-balancer` ✅ | service `loadBalancers[]` | only what `elbv2.listener` cannot say: a target group outside the inventory makes the service an entrypoint (trigger); one no load balancer forwards to is an `unresolved` finding |
+| `elbv2.listener` ✅ | listener rules → target group | load balancer → the ECS services registering in the target group (`http` from an ALB, `connect` from an NLB), its Lambda targets (`invoke`), its ALB targets (`http`); an internet-facing load balancer is an entrypoint (trigger) |
 | `sns.subscription` | `ListSubscriptionsByTopic` | SNS → SQS/Lambda/HTTP (`publish`) |
-| `apigw.integration` ✅ | route `integration` (v1 `GetResources` embedded, v2 `GetIntegrations`) | API GW → Lambda (`invoke`) / SQS direct (`publish`) / HTTP (`http`) / VPC Link → ALB |
+| `apigw.integration` ✅ | route `integration` (v1 `GetResources` embedded, v2 `GetIntegrations`) | API GW → Lambda (`invoke`) / SQS direct (`publish`) / HTTP (`http`) / VPC link → load balancer (`http`: v2 names a listener, v1 an NLB's DNS name) |
 | `apigw.authorizer` ✅ | route `authorizerId` → authorizer `function` | API GW → authorizer Lambda (`invoke`, synchronous — it is in the request path) |
 | `apigw.credentials` ✅ | integration `credentials` | the role API GW assumes to call the target — read by Tier 3, where it corroborates the integration |
 | `sqs.redrive` ✅ | `RedrivePolicy` | queue → DLQ (`publish`) |
-| `elbv2.target-group` | ECS service `loadBalancers[]` | ALB → ECS service (`http`) |
 | `ecs.image` | task def `containers[].image` | ECS service → ECR repo |
 | `ecs.secrets` | task def `containers[].secrets[]` | ECS service → Secrets Manager / SSM (`read`) |
 | `lambda.resource-policy` ✅ | `GetPolicy` principals | **corroborates only** — see below |
@@ -89,7 +89,10 @@ stale permissions behind constantly, so it would have drawn edges for callers
 that no longer call. It adds evidence to an edge another rule found, reports a
 permission nothing uses as a `stale-permission` finding, and makes a function an
 entrypoint when the caller is outside the inventory (S3, SNS, EventBridge, an API
-in another region), with the reason.
+in another region), with the reason. A permission for
+`elasticloadbalancing.amazonaws.com` names a target group: it corroborates the
+edge from each load balancer forwarding to it, and is `stale-permission` when the
+function is not registered there.
 
 An authorizer that guards no route produces no edge: it runs for nothing. An HTTP
 integration through a VPC link targets an internal load balancer, not a third
@@ -119,7 +122,8 @@ Each value is matched against these patterns, strongest first:
 | An RDS endpoint — writer, reader, custom, or a member's own — matching a database exactly | `connect` to the database | `high` |
 | The ARN of a database's managed master secret (in env, or injected through ECS `secrets[]`) | `connect` to the database | `high` |
 | An ElastiCache endpoint — primary, reader, configuration, serverless, or a node's — matching a cache exactly | `connect` to the cache | `high` |
-| A load-balancer endpoint, an RDS Proxy, a Function URL, an S3 bucket, another AWS endpoint, a non-HTTP URL outside AWS, a host with no domain | an `unresolved` finding | — |
+| A load balancer's DNS name — ALB or NLB shape, or a Route 53 `dualstack.` alias — matching one exactly | `http` to an ALB, `connect` to an NLB | `high` |
+| A load balancer DNS name matching none (a namesake is said as one), an RDS Proxy, a Function URL, an S3 bucket, another AWS endpoint, a non-HTTP URL outside AWS, a host with no domain | an `unresolved` finding | — |
 
 A command line is read with its flags: `--table orders` and `--table=orders`
 carry `table` as their key, and a positional argument yields only what names
@@ -328,6 +332,36 @@ the edge is `connect`; `elasticache:Connect` (IAM authentication) is a Tier-3
 is never `unpermitted`. A serverless cache's reader shares its writer's host, so
 the host names the cache and not the role.
 
+#### Load balancers (ELBv2)
+
+*Corrected from the design*, which had one rule, `elbv2.target-group`, drawing
+"ALB → ECS service" from the service's `loadBalancers[]` — the load balancer
+implied, the target group the link. The load balancer is a **node**: it is where
+traffic enters (an internet-facing one is the entrypoint the services behind it
+used to be, each on its own), and what callers name — by DNS name, or through a
+VPC link. Target groups are configuration: they say where a rule sends traffic,
+and are never nodes; the linker reads them as it reads task definitions. Pinned
+by `elb_test.go` and a mutation each:
+
+- **The rules are the link.** Each listener rule's forward is followed through
+  its target group to what receives the traffic; a weighted forward keeps its
+  weight in the evidence. An internal load balancer is not an entrypoint — it is
+  reached by whoever names it, or stays unreached.
+- **Exact or not at all.** A DNS name matches one load balancer exactly (a
+  Route 53 `dualstack.` alias unwrapped); a name that is this scan's balancer
+  with another hash is a namesake — recreated, or another account's — and is
+  reported. Never by name alone: a balancer's id drops its ARN's hash.
+- **An ALB is `http`, an NLB is `connect`**, both from its callers and to its
+  targets: an NLB passes connections, whatever they carry.
+- **A VPC link reaches a load balancer, not a third party.** An HTTP API's names a
+  listener — matched exactly, so a listener the balancer no longer has is
+  reported rather than linked through its ARN; a REST API's names an NLB by DNS.
+- **What it cannot reach is said**: a target group outside the inventory, ip or
+  instance targets no ECS service registers (hosts cloud-echo cannot see), a
+  target group nothing forwards to.
+- Gateway Load Balancers route packets to appliances, not requests, and are
+  reported out of scope; Classic Load Balancers are another API, not collected.
+
 **Known gaps.** Service control policies and session policies are not collected;
 a DynamoDB resource policy is not collected (so `unpermitted` names it as a
 possibility); a queue or function policy that grants a role is read only to hold
@@ -365,8 +399,9 @@ so adding it later is additive.
 The user question "what runs on the side of the main flow" is answered
 structurally, not heuristically:
 
-1. **Entrypoints** = nodes with an external trigger: API Gateway APIs, services
-   behind a load balancer, functions a caller outside the inventory may invoke,
+1. **Entrypoints** = nodes with an external trigger: API Gateway APIs,
+   internet-facing load balancers (a service behind one only when its target
+   group is outside the inventory), functions a caller outside the inventory may invoke,
    Function URLs (later: EventBridge schedules, Cognito triggers). *Corrected
    from "no inbound edges and an external trigger": a service behind an ALB that
    another service also calls is still reachable from outside.*
@@ -435,7 +470,7 @@ on). The text
 output groups identical findings, so twelve services sharing one task definition
 report one ElastiCache endpoint once; `graph.json` keeps every one.
 
-Every rule ships with a golden case **and a negative case**. Seven golden
+Every rule ships with a golden case **and a negative case**. Eight golden
 accounts in `internal/linker/testdata`:
 
 | Account | What it is |
@@ -446,6 +481,7 @@ accounts in `internal/linker/testdata`:
 | `tier3-cases` | hand-written, one scenario per Tier-3 decision and per trap; `tier3_test.go` names each |
 | `rds-cases` | hand-written, one scenario per database-linking decision and trap; `rds_test.go` names each |
 | `cache-cases` | hand-written, one scenario per cache endpoint shape and trap; `cache_test.go` names each |
+| `elb-cases` | hand-written, one scenario per load-balancer decision and trap; `elb_test.go` names each |
 | `real-m1` | a real account's inventory, sanitized by `spikes/m1/sanitize-inventory.py` |
 
 Goldens pin the output; named tests in `rules_test.go` say why each behaviour
