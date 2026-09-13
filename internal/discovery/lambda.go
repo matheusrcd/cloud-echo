@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
 	"sort"
 	"strings"
 
@@ -192,65 +191,6 @@ func (c *Lambda) collectMappings(ctx context.Context, api *lambda.Client, s *aws
 	return nil
 }
 
-type functionSpec struct {
-	FunctionName  string   `json:"functionName"`
-	Runtime       string   `json:"runtime,omitempty"`
-	Handler       string   `json:"handler,omitempty"`
-	PackageType   string   `json:"packageType,omitempty"` // Zip | Image
-	Architectures []string `json:"architectures,omitempty"`
-	MemoryMB      int32    `json:"memoryMb"`
-	TimeoutSec    int32    `json:"timeoutSec"`
-
-	// RoleARN is the execution role, and for Lambda it *is* the application's
-	// identity — the Tier-3 input for this function.
-	RoleARN string `json:"roleArn"`
-	RoleID  string `json:"roleId,omitempty"`
-
-	Env           map[string]string `json:"env,omitempty"`
-	Redacted      []string          `json:"redacted,omitempty"`
-	EnvUnreadable string            `json:"envUnreadable,omitempty"`
-
-	Layers     []string   `json:"layers,omitempty"`
-	VPC        *vpcSpec   `json:"vpc,omitempty"`
-	DeadLetter *targetRef `json:"deadLetter,omitempty"`
-	LogGroup   string     `json:"logGroup,omitempty"`
-
-	// ResourcePolicy names who may invoke the function — API Gateway, SNS, S3,
-	// EventBridge. It is how a Lambda's non-queue triggers are found, and so how
-	// entrypoints are classified. Kept raw; interpreting it is the linker's job.
-	ResourcePolicy json.RawMessage `json:"resourcePolicy,omitempty"`
-}
-
-type mappingSpec struct {
-	UUID  string `json:"uuid"`
-	State string `json:"state"`
-
-	// Enabled is whether the mapping delivers events, and is null when the
-	// state cannot say: a mapping caught mid-update or mid-creation reports
-	// "Updating" or "Creating" whether it is enabled or not. Scanned against a
-	// real account, a live mapping whose batch size was being changed read as
-	// disabled under a two-state rule — and the linker would have dropped a real
-	// edge. Null tells it to keep the edge and say it is unsettled.
-	Enabled      *bool `json:"enabled"`
-	Transitional bool  `json:"transitional,omitempty"`
-
-	BatchSize   int32 `json:"batchSize,omitempty"`
-	BatchWindow int32 `json:"maxBatchingWindowSec,omitempty"`
-
-	Source     targetRef `json:"source"`
-	SourceType string    `json:"sourceType"` // sqs | dynamodb-stream | kinesis | kafka | mq | unknown
-
-	FunctionARN string `json:"functionArn"`
-	FunctionID  string `json:"functionId,omitempty"`
-	// Qualifier is the alias or version the mapping invokes, when it is not
-	// $LATEST. See the known gap on the Lambda type.
-	Qualifier string `json:"qualifier,omitempty"`
-
-	StartingPos string     `json:"startingPosition,omitempty"`
-	Filters     []string   `json:"filters,omitempty"`
-	OnFailure   *targetRef `json:"onFailure,omitempty"`
-}
-
 // mappingEnabled maps an event source mapping state to whether it delivers
 // events, and whether that state is still settling. Creating and Updating say
 // nothing about the outcome, so they return nil rather than a guess.
@@ -271,49 +211,6 @@ func mappingEnabled(state string) (*bool, bool) {
 	return nil, false
 }
 
-// targetRef is an ARN plus the inventory id it maps to, when cloud-echo has a
-// collector for that service. The id is derived from the ARN alone, so it is set
-// even if the target was not in this scan — a dangling id is itself information
-// (the target is out of scope, or was deleted).
-type targetRef struct {
-	ARN string `json:"arn"`
-	ID  string `json:"id,omitempty"`
-}
-
-type vpcSpec struct {
-	VpcID          string   `json:"vpcId"`
-	Subnets        []string `json:"subnets,omitempty"`
-	SecurityGroups []string `json:"securityGroups,omitempty"`
-}
-
-// resourceIDFromARN maps an ARN to an inventory id for the services cloud-echo
-// collects, and returns "" for everything else. It never invents an id for a
-// service without a collector: a made-up id would look like a real node to the
-// linker and dangle silently.
-func resourceIDFromARN(arn string) string {
-	parts := strings.SplitN(arn, ":", 6)
-	if len(parts) < 6 {
-		return ""
-	}
-	service, res := parts[2], parts[5]
-	switch service {
-	case "sqs":
-		return "sqs/" + res
-	case "dynamodb":
-		// table/orders or table/orders/stream/2026-...: the stream belongs to
-		// the table and is not modelled as a separate node.
-		if rest, ok := strings.CutPrefix(res, "table/"); ok {
-			name, _, _ := strings.Cut(rest, "/")
-			return "ddb/" + name
-		}
-	case "lambda":
-		if name, _ := functionNameFromARN(arn); name != "" {
-			return "lambda/" + name
-		}
-	}
-	return ""
-}
-
 func sourceType(arn string) string {
 	parts := strings.SplitN(arn, ":", 6)
 	if len(parts) < 6 {
@@ -332,19 +229,6 @@ func sourceType(arn string) string {
 		return "mq"
 	}
 	return "unknown"
-}
-
-// functionNameFromARN splits arn:aws:lambda:<region>:<acct>:function:<name>[:<qualifier>].
-func functionNameFromARN(arn string) (name, qualifier string) {
-	parts := strings.Split(arn, ":")
-	if len(parts) < 7 || parts[2] != "lambda" || parts[5] != "function" {
-		return "", ""
-	}
-	name = parts[6]
-	if len(parts) >= 8 && parts[7] != "$LATEST" {
-		qualifier = parts[7]
-	}
-	return name, qualifier
 }
 
 // roleIDFromARN maps arn:aws:iam::<acct>:role[/path]/<name> to "iam/role/<name>".
