@@ -28,6 +28,7 @@ func NewRegistry() *Registry {
 			&ELBv2{},
 			&Lambda{},
 			&RDS{},
+			&SNS{},
 			&SQS{},
 		},
 		dependents: []DependentCollector{

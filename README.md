@@ -28,9 +28,9 @@ cloud-echo ui                                      # ⬚ graph + live traffic + 
 
 What works today: `cloud-echo scan --dry-run` prints the exact API surface a scan
 would touch, and `cloud-echo scan` reads ECS, SQS, DynamoDB, Lambda, IAM, API
-Gateway, RDS, ElastiCache and ELBv2 into a normalized inventory, validated against a real account.
+Gateway, RDS, ElastiCache, ELBv2 and SNS into a normalized inventory, validated against a real account.
 `cloud-echo graph` links it — declared relationships (event source mappings,
-redrive, API integrations, authorizers, load balancer rules), what configuration names (queue URLs,
+redrive, API integrations, authorizers, load balancer rules, topic subscriptions), what configuration names (queue URLs,
 ARNs, table names, third-party URLs in env vars, command lines and stage
 variables) and what each workload's IAM role lets it do with them (publish,
 consume, read, write) — classifies every node as entrypoint, sync, async or
@@ -97,7 +97,7 @@ undecided is in [docs/09-open-questions.md](docs/09-open-questions.md).
 
 ## Scope (v1)
 
-ECS · SQS · Lambda · DynamoDB · RDS · API Gateway · ElastiCache · ELBv2
+ECS · SQS · Lambda · DynamoDB · RDS · API Gateway · ElastiCache · ELBv2 · SNS
 
 Roadmap and what's deferred: [docs/08-roadmap.md](docs/08-roadmap.md).
 

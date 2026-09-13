@@ -25,11 +25,13 @@ cachesubnets=$(aws elasticache describe-cache-subnet-groups --query "CacheSubnet
 lbs=$(aws elbv2 describe-load-balancers --query "LoadBalancers[?starts_with(LoadBalancerName,'$P-')].LoadBalancerArn" --output text)
 tgs=$(aws elbv2 describe-target-groups --query "TargetGroups[?starts_with(TargetGroupName,'$P-')].TargetGroupArn" --output text)
 vpclinks=$(aws apigatewayv2 get-vpc-links --query "Items[?starts_with(Name,'$P-')].VpcLinkId" --output text)
+topics=$(aws sns list-topics --query "Topics[?contains(TopicArn,':$P-')].TopicArn" --output text)
 
 log "will delete (account $(echo "$ACCT" | redact), region $AWS_REGION)"
-printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  apigw:    rest=%s http=%s keys=%s\n  rds:      instances=%s clusters=%s (no final snapshot)\n  cache:    groups=%s clusters=%s serverless=%s subnets=%s\n  elbv2:    %s (with their listeners), target groups %s, vpc links %s\n  local:    ce-m1 Floci containers, network, volume\n' \
+printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  apigw:    rest=%s http=%s keys=%s\n  rds:      instances=%s clusters=%s (no final snapshot)\n  cache:    groups=%s clusters=%s serverless=%s subnets=%s\n  elbv2:    %s (with their listeners), target groups %s, vpc links %s\n  sns:      %s (with their subscriptions)\n  local:    ce-m1 Floci containers, network, volume\n' \
   "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$restapis" "$httpapis" "$apikeys" "$dbinstances" "$dbclusters" "$cachegroups" "$cacheclusters" "$serverless" "$cachesubnets" \
-  "$(echo "$lbs" | tr '\t' '\n' | awk -F/ '{print $3}' | tr '\n' ' ')" "$(echo "$tgs" | tr '\t' '\n' | awk -F/ '{print $2}' | tr '\n' ' ')" "$vpclinks"
+  "$(echo "$lbs" | tr '\t' '\n' | awk -F/ '{print $3}' | tr '\n' ' ')" "$(echo "$tgs" | tr '\t' '\n' | awk -F/ '{print $2}' | tr '\n' ' ')" "$vpclinks" \
+  "$(echo "$topics" | tr '\t' '\n' | sed 's#.*:##' | tr '\n' ' ')"
 if [ "${1:-}" != "--yes" ]; then
   read -r -p "type DELETE to continue: " ans; [ "$ans" = "DELETE" ] || { echo "aborted"; exit 1; }
 fi
@@ -58,6 +60,9 @@ log "elbv2 load balancers and VPC links (after the APIs that use them)"
 # stay in use until it is gone, so they go after the ECS services, below.
 for a in $lbs; do aws elbv2 delete-load-balancer --load-balancer-arn "$a" && echo "  ${a#*loadbalancer/} (deleting)"; done
 for v in $vpclinks; do aws apigatewayv2 delete-vpc-link --vpc-link-id "$v" && echo "  vpc link $v"; done
+
+log "sns (a topic's subscriptions go with it)"
+for t in $topics; do aws sns delete-topic --topic-arn "$t" && echo "  ${t##*:}"; done
 
 log "lambda (mappings first; a function's permissions go with it)"
 for f in $fns; do

@@ -1659,6 +1659,19 @@
         },
         "inlinePolicies": [
           {
+            "name": "tier3-publish",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sns:Publish",
+                  "Resource": "arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic"
+                }
+              ]
+            }
+          },
+          {
             "name": "tier3-rds",
             "document": {
               "Version": "2012-10-17",
@@ -2158,7 +2171,27 @@
         "env": {
           "AUDIT_TABLE": "ce-test-orders-audit"
         },
-        "logGroup": "/aws/lambda/ce-test-audit-writer"
+        "logGroup": "/aws/lambda/ce-test-audit-writer",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Id": "default",
+          "Statement": [
+            {
+              "Sid": "sns-ce-test-orders-topic",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-audit-writer",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic"
+                }
+              }
+            }
+          ]
+        }
       },
       "source": {
         "api": "lambda:ListFunctions",
@@ -2257,6 +2290,7 @@
         "roleArn": "arn:aws:iam::123456789012:role/ce-test-order-processor-role",
         "roleId": "iam/role/ce-test-order-processor-role",
         "env": {
+          "ALERTS_TOPIC": "ce-test-alerts",
           "DATABASE_URL": "postgres://app:<redacted:url-credentials>@ce-test-db.cluster-fakesfx0001.us-east-2.rds.amazonaws.com:5432/orders",
           "PAYMENTS_TOKEN": "<redacted:key-name>",
           "SESSIONS_URL": "rediss://master.ce-test-sessions.fk0001.use2.cache.amazonaws.com:6379/0",
@@ -2299,6 +2333,7 @@
           "AUDIT_TABLE_ARN": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders-audit",
           "DB_READER_HOST": "ce-test-db.cluster-ro-fakesfx0001.us-east-2.rds.amazonaws.com",
           "DB_SECRET_ARN": "arn:aws:secretsmanager:us-east-2:123456789012:secret:rds!db-fakesecret-0001",
+          "ORDERS_TOPIC_ARN": "arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic",
           "PARTNER_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/999999999999/ce-test-orders-events",
           "PUBLIC_API_URL": "https://fakeapi0001.execute-api.us-east-2.amazonaws.com/prod",
           "RATE_LIMIT_HOST": "ce-test-ratelimit-fk0001.serverless.use2.cache.amazonaws.com",
@@ -2383,6 +2418,7 @@
           "LEGACY_DB_URL": "postgres://app:<redacted:url-credentials>@ce-test-legacy-db.fakesfx0001.us-east-2.rds.amazonaws.com:5432/legacy",
           "LEGACY_LB_URL": "http://ce-test-web-0000000000.us-east-2.elb.amazonaws.com/",
           "MEMO_SERVERS": "ce-test-memo.fk0001.cfg.use2.cache.amazonaws.com:11211",
+          "NOTIFY_TOPIC": "ce-test-notifications.fifo",
           "ORDERS_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders-events"
         },
         "redacted": [
@@ -2408,6 +2444,20 @@
               "Condition": {
                 "ArnLike": {
                   "AWS:SourceArn": "arn:aws:execute-api:us-east-2:123456789012:abcdef1234/*/POST/webhooks/pay"
+                }
+              }
+            },
+            {
+              "Sid": "sns-ce-test-alerts",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-webhook-receiver",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:sns:us-east-2:123456789012:ce-test-alerts"
                 }
               }
             }
@@ -2592,6 +2642,218 @@
       }
     },
     {
+      "id": "sns/ce-test-alerts",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-2:123456789012:ce-test-alerts",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-alerts",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "topicName": "ce-test-alerts",
+        "policy": {
+          "Version": "2008-10-17",
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-2:123456789012:ce-test-alerts",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            },
+            {
+              "Sid": "alarms",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudwatch.amazonaws.com"
+              },
+              "Action": "sns:Publish",
+              "Resource": "arn:aws:sns:us-east-2:123456789012:ce-test-alerts"
+            }
+          ]
+        },
+        "subscriptions": [
+          {
+            "arn": "arn:aws:sns:us-east-2:123456789012:ce-test-alerts:00000000-0000-4000-9000-000000000001",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-2:123456789012:ce-test-inbox",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-inbox",
+              "id": "sqs/ce-test-inbox"
+            },
+            "owner": "123456789012"
+          }
+        ]
+      },
+      "source": {
+        "api": "sns:GetTopicAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/ce-test-notifications.fifo",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-2:123456789012:ce-test-notifications.fifo",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-notifications.fifo",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "topicName": "ce-test-notifications.fifo",
+        "fifo": true,
+        "contentBasedDeduplication": true,
+        "policy": {
+          "Version": "2008-10-17",
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-2:123456789012:ce-test-notifications.fifo",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            }
+          ]
+        },
+        "subscriptions": [
+          {
+            "arn": "arn:aws:sns:us-east-2:123456789012:ce-test-notifications.fifo:00000000-0000-4000-9000-000000000002",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo",
+              "id": "sqs/ce-test-notifications.fifo"
+            },
+            "owner": "123456789012",
+            "rawDelivery": true
+          }
+        ]
+      },
+      "source": {
+        "api": "sns:GetTopicAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/ce-test-orders-topic",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-topic",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "topicName": "ce-test-orders-topic",
+        "policy": {
+          "Version": "2008-10-17",
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            }
+          ]
+        },
+        "subscriptions": [
+          {
+            "pending": true,
+            "protocol": "https",
+            "endpoint": "https://ce-test-hook:<redacted:url-credentials>@ce-test-web-100000001.us-east-2.elb.amazonaws.com/sns/orders?token=<redacted:url-query>",
+            "owner": "123456789012"
+          },
+          {
+            "arn": "arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic:00000000-0000-4000-9000-000000000003",
+            "protocol": "lambda",
+            "endpoint": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-audit-writer",
+            "target": {
+              "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-audit-writer",
+              "id": "lambda/ce-test-audit-writer"
+            },
+            "owner": "123456789012",
+            "deadLetter": {
+              "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq",
+              "id": "sqs/ce-test-orders-events-dlq"
+            }
+          },
+          {
+            "arn": "arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic:00000000-0000-4000-9000-000000000004",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events",
+              "id": "sqs/ce-test-orders-events"
+            },
+            "owner": "123456789012",
+            "rawDelivery": true,
+            "filterPolicy": "{\"type\":[\"order.created\",\"order.paid\"]}",
+            "filterScope": "MessageAttributes"
+          }
+        ]
+      },
+      "source": {
+        "api": "sns:GetTopicAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
       "id": "sqs/ce-test-inbox",
       "type": "sqs.queue",
       "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-inbox",
@@ -2630,7 +2892,26 @@
         "messageRetentionPeriod": 345600,
         "maximumMessageSize": 1048576,
         "fifo": true,
-        "contentBasedDeduplication": true
+        "contentBasedDeduplication": true,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "sns-ce-test-notifications-fifo",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-2:123456789012:ce-test-notifications.fifo"
+                }
+              }
+            }
+          ]
+        }
       },
       "source": {
         "api": "sqs:GetQueueAttributes",
@@ -2690,6 +2971,20 @@
               },
               "Action": "sqs:SendMessage",
               "Resource": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events"
+            },
+            {
+              "Sid": "sns-ce-test-orders-topic",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic"
+                }
+              }
             }
           ]
         }
@@ -2714,7 +3009,26 @@
         "url": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders-events-dlq",
         "visibilityTimeout": 30,
         "messageRetentionPeriod": 1209600,
-        "maximumMessageSize": 1048576
+        "maximumMessageSize": 1048576,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "sns-ce-test-orders-topic",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic"
+                }
+              }
+            }
+          ]
+        }
       },
       "source": {
         "api": "sqs:GetQueueAttributes",

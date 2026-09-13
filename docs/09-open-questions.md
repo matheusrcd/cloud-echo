@@ -165,6 +165,22 @@ depends on fidelity is lost. Check the upstream issue tracker first.
 
 ---
 
+### Q20 — Reproduce production's refusals, or let them work?
+
+**Raised by the SNS round.** A subscription whose queue's policy does not let
+the topic send delivers nothing in AWS — the linker reports it as `blocked` —
+and delivers every message in Floci, which does not enforce the policy. Seeded
+as scanned, the local environment works where production is broken, and the
+developer never sees the bug they may be chasing.
+
+Options: seed it anyway (faithful to the configuration); skip it (faithful to
+the behaviour); seed it and have the gateway drop the deliveries. Leaning toward
+skipping it and saying so in `up`'s report: the point of the local copy is to
+behave like production, and the linker already knows which deliveries fail. The
+same question will come back for every policy an emulator does not enforce.
+
+---
+
 ### Q2 — Stateful mocks
 
 Sequence-dependent responses ("first poll returns `pending`, second returns

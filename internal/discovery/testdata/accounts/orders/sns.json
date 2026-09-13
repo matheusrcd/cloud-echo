@@ -1,0 +1,97 @@
+[
+  {
+    "op": "ListTopics",
+    "match": "NextToken=topics-2",
+    "body": "<ListTopicsResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><ListTopicsResult><Topics><member><TopicArn>arn:aws:sns:us-east-1:123456789012:alerts</TopicArn></member><member><TopicArn>arn:aws:sns:us-east-1:123456789012:billing.fifo</TopicArn></member></Topics></ListTopicsResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListTopicsResponse>"
+  },
+  {
+    "op": "ListTopics",
+    "body": "<ListTopicsResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><ListTopicsResult><Topics><member><TopicArn>arn:aws:sns:us-east-1:123456789012:order-events</TopicArn></member></Topics><NextToken>topics-2</NextToken></ListTopicsResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListTopicsResponse>"
+  },
+  {
+    "op": "GetTopicAttributes",
+    "match": "arn%3Aaws%3Asns%3Aus-east-1%3A123456789012%3Aorder-events",
+    "body": "<GetTopicAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetTopicAttributesResult><Attributes><entry><key>Policy</key><value>{&quot;Version&quot;:&quot;2008-10-17&quot;,&quot;Id&quot;:&quot;__default_policy_ID&quot;,&quot;Statement&quot;:[{&quot;Sid&quot;:&quot;__default_statement_ID&quot;,&quot;Effect&quot;:&quot;Allow&quot;,&quot;Principal&quot;:{&quot;AWS&quot;:&quot;*&quot;},&quot;Action&quot;:[&quot;SNS:GetTopicAttributes&quot;,&quot;SNS:SetTopicAttributes&quot;,&quot;SNS:AddPermission&quot;,&quot;SNS:RemovePermission&quot;,&quot;SNS:DeleteTopic&quot;,&quot;SNS:Subscribe&quot;,&quot;SNS:ListSubscriptionsByTopic&quot;,&quot;SNS:Publish&quot;],&quot;Resource&quot;:&quot;arn:aws:sns:us-east-1:123456789012:order-events&quot;,&quot;Condition&quot;:{&quot;StringEquals&quot;:{&quot;AWS:SourceOwner&quot;:&quot;123456789012&quot;}}}]}</value></entry><entry><key>Owner</key><value>123456789012</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:order-events</value></entry><entry><key>DisplayName</key><value></value></entry><entry><key>SubscriptionsConfirmed</key><value>4</value></entry><entry><key>SubscriptionsPending</key><value>1</value></entry><entry><key>SubscriptionsDeleted</key><value>0</value></entry><entry><key>KmsMasterKeyId</key><value>alias/aws/sns</value></entry></Attributes></GetTopicAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetTopicAttributesResponse>"
+  },
+  {
+    "op": "GetTopicAttributes",
+    "match": "arn%3Aaws%3Asns%3Aus-east-1%3A123456789012%3Aalerts",
+    "body": "<GetTopicAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetTopicAttributesResult><Attributes><entry><key>Policy</key><value>{&quot;Version&quot;:&quot;2008-10-17&quot;,&quot;Id&quot;:&quot;__default_policy_ID&quot;,&quot;Statement&quot;:[{&quot;Sid&quot;:&quot;__default_statement_ID&quot;,&quot;Effect&quot;:&quot;Allow&quot;,&quot;Principal&quot;:{&quot;AWS&quot;:&quot;*&quot;},&quot;Action&quot;:[&quot;SNS:GetTopicAttributes&quot;,&quot;SNS:SetTopicAttributes&quot;,&quot;SNS:AddPermission&quot;,&quot;SNS:RemovePermission&quot;,&quot;SNS:DeleteTopic&quot;,&quot;SNS:Subscribe&quot;,&quot;SNS:ListSubscriptionsByTopic&quot;,&quot;SNS:Publish&quot;],&quot;Resource&quot;:&quot;arn:aws:sns:us-east-1:123456789012:alerts&quot;,&quot;Condition&quot;:{&quot;StringEquals&quot;:{&quot;AWS:SourceOwner&quot;:&quot;123456789012&quot;}}},{&quot;Sid&quot;:&quot;alarms&quot;,&quot;Effect&quot;:&quot;Allow&quot;,&quot;Principal&quot;:{&quot;Service&quot;:&quot;cloudwatch.amazonaws.com&quot;},&quot;Action&quot;:&quot;sns:Publish&quot;,&quot;Resource&quot;:&quot;arn:aws:sns:us-east-1:123456789012:alerts&quot;}]}</value></entry><entry><key>Owner</key><value>123456789012</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:alerts</value></entry><entry><key>DisplayName</key><value></value></entry><entry><key>SubscriptionsConfirmed</key><value>1</value></entry><entry><key>SubscriptionsPending</key><value>0</value></entry><entry><key>SubscriptionsDeleted</key><value>0</value></entry></Attributes></GetTopicAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetTopicAttributesResponse>"
+  },
+  {
+    "op": "GetTopicAttributes",
+    "match": "arn%3Aaws%3Asns%3Aus-east-1%3A123456789012%3Abilling.fifo",
+    "body": "<GetTopicAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetTopicAttributesResult><Attributes><entry><key>Policy</key><value>{&quot;Version&quot;:&quot;2008-10-17&quot;,&quot;Id&quot;:&quot;__default_policy_ID&quot;,&quot;Statement&quot;:[{&quot;Sid&quot;:&quot;__default_statement_ID&quot;,&quot;Effect&quot;:&quot;Allow&quot;,&quot;Principal&quot;:{&quot;AWS&quot;:&quot;*&quot;},&quot;Action&quot;:[&quot;SNS:GetTopicAttributes&quot;,&quot;SNS:SetTopicAttributes&quot;,&quot;SNS:AddPermission&quot;,&quot;SNS:RemovePermission&quot;,&quot;SNS:DeleteTopic&quot;,&quot;SNS:Subscribe&quot;,&quot;SNS:ListSubscriptionsByTopic&quot;,&quot;SNS:Publish&quot;],&quot;Resource&quot;:&quot;arn:aws:sns:us-east-1:123456789012:billing.fifo&quot;,&quot;Condition&quot;:{&quot;StringEquals&quot;:{&quot;AWS:SourceOwner&quot;:&quot;123456789012&quot;}}}]}</value></entry><entry><key>Owner</key><value>123456789012</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:billing.fifo</value></entry><entry><key>DisplayName</key><value></value></entry><entry><key>SubscriptionsConfirmed</key><value>2</value></entry><entry><key>SubscriptionsPending</key><value>0</value></entry><entry><key>SubscriptionsDeleted</key><value>0</value></entry><entry><key>FifoTopic</key><value>true</value></entry><entry><key>ContentBasedDeduplication</key><value>true</value></entry><entry><key>DeliveryPolicy</key><value>{&quot;http&quot;:{&quot;defaultHealthyRetryPolicy&quot;:{&quot;numRetries&quot;:5}}}</value></entry></Attributes></GetTopicAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetTopicAttributesResponse>"
+  },
+  {
+    "op": "ListTagsForResource",
+    "match": "arn%3Aaws%3Asns%3Aus-east-1%3A123456789012%3Aorder-events",
+    "body": "<ListTagsForResourceResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><ListTagsForResourceResult><Tags><member><Key>team</Key><Value>orders</Value></member></Tags></ListTagsForResourceResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListTagsForResourceResponse>"
+  },
+  {
+    "op": "ListTagsForResource",
+    "match": "arn%3Aaws%3Asns%3Aus-east-1%3A123456789012%3Aalerts",
+    "status": 403,
+    "body": "<ErrorResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><Error><Type>Sender</Type><Code>AuthorizationError</Code><Message>not authorized to perform: SNS:ListTagsForResource</Message></Error></ErrorResponse>"
+  },
+  {
+    "op": "ListTagsForResource",
+    "match": "arn%3Aaws%3Asns%3Aus-east-1%3A123456789012%3Abilling.fifo",
+    "body": "<ListTagsForResourceResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><ListTagsForResourceResult><Tags></Tags></ListTagsForResourceResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListTagsForResourceResponse>"
+  },
+  {
+    "op": "ListSubscriptionsByTopic",
+    "match": "NextToken=subs-2",
+    "body": "<ListSubscriptionsByTopicResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><ListSubscriptionsByTopicResult><Subscriptions><member><SubscriptionArn>PendingConfirmation</SubscriptionArn><Owner>123456789012</Owner><Protocol>https</Protocol><Endpoint>https://hooks:****@partner.example.com/sns/in?token=tk-planted-5511&amp;team=orders</Endpoint><TopicArn>arn:aws:sns:us-east-1:123456789012:order-events</TopicArn></member><member><SubscriptionArn>arn:aws:sns:us-east-1:123456789012:order-events:s4</SubscriptionArn><Owner>123456789012</Owner><Protocol>email</Protocol><Endpoint>ops-oncall@example.com</Endpoint><TopicArn>arn:aws:sns:us-east-1:123456789012:order-events</TopicArn></member><member><SubscriptionArn>arn:aws:sns:us-east-1:123456789012:order-events:s5</SubscriptionArn><Owner>123456789012</Owner><Protocol>sms</Protocol><Endpoint>+15555550100</Endpoint><TopicArn>arn:aws:sns:us-east-1:123456789012:order-events</TopicArn></member></Subscriptions></ListSubscriptionsByTopicResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListSubscriptionsByTopicResponse>"
+  },
+  {
+    "op": "ListSubscriptionsByTopic",
+    "match": "arn%3Aaws%3Asns%3Aus-east-1%3A123456789012%3Aorder-events",
+    "body": "<ListSubscriptionsByTopicResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><ListSubscriptionsByTopicResult><Subscriptions><member><SubscriptionArn>arn:aws:sns:us-east-1:123456789012:order-events:s1</SubscriptionArn><Owner>123456789012</Owner><Protocol>sqs</Protocol><Endpoint>arn:aws:sqs:us-east-1:123456789012:orders-events</Endpoint><TopicArn>arn:aws:sns:us-east-1:123456789012:order-events</TopicArn></member><member><SubscriptionArn>arn:aws:sns:us-east-1:123456789012:order-events:s2</SubscriptionArn><Owner>123456789012</Owner><Protocol>lambda</Protocol><Endpoint>arn:aws:lambda:us-east-1:123456789012:function:audit-writer</Endpoint><TopicArn>arn:aws:sns:us-east-1:123456789012:order-events</TopicArn></member></Subscriptions><NextToken>subs-2</NextToken></ListSubscriptionsByTopicResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListSubscriptionsByTopicResponse>"
+  },
+  {
+    "op": "ListSubscriptionsByTopic",
+    "match": "arn%3Aaws%3Asns%3Aus-east-1%3A123456789012%3Aalerts",
+    "body": "<ListSubscriptionsByTopicResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><ListSubscriptionsByTopicResult><Subscriptions><member><SubscriptionArn>arn:aws:sns:us-east-1:123456789012:alerts:s6</SubscriptionArn><Owner>123456789012</Owner><Protocol>sqs</Protocol><Endpoint>arn:aws:sqs:us-east-1:123456789012:notifications</Endpoint><TopicArn>arn:aws:sns:us-east-1:123456789012:alerts</TopicArn></member></Subscriptions></ListSubscriptionsByTopicResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListSubscriptionsByTopicResponse>"
+  },
+  {
+    "op": "ListSubscriptionsByTopic",
+    "match": "arn%3Aaws%3Asns%3Aus-east-1%3A123456789012%3Abilling.fifo",
+    "body": "<ListSubscriptionsByTopicResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><ListSubscriptionsByTopicResult><Subscriptions><member><SubscriptionArn>arn:aws:sns:us-east-1:123456789012:billing.fifo:s7</SubscriptionArn><Owner>123456789012</Owner><Protocol>firehose</Protocol><Endpoint>arn:aws:firehose:us-east-1:123456789012:deliverystream/billing-archive</Endpoint><TopicArn>arn:aws:sns:us-east-1:123456789012:billing.fifo</TopicArn></member><member><SubscriptionArn>arn:aws:sns:us-east-1:123456789012:billing.fifo:s8</SubscriptionArn><Owner>999999999999</Owner><Protocol>sqs</Protocol><Endpoint>arn:aws:sqs:us-east-1:999999999999:partner-billing.fifo</Endpoint><TopicArn>arn:aws:sns:us-east-1:123456789012:billing.fifo</TopicArn></member></Subscriptions></ListSubscriptionsByTopicResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListSubscriptionsByTopicResponse>"
+  },
+  {
+    "op": "GetSubscriptionAttributes",
+    "match": "%3As1",
+    "body": "<GetSubscriptionAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetSubscriptionAttributesResult><Attributes><entry><key>SubscriptionPrincipal</key><value>arn:aws:iam::123456789012:role/deployer</value></entry><entry><key>Owner</key><value>123456789012</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:order-events</value></entry><entry><key>Endpoint</key><value>arn:aws:sqs:us-east-1:123456789012:orders-events</value></entry><entry><key>Protocol</key><value>sqs</value></entry><entry><key>PendingConfirmation</key><value>false</value></entry><entry><key>ConfirmationWasAuthenticated</key><value>true</value></entry><entry><key>RawMessageDelivery</key><value>true</value></entry><entry><key>SubscriptionArn</key><value>arn:aws:sns:us-east-1:123456789012:order-events:s1</value></entry><entry><key>FilterPolicy</key><value>{&quot;type&quot;:[&quot;order.created&quot;]}</value></entry><entry><key>FilterPolicyScope</key><value>MessageAttributes</value></entry></Attributes></GetSubscriptionAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetSubscriptionAttributesResponse>"
+  },
+  {
+    "op": "GetSubscriptionAttributes",
+    "match": "%3As2",
+    "body": "<GetSubscriptionAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetSubscriptionAttributesResult><Attributes><entry><key>SubscriptionPrincipal</key><value>arn:aws:iam::123456789012:role/deployer</value></entry><entry><key>Owner</key><value>123456789012</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:order-events</value></entry><entry><key>Endpoint</key><value>arn:aws:lambda:us-east-1:123456789012:function:audit-writer</value></entry><entry><key>Protocol</key><value>lambda</value></entry><entry><key>PendingConfirmation</key><value>false</value></entry><entry><key>ConfirmationWasAuthenticated</key><value>true</value></entry><entry><key>RawMessageDelivery</key><value>false</value></entry><entry><key>SubscriptionArn</key><value>arn:aws:sns:us-east-1:123456789012:order-events:s2</value></entry><entry><key>RedrivePolicy</key><value>{&quot;deadLetterTargetArn&quot;:&quot;arn:aws:sqs:us-east-1:123456789012:orders-events-dlq&quot;}</value></entry></Attributes></GetSubscriptionAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetSubscriptionAttributesResponse>"
+  },
+  {
+    "op": "GetSubscriptionAttributes",
+    "match": "%3As4",
+    "body": "<GetSubscriptionAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetSubscriptionAttributesResult><Attributes><entry><key>SubscriptionPrincipal</key><value>arn:aws:iam::123456789012:role/deployer</value></entry><entry><key>Owner</key><value>123456789012</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:order-events</value></entry><entry><key>Endpoint</key><value>ops-oncall@example.com</value></entry><entry><key>Protocol</key><value>email</value></entry><entry><key>PendingConfirmation</key><value>false</value></entry><entry><key>ConfirmationWasAuthenticated</key><value>true</value></entry><entry><key>RawMessageDelivery</key><value>false</value></entry><entry><key>SubscriptionArn</key><value>arn:aws:sns:us-east-1:123456789012:order-events:s4</value></entry></Attributes></GetSubscriptionAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetSubscriptionAttributesResponse>"
+  },
+  {
+    "op": "GetSubscriptionAttributes",
+    "match": "%3As5",
+    "body": "<GetSubscriptionAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetSubscriptionAttributesResult><Attributes><entry><key>SubscriptionPrincipal</key><value>arn:aws:iam::123456789012:role/deployer</value></entry><entry><key>Owner</key><value>123456789012</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:order-events</value></entry><entry><key>Endpoint</key><value>+15555550100</value></entry><entry><key>Protocol</key><value>sms</value></entry><entry><key>PendingConfirmation</key><value>false</value></entry><entry><key>ConfirmationWasAuthenticated</key><value>true</value></entry><entry><key>RawMessageDelivery</key><value>false</value></entry><entry><key>SubscriptionArn</key><value>arn:aws:sns:us-east-1:123456789012:order-events:s5</value></entry></Attributes></GetSubscriptionAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetSubscriptionAttributesResponse>"
+  },
+  {
+    "op": "GetSubscriptionAttributes",
+    "match": "%3As6",
+    "body": "<GetSubscriptionAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetSubscriptionAttributesResult><Attributes><entry><key>SubscriptionPrincipal</key><value>arn:aws:iam::123456789012:role/deployer</value></entry><entry><key>Owner</key><value>123456789012</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:alerts</value></entry><entry><key>Endpoint</key><value>arn:aws:sqs:us-east-1:123456789012:notifications</value></entry><entry><key>Protocol</key><value>sqs</value></entry><entry><key>PendingConfirmation</key><value>false</value></entry><entry><key>ConfirmationWasAuthenticated</key><value>true</value></entry><entry><key>RawMessageDelivery</key><value>false</value></entry><entry><key>SubscriptionArn</key><value>arn:aws:sns:us-east-1:123456789012:alerts:s6</value></entry></Attributes></GetSubscriptionAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetSubscriptionAttributesResponse>"
+  },
+  {
+    "op": "GetSubscriptionAttributes",
+    "match": "%3As7",
+    "body": "<GetSubscriptionAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetSubscriptionAttributesResult><Attributes><entry><key>SubscriptionPrincipal</key><value>arn:aws:iam::123456789012:role/deployer</value></entry><entry><key>Owner</key><value>123456789012</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:billing.fifo</value></entry><entry><key>Endpoint</key><value>arn:aws:firehose:us-east-1:123456789012:deliverystream/billing-archive</value></entry><entry><key>Protocol</key><value>firehose</value></entry><entry><key>PendingConfirmation</key><value>false</value></entry><entry><key>ConfirmationWasAuthenticated</key><value>true</value></entry><entry><key>RawMessageDelivery</key><value>false</value></entry><entry><key>SubscriptionArn</key><value>arn:aws:sns:us-east-1:123456789012:billing.fifo:s7</value></entry><entry><key>SubscriptionRoleArn</key><value>arn:aws:iam::123456789012:role/sns-firehose</value></entry></Attributes></GetSubscriptionAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetSubscriptionAttributesResponse>"
+  },
+  {
+    "op": "GetSubscriptionAttributes",
+    "match": "%3As8",
+    "body": "<GetSubscriptionAttributesResponse xmlns=\"http://sns.amazonaws.com/doc/2010-03-31/\"><GetSubscriptionAttributesResult><Attributes><entry><key>SubscriptionPrincipal</key><value>arn:aws:iam::123456789012:role/deployer</value></entry><entry><key>Owner</key><value>999999999999</value></entry><entry><key>TopicArn</key><value>arn:aws:sns:us-east-1:123456789012:billing.fifo</value></entry><entry><key>Endpoint</key><value>arn:aws:sqs:us-east-1:999999999999:partner-billing.fifo</value></entry><entry><key>Protocol</key><value>sqs</value></entry><entry><key>PendingConfirmation</key><value>false</value></entry><entry><key>ConfirmationWasAuthenticated</key><value>true</value></entry><entry><key>RawMessageDelivery</key><value>true</value></entry><entry><key>SubscriptionArn</key><value>arn:aws:sns:us-east-1:123456789012:billing.fifo:s8</value></entry></Attributes></GetSubscriptionAttributesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetSubscriptionAttributesResponse>"
+  }
+]

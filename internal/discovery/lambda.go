@@ -124,6 +124,7 @@ func (c *Lambda) emitFunction(
 		if err := warnOrFail(out, "Lambda", "GetPolicy", err); err != nil {
 			return err
 		}
+		spec.PolicyUnread = true
 	}
 
 	out.Emit(newResource(s, resourceArgs{

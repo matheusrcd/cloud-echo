@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/matheusrcd/cloud-echo/internal/inventory/spec"
 )
 
 func collectLambda(t *testing.T) (*captureEmitter, *fixtureTransport) {
@@ -204,10 +206,11 @@ func TestResourceIDFromARNNeverInventsIDs(t *testing.T) {
 		"arn:aws:dynamodb:us-east-1:123456789012:table/orders":                   "ddb/orders",
 		"arn:aws:dynamodb:us-east-1:123456789012:table/orders/stream/2026-08-01": "ddb/orders",
 		"arn:aws:lambda:us-east-1:123456789012:function:fn:prod":                 "lambda/fn",
+		"arn:aws:sns:us-east-1:123456789012:alerts":                              "sns/alerts",
 		// No collector exists for these yet. An invented id would look like a
 		// real node to the linker and dangle silently.
 		"arn:aws:kinesis:us-east-1:123456789012:stream/clicks": "",
-		"arn:aws:sns:us-east-1:123456789012:alerts":            "",
+		"arn:aws:events:us-east-1:123456789012:rule/nightly":   "",
 		"not-an-arn": "",
 	} {
 		if got := resourceIDFromARN(arn); got != want {
@@ -245,5 +248,28 @@ func TestMappingEnabledNeverGuesses(t *testing.T) {
 		if got != want.enabled || tr != want.transitional {
 			t.Errorf("%s: got enabled=%s transitional=%v, want %s/%v", state, got, tr, want.enabled, want.transitional)
 		}
+	}
+}
+
+// TestLambdaRefusedPolicyIsNotNoPolicy: a denied GetPolicy leaves the policy
+// empty, like a function that has none. The linker judges deliveries and
+// grants by that policy, so the refusal is recorded, not left to look like
+// "nobody may invoke it".
+func TestLambdaRefusedPolicyIsNotNoPolicy(t *testing.T) {
+	tr := loadFixture(t, "orders", "lambda")
+	tr.exchanges = append([]exchange{{Op: "GetPolicy", Match: "/functions/audit-writer/policy", Status: 403, service: "lambda",
+		Headers: map[string]string{"X-Amzn-Errortype": "AccessDeniedException"},
+		Body:    `{"Type":"User","Message":"not authorized to perform: lambda:GetPolicy"}`}}, tr.exchanges...)
+	out := &captureEmitter{}
+	if err := (&Lambda{}).Collect(context.Background(), fixtureSession(tr), out); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	fn, _ := out.byID("lambda/audit-writer")
+	var refused, none spec.LambdaFunction
+	specOf(t, fn, &refused)
+	other, _ := out.byID("lambda/order-processor")
+	specOf(t, other, &none)
+	if !refused.PolicyUnread || none.PolicyUnread {
+		t.Errorf("policyUnread: refused %v, absent %v", refused.PolicyUnread, none.PolicyUnread)
 	}
 }

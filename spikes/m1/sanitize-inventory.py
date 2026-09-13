@@ -5,10 +5,10 @@ Usage: sanitize-inventory.py <inventory.json> <out.json>
 
 Drops Raw (the linker reads specs only), resources outside the ce-test- topology,
 and every account-specific identifier: the account id, API / integration /
-authorizer / deployment / VPC link ids, mapping UUIDs, VPC, subnet and
-security-group ids, RDS and ElastiCache endpoint suffixes, and load balancer ARN
-ids and DNS hashes. Each is replaced by a stable fake, so the graph keeps its
-shape. Refuses to write if anything original survives.
+authorizer / deployment / VPC link ids, mapping and subscription UUIDs, VPC,
+subnet and security-group ids, RDS and ElastiCache endpoint suffixes, and load
+balancer ARN ids and DNS hashes. Each is replaced by a stable fake, so the graph
+keeps its shape. Refuses to write if anything original survives.
 """
 import json, re, sys
 src, dst = sys.argv[1], sys.argv[2]
@@ -65,6 +65,11 @@ for r in keep:
         m = re.fullmatch(r"(?:internal-)?" + re.escape(s.get("name", "")) + r"-([0-9a-z]+)\..*", s.get("dnsName", ""))
         if m:
             fake(m.group(1), "feedfacefeed" if len(m.group(1)) == 16 else "10000")
+    if r["type"] == "sns.topic":
+        # A subscription's ARN ends in a UUID minted per subscription.
+        for sub in s.get("subscriptions") or []:
+            if sub.get("arn"):
+                fake(sub["arn"].rsplit(":", 1)[1], "00000000-0000-4000-9000-00000000")
     if r["type"] == "elasticache.cache":
         # The account's suffix sits in a different place in each endpoint
         # shape: master.<rg>.<sfx>.use2…, <rg>-001.<rg>.<sfx>…, <id>.<sfx>.cfg…,
@@ -106,5 +111,8 @@ elb_left += [h for h in re.findall(r"-([0-9a-z]+)\.(?:[a-z0-9-]+\.elb|elb\.[a-z0
              if not (h.startswith(("feedfacefeed", "10000")) or set(h) == {"0"})]
 if elb_left:
     sys.exit(f"refusing to write: {len(elb_left)} load balancer identifier(s) not faked")
+sub_left = [u for u in re.findall(r"arn:aws:sns:[^\"]*:([0-9a-f-]{36})", dump) if not u.startswith("00000000-0000-4000-9000-")]
+if sub_left:
+    sys.exit(f"refusing to write: {len(sub_left)} subscription id(s) not faked")
 json.dump(out, open(dst, "w"), indent=2); open(dst, "a").write("\n")
 print(f"{len(out['resources'])} resources, {len(ids)} identifiers replaced, account id replaced")

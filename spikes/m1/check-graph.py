@@ -48,9 +48,13 @@ check("webhook-receiver is an entrypoint: its API is not in the inventory", wr.g
 check("orders-events-dlq is async (via webhook-receiver's DLQ)", flow(Q+P+"-orders-events-dlq") == "async", flow(Q+P+"-orders-events-dlq"))
 # Said "without load balancers" and asserted it of every service; the ELBv2
 # round added one behind a load balancer, which is exactly what it excludes.
+# The SNS round, before its scan: webhook-receiver (an entrypoint) names the
+# FIFO topic, which delivers to the FIFO queue the 12 notification services
+# consume — so they are async now, and only orders-api's two stay unreached.
 behind_lb = {e["to"] for e in g["edges"] if e["from"].startswith("elb/")}
-check("ECS services without load balancers are unreached",
-      all(n["flow"] == "unreached" for n in g["nodes"] if n["type"] == "ecs.service" and n["id"] not in behind_lb))
+fifo_consumers = {e["to"] for e in g["edges"] if e["from"] == "sqs/" + P + "-notifications.fifo" and e["kind"] == "consume"}
+check("ECS services neither behind a load balancer nor fed by the FIFO topic are unreached",
+      all(n["flow"] == "unreached" for n in g["nodes"] if n["type"] == "ecs.service" and n["id"] not in behind_lb | fifo_consumers))
 
 # --- Tier 2: configuration values
 # Written as evidence claims: Tier 3 folds a reference into the edge that states
@@ -219,11 +223,40 @@ check("the NLB's ip targets are no ECS service's: reported", findings("unresolve
 check("LEGACY_LB_URL — the ALB's name, another address — a namesake, not linked",
       not has(L+P+"-webhook-receiver", ALB_, "http") and any(f["node"] == L+P+"-webhook-receiver" for f in findings("unresolved", "namesake")))
 
+# --- SNS (17-aws-sns-create.sh): written before the round's output was looked at
+OT, AL, FT = "sns/" + P + "-orders-topic", "sns/" + P + "-alerts", "sns/" + P + "-notifications.fifo"
+check("SNS: the three topics are nodes", all(nodes.get(t, {}).get("type") == "sns.topic" for t in [OT, AL, FT]))
+check("orders-fn publishes to orders-topic, high: its ARN in ORDERS_TOPIC_ARN + sns:Publish",
+      conf(L+P+"-orders-fn", OT, "publish") == "high" and iam(L+P+"-orders-fn", OT, "publish") and named(L+P+"-orders-fn", OT, "ORDERS_TOPIC_ARN"))
+check("orders-topic is async (a topic is where the request hands off)", flow(OT) == "async", flow(OT))
+check("orders-topic → orders-events, certain, corroborated by the queue's policy",
+      conf(OT, Q+P+"-orders-events", "publish") == "certain" and "sqs.resource-policy" in rules(OT, Q+P+"-orders-events", "publish"))
+check("orders-topic → audit-writer, certain, corroborated by the function's policy",
+      conf(OT, L+P+"-audit-writer", "publish") == "certain" and "lambda.resource-policy" in rules(OT, L+P+"-audit-writer", "publish"))
+check("orders-topic → orders-events-dlq: the subscription's dead-letter queue", conf(OT, Q+P+"-orders-events-dlq", "publish") == "certain")
+check("orders-topic → the ALB over HTTPS: pending, so disabled", has(OT, "elb/" + P + "-web", "publish", "disabled"))
+check("alerts is an entrypoint: CloudWatch may publish (the default statement is not 'anyone')",
+      flow(AL) == "entrypoint" and any("cloudwatch" in t for t in nodes.get(AL, {}).get("triggers", [])))
+check("alerts → inbox: blocked, no edge — the queue has no policy",
+      not between(AL, Q+P+"-inbox") and [f for f in findings("blocked", "no policy") if f["node"] == AL and f["target"] == Q+P+"-inbox"])
+check("notifications.fifo topic → the FIFO queue, corroborated", "sqs.resource-policy" in rules(FT, Q+P+"-notifications.fifo", "publish"))
+check("webhook-receiver's permission for alerts, which delivers nothing there: stale",
+      [f for f in findings("stale-permission", AL) if f["node"] == L+P+"-webhook-receiver"])
+check("order-processor names alerts (ALERTS_TOPIC, a bare name): medium, and its role cannot publish — unpermitted",
+      conf(L+P+"-order-processor", AL) == "medium" and [f for f in findings("unpermitted", AL) if f["node"] == L+P+"-order-processor"])
+check("NOTIFY_TOPIC names the FIFO topic (the key decides); the queue of that name is a candidate, reported",
+      conf(L+P+"-webhook-receiver", FT) == "medium" and conf(L+P+"-webhook-receiver", Q+P+"-notifications.fifo") == "low"
+      and [f for f in findings("ambiguous", P + "-notifications.fifo") if f["node"] == L+P+"-webhook-receiver"])
+check("…so the FIFO queue and its 12 consumers are async", flow(Q+P+"-notifications.fifo") == "async" and all(flow(s) == "async" for s in NOTIF))
+
 # --- hygiene
 check("every edge has evidence", all(e["evidence"] for e in g["edges"]))
 check("no edge touches a non-node", all(e["from"] in nodes and e["to"] in nodes for e in g["edges"]))
-stale = [f for f in g.get("findings", []) if f["kind"] == "stale-permission"]
-check("no stale permissions (every granted API really routes to its function)", not stale, str(stale))
+# Written in the API Gateway round as "no stale permissions" and meant of the
+# APIs' grants; the SNS round plants one on purpose (checked above), which this
+# check predated and was not narrowed for before the scan.
+stale = [f for f in g.get("findings", []) if f["kind"] == "stale-permission" and f["target"].startswith("apigw/")]
+check("no stale API permissions (every granted API really routes to its function)", not stale, str(stale))
 check("no warnings", not g.get("warnings"), str(g.get("warnings")))
 
 w = max(len(n) for _, n, _ in results); fails = 0

@@ -114,6 +114,18 @@ requirements no earlier section had:
   account**: under the scanned account's id — the ARN-fidelity setup — every
   forward returned `502 Target group not found`, while the same Lambda target
   answered in the default account (see [09-open-questions.md](09-open-questions.md)).
+- **Topics deliver for real, and more than production does** (SNS round).
+  Topics, policies and subscriptions — filter policy, raw delivery, dead-letter
+  queue, FIFO — came back identical; publishing locally invoked the subscribed
+  function in a real container, and a message the filter policy excludes never
+  reached its queue. But Floci delivered to a queue whose policy does not let
+  the topic send, which AWS refuses: the production bug the linker reports as
+  `blocked` works locally, and would stay hidden. The materializer should mirror
+  production — not seed a subscription the linker marks blocked, and say so
+  ([09-open-questions.md](09-open-questions.md)). An email or SMS subscription is
+  never seeded; an HTTP endpoint's withheld credentials and query values are
+  dropped for local ones, and its load balancer host rewritten. Floci also
+  gives a pending subscription an ARN, which AWS does not.
 - **Caches run, but are not described** (ElastiCache round): Floci started real
   `valkey` and `memcached` containers that answer `PING` and `version`, and
   describes neither's endpoints (see [04-blueprint.md](04-blueprint.md)). It

@@ -1,0 +1,1107 @@
+{
+  "formatVersion": 1,
+  "scanId": "sns-cases",
+  "generatedBy": "hand-written",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "scannedAt": "2026-09-13T00:00:00Z",
+  "resources": [
+    {
+      "id": "apigw/api0000060",
+      "type": "apigateway.http",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "sns-http",
+      "spec": {
+        "apiId": "api0000060",
+        "name": "sns-http",
+        "protocol": "HTTP",
+        "routes": [
+          {
+            "routeKey": "POST /e",
+            "integration": {
+              "id": "i1",
+              "type": "AWS_PROXY",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:caller-fn",
+                "id": "lambda/caller-fn"
+              }
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/local",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/local/2222222222222222",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "local",
+      "spec": {
+        "name": "local",
+        "type": "application",
+        "scheme": "internal",
+        "state": "active",
+        "dnsName": "local-9.elb.localhost.floci.io",
+        "listeners": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/web",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/web/1111111111111111",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "web",
+      "spec": {
+        "name": "web",
+        "type": "application",
+        "scheme": "internal",
+        "state": "active",
+        "dnsName": "web-111.us-east-1.elb.amazonaws.com",
+        "listeners": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/caller-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/caller-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "caller-role",
+      "spec": {
+        "roleName": "caller-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/caller-fn"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "pub",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sns:Publish",
+                  "Resource": "arn:aws:sns:us-east-1:123456789012:events"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/any-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:any-fn",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "any-fn",
+      "spec": {
+        "functionName": "any-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:any-fn"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/caller-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:caller-fn",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "caller-fn",
+      "spec": {
+        "functionName": "caller-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/caller-role",
+        "roleId": "iam/role/caller-role",
+        "env": {
+          "EVENTS_TOPIC_ARN": "arn:aws:sns:us-east-1:123456789012:events",
+          "ALARMS_TOPIC": "alarms",
+          "NOTIFY_TOPIC": "notify",
+          "LOCAL_URL": "http://local-9.elb.localhost.floci.io/",
+          "AUDIT_FUNCTION": "unread-fn"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/far-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:far-fn",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "far-fn",
+      "spec": {
+        "functionName": "far-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:far-fn",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:999999999999:feed"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/no-perm-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:no-perm-fn",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "no-perm-fn",
+      "spec": {
+        "functionName": "no-perm-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/stale-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:stale-fn",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "stale-fn",
+      "spec": {
+        "functionName": "stale-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:stale-fn",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:123456789012:quiet"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/sub-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:sub-fn",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "sub-fn",
+      "spec": {
+        "functionName": "sub-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:sub-fn",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:123456789012:events"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/sub2-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:sub2-fn",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "sub2-fn",
+      "spec": {
+        "functionName": "sub2-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:sub2-fn",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:123456789012:events"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/twin-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:twin-fn",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "twin-fn",
+      "spec": {
+        "functionName": "twin-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:twin-fn",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:999999999999:events"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/unread-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:unread-fn",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "unread-fn",
+      "spec": {
+        "functionName": "unread-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "policyUnread": true
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/alarms",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:alarms",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "alarms",
+      "spec": {
+        "topicName": "alarms",
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:Subscribe",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:alarms",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            },
+            {
+              "Sid": "cw",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudwatch.amazonaws.com"
+              },
+              "Action": "sns:Publish",
+              "Resource": "arn:aws:sns:us-east-1:123456789012:alarms"
+            }
+          ]
+        },
+        "subscriptions": [
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:12sqs",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:123456789012:alarms-q",
+            "owner": "123456789012",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:alarms-q",
+              "id": "sqs/alarms-q"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/events",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:events",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "events",
+      "spec": {
+        "topicName": "events",
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:Subscribe",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:events",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            }
+          ]
+        },
+        "subscriptions": [
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0sqs",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:123456789012:allowed-q",
+            "owner": "123456789012",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:allowed-q",
+              "id": "sqs/allowed-q"
+            },
+            "rawDelivery": true,
+            "filterPolicy": "{\"type\":[\"created\"]}",
+            "filterScope": "MessageAttributes"
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0sqs",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:123456789012:legacy-q",
+            "owner": "123456789012",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:legacy-q",
+              "id": "sqs/legacy-q"
+            }
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0sqs",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:123456789012:other-topic-q",
+            "owner": "123456789012",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:other-topic-q",
+              "id": "sqs/other-topic-q"
+            }
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0sqs",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:123456789012:no-policy-q",
+            "owner": "123456789012",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:no-policy-q",
+              "id": "sqs/no-policy-q"
+            }
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0lambda",
+            "protocol": "lambda",
+            "endpoint": "arn:aws:lambda:us-east-1:123456789012:function:sub-fn",
+            "owner": "123456789012",
+            "target": {
+              "arn": "arn:aws:lambda:us-east-1:123456789012:function:sub-fn",
+              "id": "lambda/sub-fn"
+            },
+            "deadLetter": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:dlq",
+              "id": "sqs/dlq"
+            }
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0lambda",
+            "protocol": "lambda",
+            "endpoint": "arn:aws:lambda:us-east-1:123456789012:function:no-perm-fn",
+            "owner": "123456789012",
+            "target": {
+              "arn": "arn:aws:lambda:us-east-1:123456789012:function:no-perm-fn",
+              "id": "lambda/no-perm-fn"
+            }
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0lambda",
+            "protocol": "lambda",
+            "endpoint": "arn:aws:lambda:us-east-1:123456789012:function:sub2-fn",
+            "owner": "123456789012",
+            "target": {
+              "arn": "arn:aws:lambda:us-east-1:123456789012:function:sub2-fn",
+              "id": "lambda/sub2-fn"
+            },
+            "deadLetter": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:no-policy-q",
+              "id": "sqs/no-policy-q"
+            }
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0lambda",
+            "protocol": "lambda",
+            "endpoint": "arn:aws:lambda:us-east-1:123456789012:function:unread-fn",
+            "owner": "123456789012",
+            "target": {
+              "arn": "arn:aws:lambda:us-east-1:123456789012:function:unread-fn",
+              "id": "lambda/unread-fn"
+            }
+          },
+          {
+            "protocol": "https",
+            "endpoint": "https://hooks:<redacted:url-credentials>@partner.example.com/in?token=<redacted:url-query>",
+            "owner": "123456789012",
+            "pending": true
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0http",
+            "protocol": "http",
+            "endpoint": "http://web-111.us-east-1.elb.amazonaws.com/sns",
+            "owner": "123456789012"
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0email",
+            "protocol": "email",
+            "endpoint": "<redacted:personal-data>",
+            "owner": "123456789012"
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0http",
+            "protocol": "http",
+            "endpoint": "http://local-9.elb.localhost.floci.io/sns",
+            "owner": "123456789012"
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:x:0sqs",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:999999999999:partner-q",
+            "owner": "999999999999",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-1:999999999999:partner-q",
+              "id": "sqs/partner-q"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/notify",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:notify",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "notify",
+      "spec": {
+        "topicName": "notify",
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:Subscribe",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:notify",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            }
+          ]
+        },
+        "subscriptions": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/open",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:open",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "open",
+      "spec": {
+        "topicName": "open",
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:Subscribe",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:open",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            },
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "sns:Publish",
+              "Resource": "arn:aws:sns:us-east-1:123456789012:open"
+            }
+          ]
+        },
+        "subscriptions": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/partner-in",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:partner-in",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "partner-in",
+      "spec": {
+        "topicName": "partner-in",
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:Subscribe",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:partner-in",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            },
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::999999999999:root"
+              },
+              "Action": "sns:Publish",
+              "Resource": "arn:aws:sns:us-east-1:123456789012:partner-in"
+            }
+          ]
+        },
+        "subscriptions": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/quiet",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:quiet",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "quiet",
+      "spec": {
+        "topicName": "quiet",
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:Subscribe",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:quiet",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            }
+          ]
+        },
+        "subscriptions": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/unlisted",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:unlisted",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "unlisted",
+      "spec": {
+        "topicName": "unlisted",
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:Subscribe",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:unlisted",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            }
+          ]
+        },
+        "subscriptions": [],
+        "unread": [
+          "subscriptions"
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/alarms-q",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:alarms-q",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "alarms-q",
+      "spec": {
+        "queueName": "alarms-q",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/alarms-q",
+        "visibilityTimeout": 30,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:alarms-q",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:123456789012:alarms"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/allowed-q",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:allowed-q",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "allowed-q",
+      "spec": {
+        "queueName": "allowed-q",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/allowed-q",
+        "visibilityTimeout": 30,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:allowed-q",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:123456789012:events"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/bucket-q",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:bucket-q",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "bucket-q",
+      "spec": {
+        "queueName": "bucket-q",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/bucket-q",
+        "visibilityTimeout": 30,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "s3.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:bucket-q"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/dlq",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:dlq",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "dlq",
+      "spec": {
+        "queueName": "dlq",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/dlq",
+        "visibilityTimeout": 30,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:dlq",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:123456789012:events"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/far-q",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:far-q",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "far-q",
+      "spec": {
+        "queueName": "far-q",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/far-q",
+        "visibilityTimeout": 30,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:far-q",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:999999999999:feed"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/legacy-q",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:legacy-q",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "legacy-q",
+      "spec": {
+        "queueName": "legacy-q",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/legacy-q",
+        "visibilityTimeout": 30,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "SQS:*",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:legacy-q",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:123456789012:events"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/no-policy-q",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:no-policy-q",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "no-policy-q",
+      "spec": {
+        "queueName": "no-policy-q",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/no-policy-q",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/notify",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:notify",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "notify",
+      "spec": {
+        "queueName": "notify",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/notify",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/other-topic-q",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:other-topic-q",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "other-topic-q",
+      "spec": {
+        "queueName": "other-topic-q",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/other-topic-q",
+        "visibilityTimeout": 30,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:other-topic-q",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:123456789012:alarms"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    }
+  ]
+}

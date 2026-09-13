@@ -1,0 +1,556 @@
+{
+  "formatVersion": 1,
+  "generatedBy": "cloud-echo/golden",
+  "inventoryScanId": "sns-cases",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "nodes": [
+    {
+      "id": "apigw/api0000060",
+      "type": "apigateway.http",
+      "name": "sns-http",
+      "flow": "entrypoint",
+      "triggers": [
+        "HTTP API"
+      ]
+    },
+    {
+      "id": "elb/local",
+      "type": "elbv2.load-balancer",
+      "name": "local",
+      "flow": "sync"
+    },
+    {
+      "id": "elb/web",
+      "type": "elbv2.load-balancer",
+      "name": "web",
+      "flow": "async"
+    },
+    {
+      "id": "ext/partner.example.com",
+      "type": "external.http",
+      "name": "partner.example.com",
+      "flow": "unreached",
+      "external": true
+    },
+    {
+      "id": "lambda/any-fn",
+      "type": "lambda.function",
+      "name": "any-fn",
+      "flow": "entrypoint",
+      "triggers": [
+        "any SNS topic may invoke it (the policy names none)"
+      ]
+    },
+    {
+      "id": "lambda/caller-fn",
+      "type": "lambda.function",
+      "name": "caller-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/far-fn",
+      "type": "lambda.function",
+      "name": "far-fn",
+      "flow": "entrypoint",
+      "triggers": [
+        "SNS topic arn:aws:sns:us-east-1:999999999999:feed, outside the inventory, may invoke it"
+      ]
+    },
+    {
+      "id": "lambda/no-perm-fn",
+      "type": "lambda.function",
+      "name": "no-perm-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/stale-fn",
+      "type": "lambda.function",
+      "name": "stale-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/sub-fn",
+      "type": "lambda.function",
+      "name": "sub-fn",
+      "flow": "async"
+    },
+    {
+      "id": "lambda/sub2-fn",
+      "type": "lambda.function",
+      "name": "sub2-fn",
+      "flow": "async"
+    },
+    {
+      "id": "lambda/twin-fn",
+      "type": "lambda.function",
+      "name": "twin-fn",
+      "flow": "entrypoint",
+      "triggers": [
+        "SNS topic arn:aws:sns:us-east-1:999999999999:events, outside the inventory, may invoke it"
+      ]
+    },
+    {
+      "id": "lambda/unread-fn",
+      "type": "lambda.function",
+      "name": "unread-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "sns/alarms",
+      "type": "sns.topic",
+      "name": "alarms",
+      "flow": "entrypoint",
+      "triggers": [
+        "cloudwatch.amazonaws.com may publish to it (topic policy)"
+      ]
+    },
+    {
+      "id": "sns/events",
+      "type": "sns.topic",
+      "name": "events",
+      "flow": "async"
+    },
+    {
+      "id": "sns/notify",
+      "type": "sns.topic",
+      "name": "notify",
+      "flow": "async"
+    },
+    {
+      "id": "sns/open",
+      "type": "sns.topic",
+      "name": "open",
+      "flow": "entrypoint",
+      "triggers": [
+        "anyone may publish to it (topic policy principal \"*\")"
+      ]
+    },
+    {
+      "id": "sns/partner-in",
+      "type": "sns.topic",
+      "name": "partner-in",
+      "flow": "entrypoint",
+      "triggers": [
+        "principal arn:aws:iam::999999999999:root may publish to it (topic policy)"
+      ]
+    },
+    {
+      "id": "sns/quiet",
+      "type": "sns.topic",
+      "name": "quiet",
+      "flow": "unreached"
+    },
+    {
+      "id": "sns/unlisted",
+      "type": "sns.topic",
+      "name": "unlisted",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/alarms-q",
+      "type": "sqs.queue",
+      "name": "alarms-q",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/allowed-q",
+      "type": "sqs.queue",
+      "name": "allowed-q",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/bucket-q",
+      "type": "sqs.queue",
+      "name": "bucket-q",
+      "flow": "entrypoint",
+      "triggers": [
+        "s3.amazonaws.com may send to it (queue policy)"
+      ]
+    },
+    {
+      "id": "sqs/dlq",
+      "type": "sqs.queue",
+      "name": "dlq",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/far-q",
+      "type": "sqs.queue",
+      "name": "far-q",
+      "flow": "entrypoint",
+      "triggers": [
+        "SNS topic arn:aws:sns:us-east-1:999999999999:feed, outside the inventory, may send to it"
+      ]
+    },
+    {
+      "id": "sqs/legacy-q",
+      "type": "sqs.queue",
+      "name": "legacy-q",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/no-policy-q",
+      "type": "sqs.queue",
+      "name": "no-policy-q",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/notify",
+      "type": "sqs.queue",
+      "name": "notify",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/other-topic-q",
+      "type": "sqs.queue",
+      "name": "other-topic-q",
+      "flow": "unreached"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apigw/api0000060",
+      "to": "lambda/caller-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations api0000060 i1 (route POST /e)",
+          "detail": "AWS_PROXY POST /e → caller-fn"
+        }
+      ]
+    },
+    {
+      "from": "lambda/caller-fn",
+      "to": "elb/local",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions caller-fn env LOCAL_URL",
+          "detail": "LOCAL_URL reaches elb/local (its DNS name)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/caller-fn",
+      "to": "lambda/unread-fn",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions caller-fn env AUDIT_FUNCTION",
+          "detail": "AUDIT_FUNCTION = \"unread-fn\", the name of lambda/unread-fn — the key names a function"
+        }
+      ]
+    },
+    {
+      "from": "lambda/caller-fn",
+      "to": "sns/alarms",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions caller-fn env ALARMS_TOPIC",
+          "detail": "ALARMS_TOPIC = \"alarms\", the name of sns/alarms — the key names a topic"
+        }
+      ]
+    },
+    {
+      "from": "lambda/caller-fn",
+      "to": "sns/events",
+      "kind": "publish",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions caller-fn env EVENTS_TOPIC_ARN",
+          "detail": "EVENTS_TOPIC_ARN holds the ARN of sns/events"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy caller-role pub",
+          "detail": "role caller-role: Allow sns:Publish on arn:aws:sns:us-east-1:123456789012:events (inline policy pub)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/caller-fn",
+      "to": "sns/notify",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions caller-fn env NOTIFY_TOPIC",
+          "detail": "NOTIFY_TOPIC = \"notify\", the name of sns/notify — the key names a topic"
+        }
+      ]
+    },
+    {
+      "from": "lambda/caller-fn",
+      "to": "sqs/notify",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions caller-fn env NOTIFY_TOPIC",
+          "detail": "NOTIFY_TOPIC = \"notify\", the name of sqs/notify — a candidate only: the key names a topic"
+        }
+      ]
+    },
+    {
+      "from": "sns/alarms",
+      "to": "sqs/alarms-q",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic alarms sqs",
+          "detail": "delivers to sqs/alarms-q"
+        },
+        {
+          "rule": "sqs.resource-policy",
+          "source": "sqs:GetQueueAttributes alarms-q Policy ",
+          "detail": "its policy lets sns/alarms send to it"
+        }
+      ]
+    },
+    {
+      "from": "sns/events",
+      "to": "elb/local",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic events http",
+          "detail": "delivers over HTTP to elb/local"
+        }
+      ]
+    },
+    {
+      "from": "sns/events",
+      "to": "elb/web",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic events http",
+          "detail": "delivers over HTTP to elb/web"
+        }
+      ]
+    },
+    {
+      "from": "sns/events",
+      "to": "ext/partner.example.com",
+      "kind": "publish",
+      "confidence": "certain",
+      "status": "disabled",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic events https",
+          "detail": "delivers over HTTP to partner.example.com — pending confirmation: nothing is delivered until the endpoint confirms"
+        }
+      ]
+    },
+    {
+      "from": "sns/events",
+      "to": "lambda/sub-fn",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy sub-fn ",
+          "detail": "its policy lets sns/events invoke it"
+        },
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic events lambda",
+          "detail": "delivers to lambda/sub-fn"
+        }
+      ]
+    },
+    {
+      "from": "sns/events",
+      "to": "lambda/sub2-fn",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy sub2-fn ",
+          "detail": "its policy lets sns/events invoke it"
+        },
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic events lambda",
+          "detail": "delivers to lambda/sub2-fn"
+        }
+      ]
+    },
+    {
+      "from": "sns/events",
+      "to": "lambda/unread-fn",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic events lambda",
+          "detail": "delivers to lambda/unread-fn"
+        }
+      ]
+    },
+    {
+      "from": "sns/events",
+      "to": "sqs/allowed-q",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic events sqs",
+          "detail": "delivers to sqs/allowed-q (filter policy on MessageAttributes)"
+        },
+        {
+          "rule": "sqs.resource-policy",
+          "source": "sqs:GetQueueAttributes allowed-q Policy ",
+          "detail": "its policy lets sns/events send to it"
+        }
+      ]
+    },
+    {
+      "from": "sns/events",
+      "to": "sqs/dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic events lambda",
+          "detail": "messages it cannot deliver to lambda/sub-fn go to sqs/dlq"
+        },
+        {
+          "rule": "sqs.resource-policy",
+          "source": "sqs:GetQueueAttributes dlq Policy ",
+          "detail": "its policy lets sns/events send to it"
+        }
+      ]
+    },
+    {
+      "from": "sns/events",
+      "to": "sqs/legacy-q",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic events sqs",
+          "detail": "delivers to sqs/legacy-q"
+        },
+        {
+          "rule": "sqs.resource-policy",
+          "source": "sqs:GetQueueAttributes legacy-q Policy ",
+          "detail": "its policy lets sns/events send to it"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "ambiguous",
+      "node": "lambda/caller-fn",
+      "target": "notify",
+      "rule": "config.value-scan",
+      "detail": "NOTIFY_TOPIC = \"notify\" names sns/notify and sqs/notify; the key points at sns/notify (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "lambda/caller-fn",
+      "target": "sns/alarms",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sns/alarms, but its role caller-role grants no sns action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "lambda/caller-fn",
+      "target": "sns/notify",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sns/notify, but its role caller-role grants no sns action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "lambda/caller-fn",
+      "target": "sqs/notify",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sqs/notify, but its role caller-role grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "stale-permission",
+      "node": "lambda/stale-fn",
+      "target": "sns/quiet",
+      "rule": "lambda.resource-policy",
+      "detail": "its policy lets sns/quiet invoke it, but no subscription of that topic delivers here"
+    },
+    {
+      "kind": "unresolved",
+      "node": "sns/events",
+      "target": "arn:aws:sqs:us-east-1:999999999999:partner-q",
+      "rule": "sns.subscription",
+      "detail": "subscription: target is in account 999999999999, outside this scan"
+    },
+    {
+      "kind": "blocked",
+      "node": "sns/events",
+      "target": "lambda/no-perm-fn",
+      "rule": "sns.subscription",
+      "detail": "subscribed, but the function has no resource policy, and SNS may invoke a function only if its policy says so: every delivery fails, no edge"
+    },
+    {
+      "kind": "blocked",
+      "node": "sns/events",
+      "target": "sqs/no-policy-q",
+      "rule": "sns.subscription",
+      "detail": "subscribed, but the queue has no policy, and SNS may send to a queue only if its policy says so: every delivery fails, no edge"
+    },
+    {
+      "kind": "blocked",
+      "node": "sns/events",
+      "target": "sqs/no-policy-q",
+      "rule": "sns.subscription",
+      "detail": "dead-letter queue of the subscription to lambda/sub2-fn, but the queue has no policy, and SNS may send to a queue only if its policy says so: undeliverable messages are lost"
+    },
+    {
+      "kind": "blocked",
+      "node": "sns/events",
+      "target": "sqs/other-topic-q",
+      "rule": "sns.subscription",
+      "detail": "subscribed, but the queue's policy does not let this topic send: every delivery fails, no edge"
+    },
+    {
+      "kind": "unscanned",
+      "node": "sns/unlisted",
+      "target": "sns/unlisted",
+      "rule": "sns.subscription",
+      "detail": "its subscriptions could not be read: what it delivers to is unknown"
+    },
+    {
+      "kind": "stale-permission",
+      "node": "sqs/other-topic-q",
+      "target": "sns/alarms",
+      "rule": "sqs.resource-policy",
+      "detail": "its policy lets sns/alarms send to it, but no subscription of that topic delivers here"
+    }
+  ]
+}

@@ -144,9 +144,9 @@ verify by exercising (run the task, send the message), not by describing.
 
 ## Not tested
 
-- Every other service in the target stack's supporting list (ECR, SNS, EC2,
-  Secrets Manager, SSM) — no collectors yet. API Gateway, RDS, ElastiCache and
-  ELBv2 have their own rounds below.
+- Every other service in the target stack's supporting list (ECR, EC2, Secrets
+  Manager, SSM) — no collectors yet. API Gateway, RDS, ElastiCache, ELBv2 and SNS
+  have their own rounds below.
 - A Lambda environment encrypted with a customer KMS key — a key costs money; the
   `unreadable` path is covered by fixtures only.
 - Pagination at real scale beyond ECS services (e.g. >1000 queues); the mechanism
@@ -718,6 +718,85 @@ their listeners), the VPC link, and the target groups once nothing uses them.
 caches (about US$0.11/hour for all of it); the VPC link and the 0-task service
 cost nothing.
 
+## SNS round
+
+**Date:** 2026-09-13 (ninth round) · From
+[`17-aws-sns-create.sh`](../../spikes/m1/17-aws-sns-create.sh): a standard topic,
+`ce-test-orders-topic`, delivering to `ce-test-orders-events` (raw, with a filter
+policy), to `ce-test-audit-writer` (with a dead-letter queue) and over HTTPS to
+the ELBv2 round's ALB, with basic auth and a token in the URL; `ce-test-alerts`,
+which CloudWatch may publish to, subscribed by `ce-test-inbox` — whose queue has
+no policy; a FIFO topic named like the FIFO queue it delivers to. Then a Lambda
+permission for `ce-test-alerts` nothing uses, `sns:Publish` for orders-fn, and
+configuration naming the topics — an ARN, a bare name, a name a queue shares.
+Nothing bills by the hour; the planted password and token are random per run.
+
+| Check | Result |
+| --- | --- |
+| Inventory checker ([`check-sns.py`](../../spikes/m1/check-sns.py), written before looking) | **20 / 20** — the planted password and token nowhere in the file |
+| Scan with only the shipped policy vs admin | **0 differences** across 62 resources, Raw included |
+| Graph checker, with 14 SNS checks written before looking | **109 / 109** after one stale check (below), and the same on the sanitized fixture |
+| Earlier checkers, re-run | **46 / 46**, **29 / 29**, **19 / 19**, **16 / 16**, **21 / 21** |
+| Mutations | SNS **34 / 34**; the five earlier harnesses still killed (**134** in all) |
+| Floci round trip | every SNS call succeeds; deliveries real, filters honoured — and a refused one delivered |
+
+What reading real payloads changed:
+
+- **Five calls, not three**, and a pending subscription has no ARN to ask with.
+- **SNS masks a basic-auth password, not a query token**, and refuses inline
+  credentials over plain `http` (the script's first attempt failed on it). Email
+  addresses and phone numbers are withheld as personal data.
+- **Every topic's policy has a default statement**, Principal `*` on
+  `AWS:SourceOwner`. Read naively it made every topic "anyone may publish", and
+  let every role's reference to a topic pass as permitted.
+- **A subscription is not a delivery.** Checked, not assumed: `ce-test-alerts`
+  reported `NumberOfNotificationsFailed` and `ce-test-inbox` stayed empty. The
+  linker draws no edge and reports it `blocked`.
+
+**Predicted, and it held:** webhook-receiver (an entrypoint) names the FIFO
+topic, which delivers to the FIFO queue the twelve notification services consume
+— so, before the scan, the check that every service without a load balancer is
+unreached was narrowed to exclude them; they came out async, unreached dropping
+from 17 nodes to 5. An edge not predicted, and right: authorizer-fn shares
+orders-fn's role, so it may publish to the topic — `medium`, the grant alone.
+
+**The stale check.** "No stale permissions", written in the API Gateway round
+and meant of the APIs' grants, failed on the stale permission this round planted
+on purpose — expected by a new check, but the old one was not narrowed before
+the scan. It now says what it meant.
+
+**Defects found writing and exercising it**, each fixed with a test and a
+mutation:
+
+- `lookup` decoded any resource as any type: a function read as a queue was a
+  queue with no policy, and its legitimate permission turned stale. It now
+  checks the type — every caller, not just the new one.
+- An HTTPS endpoint whose credentials were redacted was not a URL `net/url`
+  parses: the subscription vanished without a finding. It is built from scheme,
+  host and port.
+- A Lambda `GetPolicy` refusal looked like no policy — for the new delivery
+  check and, latent since Tier 3, for `unpermitted`. It is recorded
+  (`policyUnread`) and respected by both.
+- In the Floci round trip the HTTPS subscription became a third party: its host
+  was the local load balancer's exact DNS name, in a shape (`…elb.localhost.floci.io`)
+  the linker did not recognise. An exact DNS match now holds whatever the shape,
+  from configuration too.
+
+**Floci, exercised.** Topics, policies and subscriptions came back identical
+but for minted subscription ids and the tags the seeder never sets. Publishing
+locally invoked audit-writer in a real container, delivered to the FIFO queue,
+and kept the filtered-out `order.shipped` out of `ce-test-orders-events` (one
+message reached its mapping, of two published). And it delivered to
+`ce-test-inbox`, whose policy AWS enforces: **the production bug works locally** —
+[Q20](../09-open-questions.md). A pending subscription gets an ARN in Floci; in
+AWS it has none.
+
+**Tooling.** The seeder recreates topics and subscriptions (never email or SMS),
+dropping an HTTP endpoint's withheld credentials and query values and rewriting
+its load balancer host; the sanitizer fakes subscription ids and refuses any left;
+the round-trip diff pairs subscriptions by endpoint; the teardown deletes the
+topics, with their subscriptions.
+
 ## Reproducing
 
 ```bash
@@ -737,6 +816,8 @@ python3 check-rds.py .work/inventory-aws.json
 python3 check-elasticache.py .work/inventory-aws.json
 ./16-aws-elbv2-create.sh     # ELBv2 — COSTS MONEY: an ALB and an NLB
 python3 check-elbv2.py .work/inventory-aws.json
+./17-aws-sns-create.sh       # SNS: three topics (after 16-: one delivers to the ALB)
+python3 check-sns.py .work/inventory-aws.json
 python3 check-apigw.py .work/inventory-aws.json
 ./22-probe-scope.sh          # the policy cannot read API key values
 ./.work/cloud-echo graph --inventory .work/inventory-aws.json --out .work/graph-aws.json --format json >/dev/null

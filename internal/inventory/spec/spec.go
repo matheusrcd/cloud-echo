@@ -29,6 +29,7 @@ const (
 	TypeCache              = "elasticache.cache"
 	TypeLoadBalancer       = "elbv2.load-balancer"
 	TypeTargetGroup        = "elbv2.target-group"
+	TypeSNSTopic           = "sns.topic"
 )
 
 // Types lists every type a collector may emit. A test in discovery checks
@@ -38,7 +39,7 @@ var Types = []string{
 	TypeECSCluster, TypeECSService, TypeECSTaskDefinition, TypeSQSQueue, TypeDynamoDBTable,
 	TypeLambdaFunction, TypeEventSourceMapping, TypeIAMRole, TypeIAMPolicy,
 	TypeRESTAPI, TypeHTTPAPI, TypeWebSocketAPI, TypeRDSInstance, TypeRDSCluster, TypeCache,
-	TypeLoadBalancer, TypeTargetGroup,
+	TypeLoadBalancer, TypeTargetGroup, TypeSNSTopic,
 }
 
 type API struct {
@@ -366,6 +367,9 @@ type LambdaFunction struct {
 	// EventBridge. It is how a Lambda's non-queue triggers are found, and so how
 	// entrypoints are classified. Kept raw; interpreting it is the linker's job.
 	ResourcePolicy json.RawMessage `json:"resourcePolicy,omitempty"`
+	// PolicyUnread is set when GetPolicy was refused: no policy read is not
+	// no policy, and the linker must not claim what one would have said.
+	PolicyUnread bool `json:"policyUnread,omitempty"`
 }
 
 type EventSourceMapping struct {
@@ -431,6 +435,52 @@ type SQSQueue struct {
 	// who may send to this queue, which is a linking signal the linker will want
 	// — but interpreting IAM policy shapes belongs there, not here.
 	Policy json.RawMessage `json:"policy,omitempty"`
+}
+
+// SNSTopic is a topic and what it delivers to. Subscriptions are recorded on
+// the topic, as rules are on a load balancer: they are its configuration, and
+// the linker draws them as the topic's edges.
+type SNSTopic struct {
+	TopicName    string `json:"topicName"`
+	FIFO         bool   `json:"fifo,omitempty"`
+	ContentDedup bool   `json:"contentBasedDeduplication,omitempty"`
+	KMSKeyID     string `json:"kmsKeyId,omitempty"`
+	// Policy names who may publish. Every topic carries AWS's default
+	// statement — Principal "*" conditioned on AWS:SourceOwner — which is not
+	// "anyone": interpreting it belongs to the linker.
+	Policy json.RawMessage `json:"policy,omitempty"`
+	// DeliveryPolicy is the topic's own HTTP retry policy, when one is set.
+	DeliveryPolicy json.RawMessage `json:"deliveryPolicy,omitempty"`
+
+	Subscriptions []SNSSubscription `json:"subscriptions"`
+	// Unread lists what could not be read ("subscriptions", or
+	// "subscription attributes"): an absence the linker must not read as none.
+	Unread []string `json:"unread,omitempty"`
+}
+
+// SNSSubscription is one delivery. Email and SMS endpoints are a person's
+// address and phone number: withheld, the protocol kept. An HTTP(S) endpoint
+// is sanitized like any URL — SNS masks a basic-auth password itself, but
+// returns a token in the query in full.
+type SNSSubscription struct {
+	// ARN is empty while the subscription waits for its endpoint to confirm:
+	// SNS returns "PendingConfirmation" instead, and delivers nothing.
+	ARN      string `json:"arn,omitempty"`
+	Pending  bool   `json:"pending,omitempty"`
+	Protocol string `json:"protocol"` // sqs | lambda | http | https | email | email-json | sms | application | firehose
+	Endpoint string `json:"endpoint,omitempty"`
+	// Target is the endpoint in inventory-id form, for sqs and lambda.
+	Target *TargetRef `json:"target,omitempty"`
+	// Owner is the subscribing account: another account's queue may
+	// subscribe to this topic.
+	Owner string `json:"owner,omitempty"`
+
+	// From GetSubscriptionAttributes, which a pending subscription has none of.
+	RawDelivery  bool       `json:"rawDelivery,omitempty"`
+	FilterPolicy string     `json:"filterPolicy,omitempty"`
+	FilterScope  string     `json:"filterScope,omitempty"` // MessageAttributes | MessageBody
+	DeadLetter   *TargetRef `json:"deadLetter,omitempty"`
+	RoleARN      string     `json:"roleArn,omitempty"` // firehose deliveries assume it
 }
 
 type Redrive struct {

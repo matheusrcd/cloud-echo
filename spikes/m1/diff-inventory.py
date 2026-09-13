@@ -55,6 +55,12 @@ def load(p):
                 a.pop("id", None)
             for st in s.get("stages") or []:
                 st.pop("deploymentId", None)
+        if r["type"] == "sns.topic":
+            # Subscription ARNs end in a UUID minted per environment (and a
+            # pending one has none in AWS, where Floci mints one): paired by
+            # protocol and endpoint, which the spec sorts by.
+            for sub in r["spec"].get("subscriptions") or []:
+                sub.pop("arn", None)
         if r["type"] == "iam.role":
             r["spec"]["assumedBy"] = sorted(api_name.get(x, x) for x in r["spec"].get("assumedBy") or [])
         res[key] = r

@@ -70,73 +70,73 @@
       "id": "ecs/ce-test-main/ce-test-filler-01",
       "type": "ecs.service",
       "name": "ce-test-filler-01",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-02",
       "type": "ecs.service",
       "name": "ce-test-filler-02",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-03",
       "type": "ecs.service",
       "name": "ce-test-filler-03",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-04",
       "type": "ecs.service",
       "name": "ce-test-filler-04",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-05",
       "type": "ecs.service",
       "name": "ce-test-filler-05",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-06",
       "type": "ecs.service",
       "name": "ce-test-filler-06",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-07",
       "type": "ecs.service",
       "name": "ce-test-filler-07",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-08",
       "type": "ecs.service",
       "name": "ce-test-filler-08",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-09",
       "type": "ecs.service",
       "name": "ce-test-filler-09",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-10",
       "type": "ecs.service",
       "name": "ce-test-filler-10",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-11",
       "type": "ecs.service",
       "name": "ce-test-filler-11",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-notifications",
       "type": "ecs.service",
       "name": "ce-test-notifications",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/ce-test-main/ce-test-orders-api",
@@ -225,6 +225,27 @@
       "flow": "sync"
     },
     {
+      "id": "sns/ce-test-alerts",
+      "type": "sns.topic",
+      "name": "ce-test-alerts",
+      "flow": "entrypoint",
+      "triggers": [
+        "cloudwatch.amazonaws.com may publish to it (topic policy)"
+      ]
+    },
+    {
+      "id": "sns/ce-test-notifications.fifo",
+      "type": "sns.topic",
+      "name": "ce-test-notifications.fifo",
+      "flow": "async"
+    },
+    {
+      "id": "sns/ce-test-orders-topic",
+      "type": "sns.topic",
+      "name": "ce-test-orders-topic",
+      "flow": "async"
+    },
+    {
       "id": "sqs/ce-test-inbox",
       "type": "sqs.queue",
       "name": "ce-test-inbox",
@@ -234,7 +255,7 @@
       "id": "sqs/ce-test-notifications.fifo",
       "type": "sqs.queue",
       "name": "ce-test-notifications.fifo",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "sqs/ce-test-orders",
@@ -759,6 +780,19 @@
       ]
     },
     {
+      "from": "lambda/ce-test-authorizer-fn",
+      "to": "sns/ce-test-orders-topic",
+      "kind": "publish",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-apigw-fn-role tier3-publish",
+          "detail": "role ce-test-apigw-fn-role: Allow sns:Publish on arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic (inline policy tier3-publish)"
+        }
+      ]
+    },
+    {
       "from": "lambda/ce-test-order-processor",
       "to": "cache/ce-test-sessions",
       "kind": "connect",
@@ -866,6 +900,19 @@
           "rule": "iam.policy-resource",
           "source": "iam:GetRolePolicy ce-test-order-processor-role tier3-rds",
           "detail": "role ce-test-order-processor-role: Allow rds-data:ExecuteStatement on arn:aws:rds:us-east-2:123456789012:cluster:ce-test-db (inline policy tier3-rds)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-order-processor",
+      "to": "sns/ce-test-alerts",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-order-processor env ALERTS_TOPIC",
+          "detail": "ALERTS_TOPIC = \"ce-test-alerts\", the name of sns/ce-test-alerts — the key names a topic"
         }
       ]
     },
@@ -979,6 +1026,24 @@
       ]
     },
     {
+      "from": "lambda/ce-test-orders-fn",
+      "to": "sns/ce-test-orders-topic",
+      "kind": "publish",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-orders-fn env ORDERS_TOPIC_ARN",
+          "detail": "ORDERS_TOPIC_ARN holds the ARN of sns/ce-test-orders-topic"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-apigw-fn-role tier3-publish",
+          "detail": "role ce-test-apigw-fn-role: Allow sns:Publish on arn:aws:sns:us-east-2:123456789012:ce-test-orders-topic (inline policy tier3-publish)"
+        }
+      ]
+    },
+    {
       "from": "lambda/ce-test-webhook-receiver",
       "to": "cache/cluster/ce-test-memo",
       "kind": "connect",
@@ -1001,6 +1066,32 @@
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions ce-test-webhook-receiver env LEGACY_DB_URL",
           "detail": "LEGACY_DB_URL connects to rds/ce-test-legacy-db (its endpoint)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-webhook-receiver",
+      "to": "sns/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-webhook-receiver env NOTIFY_TOPIC",
+          "detail": "NOTIFY_TOPIC = \"ce-test-notifications.fifo\", the name of sns/ce-test-notifications.fifo — the key names a topic"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-webhook-receiver",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-webhook-receiver env NOTIFY_TOPIC",
+          "detail": "NOTIFY_TOPIC = \"ce-test-notifications.fifo\", the name of sqs/ce-test-notifications.fifo — a candidate only: the key names a topic"
         }
       ]
     },
@@ -1037,6 +1128,92 @@
           "rule": "lambda.dead-letter",
           "source": "lambda:ListFunctions ce-test-webhook-receiver",
           "detail": "DeadLetterConfig: failed asynchronous invocations go to ce-test-orders-events-dlq"
+        }
+      ]
+    },
+    {
+      "from": "sns/ce-test-notifications.fifo",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic ce-test-notifications.fifo sqs",
+          "detail": "delivers to sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "sqs.resource-policy",
+          "source": "sqs:GetQueueAttributes ce-test-notifications.fifo Policy sns-ce-test-notifications-fifo",
+          "detail": "its policy lets sns/ce-test-notifications.fifo send to it"
+        }
+      ]
+    },
+    {
+      "from": "sns/ce-test-orders-topic",
+      "to": "elb/ce-test-web",
+      "kind": "publish",
+      "confidence": "certain",
+      "status": "disabled",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic ce-test-orders-topic https",
+          "detail": "delivers over HTTP to elb/ce-test-web — pending confirmation: nothing is delivered until the endpoint confirms"
+        }
+      ]
+    },
+    {
+      "from": "sns/ce-test-orders-topic",
+      "to": "lambda/ce-test-audit-writer",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy ce-test-audit-writer sns-ce-test-orders-topic",
+          "detail": "its policy lets sns/ce-test-orders-topic invoke it"
+        },
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic ce-test-orders-topic lambda",
+          "detail": "delivers to lambda/ce-test-audit-writer"
+        }
+      ]
+    },
+    {
+      "from": "sns/ce-test-orders-topic",
+      "to": "sqs/ce-test-orders-events",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic ce-test-orders-topic sqs",
+          "detail": "delivers to sqs/ce-test-orders-events (filter policy on MessageAttributes)"
+        },
+        {
+          "rule": "sqs.resource-policy",
+          "source": "sqs:GetQueueAttributes ce-test-orders-events Policy sns-ce-test-orders-topic",
+          "detail": "its policy lets sns/ce-test-orders-topic send to it"
+        }
+      ]
+    },
+    {
+      "from": "sns/ce-test-orders-topic",
+      "to": "sqs/ce-test-orders-events-dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic ce-test-orders-topic lambda",
+          "detail": "messages it cannot deliver to lambda/ce-test-audit-writer go to sqs/ce-test-orders-events-dlq"
+        },
+        {
+          "rule": "sqs.resource-policy",
+          "source": "sqs:GetQueueAttributes ce-test-orders-events-dlq Policy sns-ce-test-orders-topic",
+          "detail": "its policy lets sns/ce-test-orders-topic send to it"
         }
       ]
     },
@@ -1551,14 +1728,14 @@
       "node": "ecs/ce-test-main/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DB_HOST names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
+      "detail": "DATABASE_URL names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "unresolved",
       "node": "ecs/ce-test-main/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
+      "detail": "DB_HOST names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "ambiguous",
@@ -1603,6 +1780,13 @@
       "detail": "TABLE_NAME = \"ce-test-orders\" names ddb/ce-test-orders and sqs/ce-test-orders; the key points at ddb/ce-test-orders (medium); the others are low-confidence candidates"
     },
     {
+      "kind": "unpermitted",
+      "node": "lambda/ce-test-order-processor",
+      "target": "sns/ce-test-alerts",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sns/ce-test-alerts, but its role ce-test-order-processor-role grants no sns action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
       "kind": "unresolved",
       "node": "lambda/ce-test-orders-fn",
       "target": "arn:aws:sqs:us-east-2:999999999999:ce-test-orders-events",
@@ -1617,6 +1801,13 @@
       "detail": "its configuration names ddb/ce-test-orders-audit, but its role ce-test-apigw-fn-role grants no dynamodb action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
     },
     {
+      "kind": "ambiguous",
+      "node": "lambda/ce-test-webhook-receiver",
+      "target": "ce-test-notifications.fifo",
+      "rule": "config.value-scan",
+      "detail": "NOTIFY_TOPIC = \"ce-test-notifications.fifo\" names sns/ce-test-notifications.fifo and sqs/ce-test-notifications.fifo; the key points at sns/ce-test-notifications.fifo (medium); the others are low-confidence candidates"
+    },
+    {
       "kind": "unresolved",
       "node": "lambda/ce-test-webhook-receiver",
       "target": "ce-test-web-0000000000.us-east-2.elb.amazonaws.com",
@@ -1629,6 +1820,34 @@
       "target": "ddb/ce-test-orders",
       "rule": "iam.policy-resource",
       "detail": "its role allows dynamodb:PutItem on it (inline policy tier3-write), but an explicit Deny in inline policy enqueue cancels it: no edge"
+    },
+    {
+      "kind": "stale-permission",
+      "node": "lambda/ce-test-webhook-receiver",
+      "target": "sns/ce-test-alerts",
+      "rule": "lambda.resource-policy",
+      "detail": "its policy lets sns/ce-test-alerts invoke it, but no subscription of that topic delivers here"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "lambda/ce-test-webhook-receiver",
+      "target": "sns/ce-test-notifications.fifo",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sns/ce-test-notifications.fifo, but its role ce-test-webhook-receiver-role grants no sns action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "lambda/ce-test-webhook-receiver",
+      "target": "sqs/ce-test-notifications.fifo",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sqs/ce-test-notifications.fifo, but its role ce-test-webhook-receiver-role grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "blocked",
+      "node": "sns/ce-test-alerts",
+      "target": "sqs/ce-test-inbox",
+      "rule": "sns.subscription",
+      "detail": "subscribed, but the queue has no policy, and SNS may send to a queue only if its policy says so: every delivery fails, no edge"
     }
   ]
 }

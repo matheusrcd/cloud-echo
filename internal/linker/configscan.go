@@ -42,7 +42,7 @@ var (
 // scanner turns configuration values into edges and findings for one link run.
 type scanner struct {
 	c *Context
-	// names maps a table, queue or function name to the nodes carrying it.
+	// names maps a table, queue, function or topic name to the nodes carrying it.
 	// Names repeat across types: a table and a queue called "orders" is an
 	// ordinary account, not a corner case.
 	names map[string][]nameCandidate
@@ -51,7 +51,7 @@ type scanner struct {
 
 type nameCandidate struct{ id, typ string }
 
-var namedTypes = []string{spec.TypeDynamoDBTable, spec.TypeSQSQueue, spec.TypeLambdaFunction}
+var namedTypes = []string{spec.TypeDynamoDBTable, spec.TypeSQSQueue, spec.TypeLambdaFunction, spec.TypeSNSTopic}
 
 func newScanner(c *Context) *scanner {
 	s := &scanner{c: c, names: map[string][]nameCandidate{}, db: newDBIndex(c)}
@@ -106,6 +106,10 @@ func (s *scanner) url(holder string, v configValue, u string) {
 	case scheme == "s3":
 		s.c.Unresolved(holder, "s3://"+host, fmt.Sprintf("%s names an S3 bucket; cloud-echo has no S3 collector", v.Label))
 	case host == "" || scheme == "file":
+	case s.c.elbs().byDNS[strings.TrimPrefix(strings.ToLower(host), "dualstack.")] != "":
+		// A load balancer's exact DNS name, whatever its shape (an emulator's
+		// is not AWS's).
+		s.elbHost(holder, v, strings.ToLower(host))
 	case isAWSHost(host):
 		s.awsHost(holder, v, host, u)
 	case isLocalHost(host):
@@ -264,6 +268,8 @@ func keyHint(key string) string {
 			found[spec.TypeSQSQueue] = true
 		case "FUNCTION", "FUNC", "FN", "LAMBDA":
 			found[spec.TypeLambdaFunction] = true
+		case "TOPIC", "TOPICS", "SNS":
+			found[spec.TypeSNSTopic] = true
 		}
 	}
 	if len(found) != 1 {
@@ -283,6 +289,8 @@ func typeNoun(typ string) string {
 		return "queue"
 	case spec.TypeLambdaFunction:
 		return "function"
+	case spec.TypeSNSTopic:
+		return "topic"
 	}
 	return typ
 }
