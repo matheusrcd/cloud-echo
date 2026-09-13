@@ -15,10 +15,11 @@ var update = flag.Bool("update", false, "rewrite testdata/*/expected-graph.json"
 // TestGolden links every fixture account and compares the result byte for byte.
 //
 // The accounts are complementary: "orders" is what discovery produces from its
-// own fixtures (kept in sync by a test in discovery), "tier1-cases" is written
-// by hand so every rule has a case and a negative case, and "real-m1" is a real
-// account's inventory, sanitized. Regenerate with -update, and read the diff: a
-// changed expected-graph.json is a changed claim about somebody's architecture.
+// own fixtures (kept in sync by a test in discovery), "tier1-cases" and
+// "tier2-cases" are written by hand so every rule and pattern has a case and a
+// negative case, and "real-m1" is a real account's inventory, sanitized.
+// Regenerate with -update, and read the diff: a changed expected-graph.json is a
+// changed claim about somebody's architecture.
 func TestGolden(t *testing.T) {
 	dirs, _ := filepath.Glob(filepath.Join("testdata", "*"))
 	if len(dirs) < 3 {

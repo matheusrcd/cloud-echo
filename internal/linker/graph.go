@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"sort"
+
+	"github.com/matheusrcd/cloud-echo/internal/inventory/spec"
 )
 
 // FormatVersion is bumped when graph.json changes incompatibly.
@@ -30,13 +32,24 @@ const (
 	KindConnect Kind = "connect" // opens a connection (databases, caches)
 	KindPublish Kind = "publish" // hands a message to a queue or topic
 	KindConsume Kind = "consume" // a queue or stream triggers its consumer
+
+	// KindReferences says the source's configuration names the target — and
+	// nothing about what it does with it. A worker holding QUEUE_URL may send
+	// to the queue or poll it; a service holding TABLE_NAME may read or write.
+	// Tier 2 cannot tell, and choosing publish or write would silently pick a
+	// winner. When another tier states the intent for the same pair, the
+	// reference becomes evidence on that edge instead (see absorbReferences).
+	KindReferences Kind = "references"
 )
 
 // Synchronous reports whether the edge keeps the caller waiting. The flow
 // boundary is the first asynchronous edge: a queue, a topic, a stream.
+//
+// A reference is decided by its target, not its kind (Graph.Synchronous):
+// whatever a workload does with a queue, the queue decouples it.
 func (k Kind) Synchronous() bool {
 	switch k {
-	case KindInvoke, KindHTTP, KindRead, KindWrite, KindConnect:
+	case KindInvoke, KindHTTP, KindRead, KindWrite, KindConnect, KindReferences:
 		return true
 	}
 	return false
@@ -116,9 +129,10 @@ type Node struct {
 
 // Finding is something a rule saw but could not turn into an edge, reported
 // rather than dropped: a target outside the inventory, a permission nothing
-// uses. Never an invented node.
+// uses, a name that fits several resources, configuration that could not be
+// read. Never an invented node.
 type Finding struct {
-	Kind   string `json:"kind"` // unresolved | stale-permission
+	Kind   string `json:"kind"` // unresolved | stale-permission | ambiguous | unscanned
 	Node   string `json:"node"`
 	Target string `json:"target"`
 	Rule   string `json:"rule"`
@@ -149,6 +163,17 @@ func (g *Graph) Node(id string) (Node, bool) {
 		return g.Nodes[i], true
 	}
 	return Node{}, false
+}
+
+// Synchronous reports whether an edge keeps its caller waiting. It is the
+// kind's answer, except for a reference, which is synchronous unless it names a
+// queue.
+func (g *Graph) Synchronous(e Edge) bool {
+	if e.Kind == KindReferences {
+		n, _ := g.Node(e.To)
+		return n.Type != spec.TypeSQSQueue
+	}
+	return e.Kind.Synchronous()
 }
 
 // Between returns every edge from one node to another, in any kind.
@@ -240,6 +265,47 @@ func (b *builder) resolveCorroborations() {
 		} else if c.orElse != nil {
 			b.findings = append(b.findings, *c.orElse)
 		}
+	}
+}
+
+// absorbReferences folds a reference into the edges that already say what the
+// source does with the target. "The Lambda's DLQ_URL names the queue" is
+// evidence for the Lambda → DLQ publish edge the dead-letter rule drew, not a
+// second, vaguer edge beside it.
+//
+// Only same-direction edges absorb: a consumer holding its own queue's URL
+// still references it, and folding that into queue → consumer would claim the
+// configuration explains the consumption. Disabled edges do not absorb either,
+// or a live reference would vanish into an edge that carries nothing.
+//
+// A low-confidence reference is a candidate from an ambiguous name, not
+// evidence: attached to an edge it would read as corroboration. When a typed
+// edge exists it is dropped; the ambiguous finding still records it.
+func (b *builder) absorbReferences() {
+	type pair struct{ from, to string }
+	typedBetween := map[pair][]*Edge{}
+	for k, e := range b.edges {
+		if k.kind != KindReferences && e.Status != Disabled {
+			typedBetween[pair{k.from, k.to}] = append(typedBetween[pair{k.from, k.to}], e)
+		}
+	}
+	for k, ref := range b.edges {
+		if k.kind != KindReferences {
+			continue
+		}
+		typed := typedBetween[pair{k.from, k.to}]
+		if len(typed) == 0 {
+			continue
+		}
+		if ref.Confidence != Low {
+			for _, e := range typed {
+				if confidenceRank[ref.Confidence] > confidenceRank[e.Confidence] {
+					e.Confidence = ref.Confidence
+				}
+				e.Evidence = append(e.Evidence, ref.Evidence...)
+			}
+		}
+		delete(b.edges, k)
 	}
 }
 

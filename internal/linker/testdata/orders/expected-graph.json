@@ -46,13 +46,13 @@
       "id": "ddb/orders",
       "type": "dynamodb.table",
       "name": "orders",
-      "flow": "unreached"
+      "flow": "sync"
     },
     {
       "id": "ddb/orders-audit",
       "type": "dynamodb.table",
       "name": "orders-audit",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ecs/batch/orders-api",
@@ -83,10 +83,17 @@
       "external": true
     },
     {
+      "id": "ext/hooks.slack.com",
+      "type": "external.http",
+      "name": "hooks.slack.com",
+      "flow": "async",
+      "external": true
+    },
+    {
       "id": "lambda/audit-writer",
       "type": "lambda.function",
       "name": "audit-writer",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "lambda/legacy-report",
@@ -98,7 +105,7 @@
       "id": "lambda/order-processor",
       "type": "lambda.function",
       "name": "order-processor",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "lambda/webhook-receiver",
@@ -122,13 +129,13 @@
       "id": "sqs/orders-events",
       "type": "sqs.queue",
       "name": "orders-events",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "sqs/orders-events-dlq",
       "type": "sqs.queue",
       "name": "orders-events-dlq",
-      "flow": "unreached"
+      "flow": "async"
     }
   ],
   "edges": [
@@ -172,6 +179,136 @@
       ]
     },
     {
+      "from": "ecs/batch/orders-api",
+      "to": "ddb/orders",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/batch/orders-api",
+      "to": "ext/api.payments.example.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env PAYMENTS_URL",
+          "detail": "PAYMENTS_URL calls https://api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "ecs/batch/orders-api",
+      "to": "sqs/orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of sqs/orders — a candidate only: the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/batch/orders-api",
+      "to": "sqs/orders-events",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/orders-events"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/notifications",
+      "to": "sqs/notifications",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition notifications:7 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/notifications"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/orders-api",
+      "to": "ddb/orders",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/orders-api",
+      "to": "ext/api.payments.example.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env PAYMENTS_URL",
+          "detail": "PAYMENTS_URL calls https://api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/orders-api",
+      "to": "sqs/orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of sqs/orders — a candidate only: the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/orders-api",
+      "to": "sqs/orders-events",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/orders-events"
+        }
+      ]
+    },
+    {
+      "from": "lambda/audit-writer",
+      "to": "ddb/orders-audit",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions audit-writer env AUDIT_TABLE",
+          "detail": "AUDIT_TABLE = \"orders-audit\", the name of ddb/orders-audit — the key names a table"
+        }
+      ]
+    },
+    {
       "from": "lambda/audit-writer",
       "to": "sqs/orders-events-dlq",
       "kind": "publish",
@@ -181,6 +318,58 @@
           "rule": "lambda.event-source-mapping",
           "source": "lambda:ListEventSourceMappings 0b6f2a3c-2222-4d2e-9f00-000000000002",
           "detail": "records that fail audit-writer go to orders-events-dlq"
+        }
+      ]
+    },
+    {
+      "from": "lambda/order-processor",
+      "to": "ddb/orders",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions order-processor env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "lambda/order-processor",
+      "to": "ext/hooks.slack.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions order-processor env SLACK_WEBHOOK_URL",
+          "detail": "SLACK_WEBHOOK_URL calls https://hooks.slack.com/services/T-FAKE/B-FAKE/REDACTED"
+        }
+      ]
+    },
+    {
+      "from": "lambda/order-processor",
+      "to": "sqs/orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions order-processor env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of sqs/orders — a candidate only: the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "lambda/webhook-receiver",
+      "to": "sqs/orders-events",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions webhook-receiver env ORDERS_QUEUE_URL",
+          "detail": "ORDERS_QUEUE_URL holds the URL of sqs/orders-events"
         }
       ]
     },
@@ -287,6 +476,13 @@
       "node": "apigw/h1t2t3p4a5",
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
+      "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
       "detail": "AWS_PROXY GET /orders/{id} → orders-fn (target is not in the inventory)"
     },
     {
@@ -295,13 +491,6 @@
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
       "detail": "AWS_PROXY POST /orders → orders-fn (target is not in the inventory)"
-    },
-    {
-      "kind": "unresolved",
-      "node": "apigw/h1t2t3p4a5",
-      "target": "lambda/orders-fn",
-      "rule": "apigw.integration",
-      "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
     },
     {
       "kind": "unresolved",
@@ -316,6 +505,69 @@
       "target": "lambda/ws-connect-fn",
       "rule": "apigw.integration",
       "detail": "AWS_PROXY $connect → ws-connect-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "ecs/batch/orders-api",
+      "target": "orders",
+      "rule": "config.value-scan",
+      "detail": "TABLE_NAME = \"orders\" names ddb/orders and sqs/orders; the key points at ddb/orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/batch/orders-api",
+      "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/batch/orders-api",
+      "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/notifications",
+      "target": "sessions.abc123.ng.0001.use1.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "ecs/main/orders-api",
+      "target": "orders",
+      "rule": "config.value-scan",
+      "detail": "TABLE_NAME = \"orders\" names ddb/orders and sqs/orders; the key points at ddb/orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/orders-api",
+      "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/orders-api",
+      "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "unscanned",
+      "node": "lambda/legacy-report",
+      "target": "environment",
+      "rule": "config.value-scan",
+      "detail": "environment variables could not be read (KMSAccessDeniedException): references in them were not scanned"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "lambda/order-processor",
+      "target": "orders",
+      "rule": "config.value-scan",
+      "detail": "TABLE_NAME = \"orders\" names ddb/orders and sqs/orders; the key points at ddb/orders (medium); the others are low-confidence candidates"
     },
     {
       "kind": "stale-permission",

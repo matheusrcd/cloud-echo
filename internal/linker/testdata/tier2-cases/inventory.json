@@ -1,0 +1,619 @@
+{
+  "formatVersion": 1,
+  "scanId": "tier2-cases",
+  "generatedBy": "hand-written",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "scannedAt": "2026-09-13T00:00:00Z",
+  "resources": [
+    {
+      "id": "apigw/api0000009",
+      "type": "apigateway.http",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "front-http",
+      "spec": {
+        "apiId": "api0000009",
+        "name": "front-http",
+        "protocol": "HTTP",
+        "endpointType": "REGIONAL",
+        "endpoint": "https://api0000009.execute-api.us-east-1.amazonaws.com",
+        "routes": [
+          {
+            "routeKey": "GET /front",
+            "method": "GET",
+            "path": "/front",
+            "authorization": "NONE",
+            "integration": {
+              "id": "i1",
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:front-fn/invocations",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:front-fn",
+                "id": "lambda/front-fn"
+              }
+            }
+          },
+          {
+            "routeKey": "GET /t",
+            "method": "GET",
+            "path": "/t",
+            "authorization": "NONE",
+            "integration": {
+              "id": "i2",
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}/invocations",
+              "service": "lambda",
+              "templated": true
+            }
+          }
+        ],
+        "stages": [
+          {
+            "name": "prod",
+            "autoDeploy": true,
+            "variables": {
+              "fn": "templated-fn",
+              "table": "ledger"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "apigw/api0000010",
+      "type": "apigateway.rest",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "reports-rest",
+      "spec": {
+        "apiId": "api0000010",
+        "name": "reports-rest",
+        "protocol": "REST",
+        "endpointType": "REGIONAL",
+        "endpoint": "https://api0000010.execute-api.us-east-1.amazonaws.com",
+        "routes": [
+          {
+            "routeKey": "GET /reports",
+            "method": "GET",
+            "path": "/reports",
+            "authorization": "NONE",
+            "integration": {
+              "type": "MOCK",
+              "service": "mock"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/ledger",
+      "type": "dynamodb.table",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "ledger",
+      "spec": {
+        "tableName": "ledger",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/order-archive",
+      "type": "dynamodb.table",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "order-archive",
+      "spec": {
+        "tableName": "order-archive",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/order-events-store",
+      "type": "dynamodb.table",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "order-events-store",
+      "spec": {
+        "tableName": "order-events-store",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/orders",
+      "type": "dynamodb.table",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders",
+      "spec": {
+        "tableName": "orders",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/api",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "api",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "api:1",
+        "taskDefinitionId": "ecs/taskdef/api:1",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api/abc",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/ghost",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "ghost",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "ghost",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "ghost:1",
+        "taskDefinitionId": "ecs/taskdef/ghost:1"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/worker",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "worker",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "worker",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "worker:1",
+        "taskDefinitionId": "ecs/taskdef/worker:1"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/api:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api:1",
+      "spec": {
+        "family": "api",
+        "revision": 1,
+        "containers": [
+          {
+            "name": "app",
+            "image": "api:1",
+            "essential": true,
+            "env": {
+              "TARGET": "orders",
+              "ARCHIVE": "order-archive",
+              "ORDER_EVENTS_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/order-events",
+              "LEGACY_QUEUE": "https://us-east-1.queue.amazonaws.com/123456789012/legacy-jobs",
+              "DATABASE_URL": "postgres://app:<redacted:url-credentials>@ledger-db.cluster-abc123.us-east-1.rds.amazonaws.com:5432/ledger"
+            },
+            "command": [
+              "node",
+              "server.js",
+              "--events-table",
+              "order-events-store",
+              "--callback=https://hooks.partner.example.com/cb"
+            ],
+            "redacted": [
+              "env:DATABASE_URL"
+            ]
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/worker:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "worker:1",
+      "spec": {
+        "family": "worker",
+        "revision": 1,
+        "containers": [
+          {
+            "name": "app",
+            "image": "worker:1",
+            "essential": true,
+            "env": {
+              "QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/jobs"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/dlq-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "dlq-fn",
+      "spec": {
+        "functionName": "dlq-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/dlq-fn-role",
+        "env": {
+          "DLQ_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/fn-dlq"
+        },
+        "deadLetter": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:fn-dlq",
+          "id": "sqs/fn-dlq"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/m-jobs",
+      "type": "lambda.event-source-mapping",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "m-jobs",
+      "spec": {
+        "uuid": "m-jobs",
+        "state": "Enabled",
+        "enabled": true,
+        "batchSize": 10,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:jobs",
+          "id": "sqs/jobs"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:jobs-worker",
+        "functionId": "lambda/jobs-worker"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/front-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "front-fn",
+      "spec": {
+        "functionName": "front-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/front-fn-role",
+        "env": {
+          "LEDGER_TABLE_ARN": "arn:aws:dynamodb:us-east-1:123456789012:table/ledger",
+          "JOBS_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/jobs",
+          "PARTNER_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/999999999999/jobs",
+          "PAYMENTS_URL": "https://api.partner-pay.example.com/v2/charges",
+          "WEBHOOK_URL": "https://hooks.partner.example.com/cb/<redacted:url-path>",
+          "SECRETS_CACHE_URL": "http://localhost:2773/secretsmanager/get",
+          "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318",
+          "SEARCH_URL": "http://search:9200",
+          "REPORTS_API": "https://api0000010.execute-api.us-east-1.amazonaws.com/prod/reports",
+          "EU_API": "https://zzz0000001.execute-api.eu-west-1.amazonaws.com/prod",
+          "DB_HOST": "ledger-db.cluster-abc123.us-east-1.rds.amazonaws.com",
+          "BROKER_URL": "amqp://mq.vendor.example.net:5671",
+          "CONFIG_URI": "s3://front-config/app.json",
+          "SECRET_ARN": "arn:aws:secretsmanager:us-east-1:123456789012:secret:front/db-AbCdEf",
+          "TABLE_NAME": "orders",
+          "NOTIFY_FUNCTION": "notify-fn",
+          "FUNCTION_NAME": "front-fn",
+          "QUEUE_NAME": "order-events-store",
+          "LOG_LEVEL": "info",
+          "AUTH_TOKEN": "<redacted:key-name>"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/jobs-worker",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "jobs-worker",
+      "spec": {
+        "functionName": "jobs-worker",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/jobs-worker-role",
+        "env": {
+          "JOBS_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/jobs"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/locked-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "locked-fn",
+      "spec": {
+        "functionName": "locked-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/locked-fn-role",
+        "envUnreadable": "KMSAccessDeniedException"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/notify-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "notify-fn",
+      "spec": {
+        "functionName": "notify-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/notify-fn-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/templated-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "templated-fn",
+      "spec": {
+        "functionName": "templated-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/templated-fn-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/fn-dlq",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "fn-dlq",
+      "spec": {
+        "queueName": "fn-dlq",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/fn-dlq",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/info",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "info",
+      "spec": {
+        "queueName": "info",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/info",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/jobs",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "jobs",
+      "spec": {
+        "queueName": "jobs",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/jobs",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/legacy-jobs",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "legacy-jobs",
+      "spec": {
+        "queueName": "legacy-jobs",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/legacy-jobs",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/order-archive",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "order-archive",
+      "spec": {
+        "queueName": "order-archive",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/order-archive",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/order-events",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "order-events",
+      "spec": {
+        "queueName": "order-events",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/order-events",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/orders",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders",
+      "spec": {
+        "queueName": "orders",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/orders",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    }
+  ]
+}

@@ -1778,6 +1778,11 @@
         "timeoutSec": 3,
         "roleArn": "arn:aws:iam::123456789012:role/ce-test-apigw-fn-role",
         "roleId": "iam/role/ce-test-apigw-fn-role",
+        "env": {
+          "AUDIT_TABLE_ARN": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders-audit",
+          "PARTNER_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/999999999999/ce-test-orders-events",
+          "PUBLIC_API_URL": "https://fakeapi0001.execute-api.us-east-2.amazonaws.com/prod"
+        },
         "logGroup": "/aws/lambda/ce-test-orders-fn",
         "resourcePolicy": {
           "Version": "2012-10-17",

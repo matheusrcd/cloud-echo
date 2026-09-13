@@ -28,13 +28,13 @@
       "id": "ddb/ce-test-orders",
       "type": "dynamodb.table",
       "name": "ce-test-orders",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "ddb/ce-test-orders-audit",
       "type": "dynamodb.table",
       "name": "ce-test-orders-audit",
-      "flow": "unreached"
+      "flow": "sync"
     },
     {
       "id": "ecs/ce-test-batch/ce-test-orders-api",
@@ -128,10 +128,17 @@
       "external": true
     },
     {
+      "id": "ext/hooks.slack.com",
+      "type": "external.http",
+      "name": "hooks.slack.com",
+      "flow": "async",
+      "external": true
+    },
+    {
       "id": "lambda/ce-test-audit-writer",
       "type": "lambda.function",
       "name": "ce-test-audit-writer",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "lambda/ce-test-authorizer-fn",
@@ -149,7 +156,7 @@
       "id": "lambda/ce-test-order-processor",
       "type": "lambda.function",
       "name": "ce-test-order-processor",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "lambda/ce-test-orders-fn",
@@ -188,7 +195,7 @@
       "id": "sqs/ce-test-orders-events",
       "type": "sqs.queue",
       "name": "ce-test-orders-events",
-      "flow": "unreached"
+      "flow": "async"
     },
     {
       "id": "sqs/ce-test-orders-events-dlq",
@@ -226,6 +233,11 @@
           "rule": "apigw.integration",
           "source": "apigatewayv2:GetIntegrations fakeapi0001 int0002 (route POST /orders)",
           "detail": "AWS_PROXY POST /orders → ce-test-orders-fn"
+        },
+        {
+          "rule": "config.value-scan",
+          "source": "apigatewayv2:GetStages fakeapi0001 stage prod variable backend",
+          "detail": "stage variable backend = \"ce-test-orders-fn\", the name of lambda/ce-test-orders-fn"
         },
         {
           "rule": "lambda.resource-policy",
@@ -295,6 +307,11 @@
           "detail": "AWS_PROXY GET /orders/{id} → ce-test-orders-fn:live"
         },
         {
+          "rule": "config.value-scan",
+          "source": "apigateway:GetStages fakeapi0002 stage prod variable backend",
+          "detail": "stage variable backend = \"ce-test-orders-fn\", the name of lambda/ce-test-orders-fn"
+        },
+        {
           "rule": "lambda.resource-policy",
           "source": "lambda:GetPolicy ce-test-orders-fn apigw-rest-fakeapi0002",
           "detail": "resource policy lets API fakeapi0002 invoke it"
@@ -328,6 +345,279 @@
       ]
     },
     {
+      "from": "ecs/ce-test-batch/ce-test-orders-api",
+      "to": "ddb/ce-test-orders",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-batch/ce-test-orders-api",
+      "to": "ext/api.payments.example.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env PAYMENTS_URL",
+          "detail": "PAYMENTS_URL calls https://api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-batch/ce-test-orders-api",
+      "to": "sqs/ce-test-orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of sqs/ce-test-orders — a candidate only: the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-batch/ce-test-orders-api",
+      "to": "sqs/ce-test-orders-events",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-orders-events"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-01",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-02",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-03",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-04",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-05",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-06",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-07",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-08",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-09",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-10",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-filler-11",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-notifications",
+      "to": "sqs/ce-test-notifications.fifo",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-orders-api",
+      "to": "ddb/ce-test-orders",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-orders-api",
+      "to": "ext/api.payments.example.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env PAYMENTS_URL",
+          "detail": "PAYMENTS_URL calls https://api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-orders-api",
+      "to": "sqs/ce-test-orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of sqs/ce-test-orders — a candidate only: the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-orders-api",
+      "to": "sqs/ce-test-orders-events",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-orders-events"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-audit-writer",
+      "to": "ddb/ce-test-orders-audit",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-audit-writer env AUDIT_TABLE",
+          "detail": "AUDIT_TABLE = \"ce-test-orders-audit\", the name of ddb/ce-test-orders-audit — the key names a table"
+        }
+      ]
+    },
+    {
       "from": "lambda/ce-test-audit-writer",
       "to": "sqs/ce-test-orders-events-dlq",
       "kind": "publish",
@@ -337,6 +627,84 @@
           "rule": "lambda.event-source-mapping",
           "source": "lambda:ListEventSourceMappings 00000000-0000-4000-8000-000000000002",
           "detail": "records that fail ce-test-audit-writer go to ce-test-orders-events-dlq"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-order-processor",
+      "to": "ddb/ce-test-orders",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-order-processor env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-order-processor",
+      "to": "ext/hooks.slack.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-order-processor env SLACK_WEBHOOK_URL",
+          "detail": "SLACK_WEBHOOK_URL calls https://hooks.slack.com/services/T-FAKE/B-FAKE/REDACTED"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-order-processor",
+      "to": "sqs/ce-test-orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-order-processor env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of sqs/ce-test-orders — a candidate only: the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-orders-fn",
+      "to": "apigw/fakeapi0001",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-orders-fn env PUBLIC_API_URL",
+          "detail": "PUBLIC_API_URL holds the invoke URL of apigw/fakeapi0001"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-orders-fn",
+      "to": "ddb/ce-test-orders-audit",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-orders-fn env AUDIT_TABLE_ARN",
+          "detail": "AUDIT_TABLE_ARN holds the ARN of ddb/ce-test-orders-audit"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-webhook-receiver",
+      "to": "sqs/ce-test-orders-events",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-webhook-receiver env ORDERS_QUEUE_URL",
+          "detail": "ORDERS_QUEUE_URL holds the URL of sqs/ce-test-orders-events"
         }
       ]
     },
@@ -392,6 +760,155 @@
           "detail": "RedrivePolicy: after 5 receives a message moves to ce-test-orders-events-dlq"
         }
       ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-batch/ce-test-orders-api",
+      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-batch/ce-test-orders-api",
+      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "ecs/ce-test-batch/ce-test-orders-api",
+      "target": "ce-test-orders",
+      "rule": "config.value-scan",
+      "detail": "TABLE_NAME = \"ce-test-orders\" names ddb/ce-test-orders and sqs/ce-test-orders; the key points at ddb/ce-test-orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-01",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-02",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-03",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-04",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-05",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-06",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-07",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-08",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-09",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-10",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-filler-11",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-notifications",
+      "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-orders-api",
+      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-orders-api",
+      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "ecs/ce-test-main/ce-test-orders-api",
+      "target": "ce-test-orders",
+      "rule": "config.value-scan",
+      "detail": "TABLE_NAME = \"ce-test-orders\" names ddb/ce-test-orders and sqs/ce-test-orders; the key points at ddb/ce-test-orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/ce-test-order-processor",
+      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "lambda/ce-test-order-processor",
+      "target": "ce-test-orders",
+      "rule": "config.value-scan",
+      "detail": "TABLE_NAME = \"ce-test-orders\" names ddb/ce-test-orders and sqs/ce-test-orders; the key points at ddb/ce-test-orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/ce-test-orders-fn",
+      "target": "arn:aws:sqs:us-east-2:999999999999:ce-test-orders-events",
+      "rule": "config.value-scan",
+      "detail": "PARTNER_QUEUE_URL: target is in account 999999999999, outside this scan"
     }
   ]
 }

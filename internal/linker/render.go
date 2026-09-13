@@ -14,8 +14,8 @@ var flowNote = map[Flow]string{
 	Sync:       "on a synchronous path from an entrypoint — the request path",
 	Async:      "reached only across a queue or stream — runs beside the request path",
 	Scheduled:  "reached only from a schedule",
-	Unreached: "no path from an entrypoint was found. Tier 1 reads only declared relationships, " +
-		"so a producer that writes through the SDK is not visible yet — this is not a verdict that the resource is unused",
+	Unreached: "no path from an entrypoint was found. The linker reads declared relationships and configuration, " +
+		"not IAM yet, so a producer that finds its target any other way is not visible — this is not a verdict that the resource is unused",
 }
 
 // WriteText renders the graph for a terminal: nodes grouped by flow, each with
@@ -51,19 +51,60 @@ func WriteText(w io.Writer, g *Graph) {
 				fmt.Fprintf(w, "      ↳ %s\n", t)
 			}
 			for _, e := range out[n.ID] {
-				fmt.Fprintf(w, "      ─%s→ %s  %s%s\n", e.Kind, e.To, e.Confidence, statusSuffix(e.Status))
+				fmt.Fprintf(w, "      ─%s→ %s  %s%s%s\n", e.Kind, e.To, e.Confidence, statusSuffix(e.Status), candidateSuffix(e))
 			}
 		}
 	}
 
-	if len(g.Findings) > 0 {
-		fmt.Fprintf(w, "\nFINDINGS (%d)\n", len(g.Findings))
-		for _, f := range g.Findings {
-			fmt.Fprintf(w, "  [%s] %s — %s\n", f.Kind, f.Node, f.Detail)
-		}
-	}
+	writeFindings(w, g.Findings)
 	for _, warn := range g.Warnings {
 		fmt.Fprintf(w, "warning: %s\n", warn)
+	}
+}
+
+// candidateSuffix marks a low-confidence edge for what it is: a suggestion,
+// followed by nothing and never planned unless the user accepts it.
+func candidateSuffix(e Edge) string {
+	if e.Confidence == Low {
+		return "  (candidate)"
+	}
+	return ""
+}
+
+// writeFindings groups findings that say the same thing about the same target:
+// twelve services sharing one task definition are one ElastiCache endpoint the
+// linker could not resolve, not twelve problems. graph.json keeps every one.
+func writeFindings(w io.Writer, findings []Finding) {
+	if len(findings) == 0 {
+		return
+	}
+	type key struct{ kind, target, detail string }
+	var order []key
+	nodes := map[key][]string{}
+	for _, f := range findings {
+		k := key{f.Kind, f.Target, f.Detail}
+		if _, ok := nodes[k]; !ok {
+			order = append(order, k)
+		}
+		nodes[k] = append(nodes[k], f.Node)
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if order[i].kind != order[j].kind {
+			return order[i].kind < order[j].kind
+		}
+		return order[i].target < order[j].target
+	})
+	fmt.Fprintf(w, "\nFINDINGS (%d)\n", len(findings))
+	for _, k := range order {
+		ns := nodes[k]
+		from := strings.Join(ns, ", ")
+		if len(ns) > 4 {
+			from = fmt.Sprintf("%s and %d more", strings.Join(ns[:3], ", "), len(ns)-3)
+		}
+		fmt.Fprintf(w, "  [%s] %s — %s\n", k.kind, from, k.detail)
+		if k.target != "" && !strings.Contains(k.detail, k.target) {
+			fmt.Fprintf(w, "      target: %s\n", k.target)
+		}
 	}
 }
 
@@ -149,8 +190,11 @@ func WriteMermaid(w io.Writer, g *Graph) {
 	}
 	for _, e := range g.Edges {
 		label := string(e.Kind)
+		if e.Confidence == Medium || e.Confidence == Low {
+			label += ", " + string(e.Confidence)
+		}
 		arrow := "-->"
-		if !e.Kind.Synchronous() {
+		if !g.Synchronous(e) {
 			arrow = "-.->"
 		}
 		switch e.Status {
