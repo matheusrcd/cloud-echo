@@ -412,6 +412,83 @@ table and a queue, the real account's exact shape, was missing. Both are in
 `tier2-cases` now. A third "survivor" was a mutant that did not compile; the
 harness checks that first.
 
+## Linker round (Tier 3)
+
+**Date:** 2026-09-13 (fifth round) · What each workload's IAM role permits. The
+same topology, plus four inline policies from
+[`13-aws-iam-tier3.sh`](../../spikes/m1/13-aws-iam-tier3.sh) that give the roles
+already there something to cancel, widen or read the other way: an
+`InvokeFunction` the permissions boundary does not allow, a `PutItem` the explicit
+`Deny` cancels, a receive-only grant for the notifications worker (Q17), and
+`GetItem` on `table/ce-test-orders*`, a pattern matching two tables.
+
+Ten requirements in [03-linker.md](../03-linker.md#tier-3--iam-policy-analysis--medium--low-high-when-tier-2-agrees-)
+changed before any code. The one that shaped the rest: **a permission is not a
+use** — the reason Tier 1 keeps Lambda resource policies to corroboration applies
+to identity policies just as much — so a role alone is `medium` at most, and
+`high` means two independent sources agree. The one the real account would have
+exposed first: **a permission must never change an edge's state** — the role
+behind the disabled `ce-test-orders` mapping can still receive, and edges merged
+by "most active status" would have re-enabled it.
+
+| Check | Result |
+| --- | --- |
+| Real account, Tiers 1–2 | 32 nodes, 40 edges — 23 of them `references`; 20 `high`, 4 `medium` |
+| Real account, Tiers 1–3 | 32 nodes, **44 edges — 4 `references`**; 26 `high`, 1 `medium`; flows unchanged |
+| New findings | 12 `broad-access`, 3 `blocked`, 3 `unpermitted`, 1 `unscanned` |
+| Expected edges, flows and findings ([`check-graph.py`](../../spikes/m1/check-graph.py), Tier-3 checks written before looking) | **68 / 68** after one correction to the checker (below) |
+| Same checker against the sanitized fixture | **68 / 68** |
+| Inventory and API Gateway checkers, re-run | **46 / 46**, **29 / 29** after fixing stale checks (below) |
+| Mutations of the Tier-3 decisions | **23 / 23** killed by named tests; Tier 2's **17 / 17** still killed |
+
+What Tier 3 did on the real account:
+
+- **It settled the planted ambiguity.** Both `orders-api` services now *read and
+  write* the table `ce-test-orders` at `high` — `TABLE_NAME` and the role's
+  `GetItem`/`PutItem` agree — and the queue of the same name, still a `low`
+  candidate, carries an `unpermitted` finding: the role cannot touch it.
+- **It found a misconfiguration nobody planted on purpose.** The Tier-2 round set
+  `AUDIT_TABLE_ARN` on `orders-fn` without granting its role anything on that
+  table. `unpermitted` names it.
+- **It gave the Tier-2 references their verbs.** `QUEUE_URL` became `publish`
+  (the role may send), `ORDERS_QUEUE_URL` on `webhook-receiver` too, and
+  `AUDIT_TABLE` became `write`. Twelve notification workers' `QUEUE_URL` folded
+  into `notifications.fifo → worker` (`consume`, `high`): their role only
+  receives from it — Q17, closed.
+- **It drew nothing from `AmazonSQSFullAccess`.** `sqs:*` on `*` is one
+  `broad-access` finding per worker, grouped as one line in the text output,
+  and no edges.
+- **Both cancellations are explained.** No `orders-api → orders-fn` edge, and a
+  `blocked` finding naming the boundary; no `webhook-receiver → ce-test-orders`
+  write, and one naming the `Deny`.
+- **The disabled mapping stayed disabled**, with the role's `ReceiveMessage` added
+  as evidence.
+- **It changed no flow.** Every node reached before is reached the same way; the
+  unreached ones are services with no load balancer and what only they reach.
+  Tier 3 is about what edges mean here, not whether they exist.
+
+**The failing check was the checker's.** `table/ce-test-orders*` makes both
+reads `low`, and the checker expected two. But `TABLE_NAME` names one of the
+pattern's matches, and a reference folds into every same-direction edge: the
+table the configuration picks is `medium`, the one it does not stays `low` —
+`--explain` showed it, and the design says so.
+
+**Stale checks, not new defects.** Re-running every checker, as the rounds
+before had not, surfaced three failures in `check-inventory.py` and
+`check-apigw.py` that predate this round: hardcoded task-definition revisions
+(AWS never reuses one, so the recreated topology runs `:3`), a hardcoded count of
+five roles (the API Gateway round added two), and "no warnings" in the API
+Gateway checker, written with the M1 topology torn down. Each now asserts what
+it meant: revisions derived from the services, every collected role assumed by
+something, no API Gateway warnings.
+
+**Mutation testing earned its keep again.** Of the first run's survivors, two
+were mutants that did not compile — the harness says so rather than counting a
+pass — and one was real: the `unpermitted` check tested "is the service reached
+by a broad grant" and "is the target permitted", and the first can never decide
+anything, because a broad grant already permits every target it reaches. It was
+removed.
+
 ## Reproducing
 
 ```bash
@@ -424,6 +501,7 @@ python3 check-inventory.py .work/inventory-aws.json
 ./21-scan-as.sh ce-test-scanner .work/inventory-least.json
 python3 diff-inventory.py .work/inventory-aws.json .work/inventory-least.json
 ./12-aws-apigw-create.sh     # API Gateway topology, and the Tier-2 values on orders-fn
+./13-aws-iam-tier3.sh        # Tier-3 grants to cancel, widen and read the other way
 python3 check-apigw.py .work/inventory-aws.json
 ./22-probe-scope.sh          # the policy cannot read API key values
 ./.work/cloud-echo graph --inventory .work/inventory-aws.json --out .work/graph-aws.json --format json >/dev/null
