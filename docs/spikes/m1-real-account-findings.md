@@ -204,6 +204,89 @@ None of it touches the graph, which is built from the AWS inventory; all of it
 means a local SQS direct integration will not work as in AWS, and that a scan of
 Floci cannot verify what was built.
 
+## Linker round (Tier 1)
+
+**Date:** 2026-09-13 (third round) · The first linker tier — relationships the
+account declares — and flow classification, run on the real account with both
+earlier topologies up at once.
+
+Seven requirements in [03-linker.md](../03-linker.md) changed before any code,
+each recorded there with its reason: edge direction defined as causality; nodes
+defined (task definitions, roles and clusters are configuration, not nodes);
+nothing invented for targets outside the inventory; ids derived from ARNs trusted
+only in the scanned account and region; a resource policy corroborates and never
+creates an edge; entrypoints are anything with an external trigger, not "no
+inbound edges"; and flow is order-free, with **sync taking precedence** and
+**unreached replacing orphan**.
+
+| Check | Result |
+| --- | --- |
+| Real account: scan → graph | 48 resources → 30 nodes, 13 edges, 0 findings, no warnings |
+| Expected edges and flows ([`check-graph.py`](../../spikes/m1/check-graph.py), written before looking at the output) | **26 / 26** |
+| Same checker against the sanitized fixture | **26 / 26** — sanitizing kept the meaning |
+| Mutations of the linker's semantic decisions | **7 / 7** caught by named tests |
+
+The real graph, as `cloud-echo graph --format mermaid` draws it (17 nodes
+with no edge at all — mostly idle ECS services — left out here):
+
+```mermaid
+flowchart LR
+  n0["apigw/fakeapi0001<br/>ce-test-orders-http"]:::entrypoint
+  n1["apigw/fakeapi0002<br/>ce-test-orders-rest"]:::entrypoint
+  n2[("ddb/ce-test-orders")]:::unreached
+  n18(["ext/api.payments.example.com"]):::external
+  n19["lambda/ce-test-audit-writer"]:::unreached
+  n20["lambda/ce-test-authorizer-fn"]:::sync
+  n22["lambda/ce-test-order-processor"]:::unreached
+  n23["lambda/ce-test-orders-fn"]:::sync
+  n24["lambda/ce-test-webhook-receiver"]:::entrypoint
+  n25[/"sqs/ce-test-inbox"/]:::async
+  n27[/"sqs/ce-test-orders"/]:::unreached
+  n28[/"sqs/ce-test-orders-events"/]:::unreached
+  n29[/"sqs/ce-test-orders-events-dlq"/]:::async
+  n0 -->|http| n18
+  n0 -->|invoke| n23
+  n0 -.->|publish| n25
+  n1 -->|http| n18
+  n1 -->|invoke| n20
+  n1 -->|invoke| n23
+  n1 -.->|publish| n25
+  n2 -.->|consume| n19
+  n19 -.->|publish| n29
+  n24 -.->|publish| n29
+  n27 -.-x|consume, disabled| n22
+  n28 -.->|consume| n22
+  n28 -.->|publish| n29
+  classDef async fill:#fff8e1,stroke:#f9a825
+  classDef entrypoint fill:#e3f2fd,stroke:#1565c0
+  classDef external fill:#fce4ec,stroke:#ad1457
+  classDef scheduled fill:#f3e5f5,stroke:#6a1b9a
+  classDef sync fill:#e8f5e9,stroke:#2e7d32
+  classDef unreached fill:#f5f5f5,stroke:#9e9e9e,color:#616161
+```
+
+Things worth reading in it:
+
+- `REST → orders-fn` carries **two independent pieces of evidence**: the route's
+  integration and the function's resource policy.
+- `webhook-receiver` is an **entrypoint** because its resource policy names an API
+  that is not in the inventory — a caller from outside the graph.
+- The `orders-events → order-processor` pipeline is **unreached**, and alive: the
+  service that publishes to the queue does so through the SDK, which only Tier 2
+  and Tier 3 will see. That is the case "orphan" would have misreported as dead.
+
+**Incident worth recording.** The first graph run failed 12 of 26 checks: the API
+Gateway topology had been torn down between rounds. The checker, written from
+what the scripts build, failed loudly on missing nodes instead of passing on a
+partial account. Recreated and re-run: 26/26.
+
+**Third golden account.** The real inventory, sanitized by
+[`sanitize-inventory.py`](../../spikes/m1/sanitize-inventory.py) — Raw dropped,
+the account id and 15 account-specific identifiers replaced with stable fakes,
+resources outside the test topology removed — is now `internal/linker/testdata/real-m1`.
+The script refuses to write if any original identifier survives, and an
+independent grep confirmed none did.
+
 ## Reproducing
 
 ```bash
@@ -218,6 +301,8 @@ python3 diff-inventory.py .work/inventory-aws.json .work/inventory-least.json
 ./12-aws-apigw-create.sh     # API Gateway topology
 python3 check-apigw.py .work/inventory-aws.json
 ./22-probe-scope.sh          # the policy cannot read API key values
+./.work/cloud-echo graph --inventory .work/inventory-aws.json --out .work/graph-aws.json --format json >/dev/null
+python3 check-graph.py .work/graph-aws.json
 ./30-floci-roundtrip.sh      # seed Floci, scan it, compare
 python3 group-diff.py .work/inventory-aws.json .work/inventory-floci.json
 ./90-aws-teardown.sh         # lists, asks, then removes every ce-test- resource

@@ -33,9 +33,10 @@ anything reaches disk. It has been validated against a real account — with onl
 the shipped policy, and through a round trip into Floci:
 [m1-real-account-findings.md](spikes/m1-real-account-findings.md).
 
-Next: **the linker**, tiers 1–3 against the `orders` fixture account. It is the
-part that decides whether the whole premise holds, and it is still unwritten —
-everything so far is the safe half of M1. See [08-roadmap.md](08-roadmap.md).
+**The linker has started**: Tier 1 (relationships the account declares) and flow
+classification, validated against a real account. Next are Tier 2 (config values)
+and Tier 3 (IAM), which is where inference — and the risk of a graph nobody
+believes — really begins. See [08-roadmap.md](08-roadmap.md).
 
 ## Conventions
 

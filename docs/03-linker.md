@@ -8,9 +8,10 @@ This is the component the project lives or dies by. Emulation is a solved proble
 ```go
 type Edge struct {
     From       string      // resource id
-    To         string      // resource id, or "ext/<slug>" for something outside the account
+    To         string      // resource id, or "ext/<host>" for something outside the account
     Kind       EdgeKind    // invoke | publish | consume | read | write | connect | http
     Confidence Confidence  // certain | high | medium | low
+    Status     Status      // "" (active) | unsettled | disabled
     Evidence   []Evidence  // never empty
 }
 
@@ -20,6 +21,25 @@ type Evidence struct {
     Detail string  // "Allow dynamodb:PutItem on arn:aws:dynamodb:...:table/orders"
 }
 ```
+
+**Edges point in the direction of causality**: from the side that acts to the side
+that is acted on or triggered. A service that writes a table points at the table;
+a queue that triggers a function through an event source mapping points at the
+function. (The first draft never said, which leaves every rule author to pick.)
+The planner's slice-from-seed must therefore walk edges both ways — a consumer
+needs its source — see [Q16](09-open-questions.md).
+
+**What is a node.** Things that run or hold data: ECS services, Lambda functions,
+queues, tables, APIs, and `ext/<host>` for third parties. Task definitions,
+roles, policies and clusters are configuration and identity: rules read them
+*through* the node that uses them, and they are not nodes themselves.
+
+**Nothing is invented.** A target outside the inventory — another account,
+another region, a service without a collector — becomes a `finding`
+(`unresolved`), never a node. Ids are derived from names and names repeat across
+accounts, so an id derived from an ARN is only trusted when the ARN's account and
+region match the scan; otherwise a DLQ in another account would link to a local
+queue with the same name, silently. `tier1-cases` pins exactly that trap.
 
 **An edge without evidence is a bug.** The UI shows evidence on hover; the CLI
 shows it in `graph --explain`. Users must be able to audit an inference, because
@@ -39,23 +59,41 @@ never auto-included.**
 
 The account literally states the relationship. No inference.
 
+Implemented rules (M1) are marked ✅; the rest need a collector that does not
+exist yet.
+
 | Rule | Source | Produces |
 | --- | --- | --- |
-| `lambda.event-source-mapping` | `ListEventSourceMappings` | SQS/DynamoDB Stream/Kinesis/MSK → Lambda (`consume`) |
+| `lambda.event-source-mapping` ✅ | `ListEventSourceMappings` | SQS/DynamoDB Stream → Lambda (`consume`, status from the mapping state); on-failure destination (`publish`). Kinesis/MSK sources are reported unresolved |
+| `lambda.dead-letter` ✅ | `DeadLetterConfig` | Lambda → SQS (`publish`) |
+| `apigw.entrypoint` ✅ | every API | the API is an entrypoint (trigger) |
+| `ecs.load-balancer` ✅ | service `loadBalancers[]` | the service is an entrypoint (trigger); no edge until ELBv2 is collected |
 | `sns.subscription` | `ListSubscriptionsByTopic` | SNS → SQS/Lambda/HTTP (`publish`) |
-| `apigw.integration` | route `integration` (v1 `GetResources` embedded, v2 `GetIntegrations`) | API GW → Lambda (`invoke`) / SQS direct (`publish`) / HTTP (`http`) / VPC Link → ALB |
-| `apigw.authorizer` | route `authorizerId` → authorizer `function` | API GW → authorizer Lambda (`invoke`, synchronous — it is in the request path) |
+| `apigw.integration` ✅ | route `integration` (v1 `GetResources` embedded, v2 `GetIntegrations`) | API GW → Lambda (`invoke`) / SQS direct (`publish`) / HTTP (`http`) / VPC Link → ALB |
+| `apigw.authorizer` ✅ | route `authorizerId` → authorizer `function` | API GW → authorizer Lambda (`invoke`, synchronous — it is in the request path) |
 | `apigw.credentials` | integration `credentials` | API GW assumes a role to call the target; feeds Tier 3 |
-| `sqs.redrive` | `RedrivePolicy` | queue → DLQ (`publish`) |
+| `sqs.redrive` ✅ | `RedrivePolicy` | queue → DLQ (`publish`) |
 | `elbv2.target-group` | ECS service `loadBalancers[]` | ALB → ECS service (`http`) |
 | `ecs.image` | task def `containers[].image` | ECS service → ECR repo |
 | `ecs.secrets` | task def `containers[].secrets[]` | ECS service → Secrets Manager / SSM (`read`) |
-| `lambda.resource-policy` | `GetPolicy` principals | caller → Lambda (`invoke`) |
+| `lambda.resource-policy` ✅ | `GetPolicy` principals | **corroborates only** — see below |
 | `dynamodb.stream` | `StreamSpecification` | table → stream (materialized as one node) |
 
 An integration marked `templated` (its URI names `${stageVariables.x}`) has no
 static target. The rule resolves it **per stage** from that stage's variables, and
 emits nothing when a variable is missing rather than guessing.
+
+**A resource policy is a permission, not a use.** The first draft had
+`lambda.resource-policy` create caller → function edges; deployment tools leave
+stale permissions behind constantly, so it would have drawn edges for callers
+that no longer call. It adds evidence to an edge another rule found, reports a
+permission nothing uses as a `stale-permission` finding, and makes a function an
+entrypoint when the caller is outside the inventory (S3, SNS, EventBridge, an API
+in another region), with the reason.
+
+An authorizer that guards no route produces no edge: it runs for nothing. An HTTP
+integration through a VPC link targets an internal load balancer, not a third
+party, and is not turned into an `ext/` node the gateway would mock.
 
 If Tier 1 covers your architecture, the graph is essentially free. It rarely
 covers more than half.
@@ -159,19 +197,33 @@ so adding it later is additive.
 The user question "what runs on the side of the main flow" is answered
 structurally, not heuristically:
 
-1. **Entrypoints** = nodes with no inbound edges from inside the graph and an
-   external trigger: API Gateway stages, ALB listeners, Lambda Function URLs,
-   EventBridge schedules, Cognito triggers.
-2. **Synchronous flow** = forward traversal from entrypoints across `http`,
-   `invoke`, `read`, `write`, `connect` edges only.
-3. **Asynchronous branch** = anything first reached by crossing a `publish` or
-   `consume` edge. The queue/topic/stream *is* the boundary. Everything downstream
-   of it is a side flow, transitively.
-4. **Scheduled** = reached only from a cron/rate rule.
-5. **Orphan** = reachable from nothing. Usually dead infra; worth reporting as its
-   own finding.
+1. **Entrypoints** = nodes with an external trigger: API Gateway APIs, services
+   behind a load balancer, functions a caller outside the inventory may invoke,
+   Function URLs (later: EventBridge schedules, Cognito triggers). *Corrected
+   from "no inbound edges and an external trigger": a service behind an ALB that
+   another service also calls is still reachable from outside.*
+2. **Sync** = reachable from an entrypoint through a path of **only**
+   synchronous edges (`http`, `invoke`, `read`, `write`, `connect`).
+3. **Async** = reachable, but only across a `publish` or `consume` edge. The
+   queue/topic/stream is the boundary.
+4. **Scheduled** = reached only from a schedule (needs EventBridge).
+5. **Unreached** = no path from an entrypoint found.
 
-Each node gets `flow: entrypoint | sync | async | scheduled | orphan`. This drives:
+**Sync takes precedence**, and nothing depends on traversal order. The draft said
+async was anything "first reached" across a queue, which is order-dependent: a
+table written by the request path and by a worker would flip between runs.
+
+**Unreached, not orphan.** cloud-echo cannot tell dead infrastructure from a
+relationship it failed to infer. At Tier 1 a queue whose producer writes through
+the SDK — the common case — has no inbound edge, so its whole pipeline is
+unreached; on the real validation account that was 22 of 30 nodes, all alive.
+"Orphan" would assert they are dead.
+
+Disabled edges (a disabled mapping) are recorded and not followed. Unsettled
+edges (a mapping caught mid-update) are followed and flagged.
+
+Each node gets `flow: entrypoint | sync | async | scheduled | unreached`. This
+drives:
 
 - default layout in the UI (main flow on the spine, async branches hanging off)
 - planner defaults (async consumers are often worth including at depth 1 even when
@@ -181,26 +233,42 @@ Each node gets `flow: entrypoint | sync | async | scheduled | orphan`. This driv
 
 ## Rule authoring
 
-Each rule is an isolated file in `internal/linker/rules/` implementing:
+Each rule is a `rule_*.go` file in `internal/linker` implementing:
 
 ```go
 type Rule interface {
     Name() string
     Tier() int
-    Apply(inv *inventory.Inventory, g *Graph) error
+    Apply(c *Context)
 }
 ```
 
-Every new rule ships with a golden fixture, **including a negative case**. A rule
-that only has positive tests is a rule that will over-link a real account. The
-failure mode of this project is not "missed an edge" — it is "produced a hairball
-nobody believes."
+`Context` is the only way a rule touches the graph: `Each` (typed specs),
+`Edge` (drops to a finding when either end is not a node), `Local` (the
+account/region check), `External`, `Trigger`, `Corroborate`, `Unresolved`. Rules
+read **specs only, never Raw** — the golden fixtures carry no Raw, so a rule that
+reached for it would find nothing.
+
+Every rule ships with a golden case **and a negative case**. Three golden
+accounts in `internal/linker/testdata`:
+
+| Account | What it is |
+| --- | --- |
+| `orders` | exactly what discovery produces from its own fixtures; a test in discovery fails if it drifts |
+| `tier1-cases` | hand-written, one scenario per rule and per trap |
+| `real-m1` | a real account's inventory, sanitized by `spikes/m1/sanitize-inventory.py` |
+
+Goldens pin the output; named tests in `rules_test.go` say why each behaviour
+matters, so a golden diff cannot be approved without reading what it breaks. A
+rule that only has positive tests is a rule that will over-link a real account.
+The failure mode of this project is not "missed an edge" — it is "produced a
+hairball nobody believes."
 
 ## Handling wrong inferences
 
 The linker will be wrong. The design assumes it:
 
-- `cloud-echo graph --explain <from> <to>` prints the full evidence chain.
+- `cloud-echo graph --explain <from> <to>` prints the full evidence chain ✅.
 - The UI lets an edge be deleted or added by hand.
 - Manual corrections live in `cloud-echo.override.yaml` and **survive re-scans**.
   A user who fixes the same wrong edge twice will stop using the tool.

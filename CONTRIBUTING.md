@@ -196,6 +196,20 @@ phase over a snapshot of the first.
 implementation taught you something the docs get wrong, fix the docs in the same
 PR. Code disagreeing with the docs is a bug in one of the two.
 
+## Adding a linker rule
+
+A rule is a `rule_*.go` file in `internal/linker` (see
+[docs/03-linker.md](docs/03-linker.md#rule-authoring)). Three things are not
+optional:
+
+- **Read specs, never Raw**, through `Each` and the types in
+  `internal/inventory/spec`. The golden fixtures carry no Raw.
+- **Resolve targets through `Local`**, which refuses ids derived from ARNs in
+  another account or region. Names repeat; ids come from names.
+- **Ship a negative case** in `testdata/tier1-cases` (or a new account), a named
+  test in `rules_test.go` saying why the case matters, and regenerated goldens:
+  `go test ./internal/linker -update`, then read the diff.
+
 ## Tests
 
 The bar is that a test must be able to fail for the reason it claims. Before
