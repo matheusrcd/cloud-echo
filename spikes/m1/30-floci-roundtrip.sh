@@ -11,6 +11,11 @@ IN="${1:-$WORK/inventory-aws.json}"
 
 log "Floci up (account = scanned account, region $AWS_REGION) — from an empty volume"
 # M0 mounts a volume so state persists; a round trip must start from nothing.
+# Floci's own containers (databases, caches) outlive it: removing only Floci
+# left the last round's postgres running, and a cache's fixed proxy port taken
+# (ELBv2 round). They are labelled floci=true and join this round's network —
+# both filters, so another Floci's children are never touched.
+docker ps -aq --filter label=floci=true --filter network="$FLOCI_NETWORK" | xargs docker rm -f >/dev/null 2>&1
 docker rm -f "$FLOCI_CONTAINER" >/dev/null 2>&1; docker volume rm "$FLOCI_VOLUME" >/dev/null 2>&1
 ( CE_ACCOUNT_ID="$ACCT" AWS_DEFAULT_REGION="$AWS_REGION" bash "$M0/01-floci-up.sh" ) 2>&1 | grep -E 'PASS|FAIL|PARTIAL|ready' | redact
 

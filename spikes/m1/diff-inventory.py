@@ -23,6 +23,12 @@ def load(p):
         r.get("source", {}).pop("collectedAt", None)
         if ignore_raw:
             r.pop("raw", None)
+        if r["type"] == "ecs.service" and isinstance(r.get("raw"), dict):
+            # The service's event log is a moving window ECS appends to on its
+            # own ("reached a steady state"); two scans a minute apart can
+            # straddle an entry. Found in the ELBv2 round: 24 differences, all
+            # here, none from permissions.
+            r["raw"] = {k: v for k, v in r["raw"].items() if k != "Events"}
         key = r["id"]
         if r["type"] == "lambda.event-source-mapping":
             # Mapping ids are UUIDs, minted per environment and per re-creation.

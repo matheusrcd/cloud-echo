@@ -10,7 +10,7 @@ emulation gap. Those two lists are the point of running it.
 Refuses to write anywhere but localhost, and strips every AWS_* variable from
 the child environment so no profile or real credential can be picked up.
 """
-import json, os, subprocess, sys, tempfile, urllib.parse, zipfile
+import json, os, re, subprocess, sys, tempfile, urllib.parse, zipfile
 
 ENDPOINT = os.environ.get("FLOCI_ENDPOINT", "http://localhost:4566")
 if urllib.parse.urlparse(ENDPOINT).hostname not in ("localhost", "127.0.0.1"):
@@ -139,7 +139,7 @@ def stub_zip(runtime, handler):
             z.writestr(f"{mod}.js", f"exports.{fn} = async () => ({{stub: true}});\n")
     return path
 
-qualifiers = {}
+qualifiers, elb_perms = {}, {}
 for r in of("lambda.event-source-mapping"):
     if r["spec"].get("qualifier") and r["spec"].get("functionId"):
         qualifiers.setdefault(r["spec"]["functionId"], set()).add(r["spec"]["qualifier"])
@@ -166,6 +166,11 @@ for r in of("lambda.function"):
         src = ((st.get("Condition") or {}).get("ArnLike") or {}).get("AWS:SourceArn")
         args = ["lambda", "add-permission", "--function-name", name, "--statement-id", st.get("Sid", "stmt"),
                 "--action", st["Action"], "--principal", principal]
+        if src and ":targetgroup/" in src:
+            # The target group's local ARN is minted later; the ELBv2 section
+            # grants it, before registering the function.
+            elb_perms.setdefault(src, []).append((r["id"], args))
+            continue
         if src:
             args += ["--source-arn", src]
         aws(r["id"], "add-permission", *args)
@@ -250,6 +255,105 @@ for fam, revs in sorted(families.items()):
         json.dump(td, open(f, "w"))
         aws(f"ecs/taskdef/{fam}:{rev}", "register-task-definition", "ecs", "register-task-definition", "--cli-input-json", f"file://{f}")
 
+# ---------------------------------------------------------------- ELBv2
+# Floci mints its own ids, so every load balancer, listener and target group ARN
+# differs from the scanned one; what names one — an ECS service's registration,
+# a Lambda permission, a VPC link integration — is re-resolved through
+# local_arn, never copied. The network is the account's: subnets, security
+# groups and the VPC map to Floci's defaults.
+local_arn = {}
+LOCAL_SUBNETS = ["subnet-default-a", "subnet-default-b", "subnet-default-c"]
+
+def elb_actions(rid, actions):
+    out = []
+    for a in actions:
+        t = a["type"]
+        if t == "forward":
+            tgs = [{"TargetGroupArn": local_arn.get(f["arn"], f["arn"]), **({"Weight": f["weight"]} if f.get("weight") else {})} for f in a["targetGroups"]]
+            out.append({"Type": "forward", "ForwardConfig": {"TargetGroups": tgs}})
+        elif t == "redirect":
+            # Kept in the spec as one string, PROTO://host:port/path?query STATUS.
+            m = re.fullmatch(r"([^:]*)://(.*):([^/]*)(/.*)\?(.*) (HTTP_30[12])", a["redirect"])
+            if not m:
+                gap(rid, f"redirect {a['redirect']!r} could not be parsed back"); continue
+            cfg = dict(zip(("Protocol", "Host", "Port", "Path", "Query", "StatusCode"), m.groups()))
+            out.append({"Type": "redirect", "RedirectConfig": {k: v for k, v in cfg.items() if v}})
+        elif t == "fixed-response":
+            gap(rid, "a fixed response's body is withheld by design; seeded without one")
+            out.append({"Type": "fixed-response", "FixedResponseConfig": {"StatusCode": a["fixedStatus"]}})
+        else:
+            gap(rid, f"{t} action not seeded: its client secret is never in the inventory")
+    return out
+
+def elb_conditions(rid, conds):
+    out = []
+    for c in conds or []:
+        key = {"path-pattern": "PathPatternConfig", "host-header": "HostHeaderConfig",
+               "http-request-method": "HttpRequestMethodConfig", "source-ip": "SourceIpConfig"}.get(c["field"])
+        if key:
+            out.append({"Field": c["field"], key: {"Values": c["values"]}})
+        elif c["field"] == "http-header":
+            gap(rid, "http-header condition values are redacted; seeded as markers")
+            out.append({"Field": "http-header", "HttpHeaderConfig": {"HttpHeaderName": c["header"], "Values": c["values"]}})
+        else:
+            gap(rid, f"{c['field']} condition not seeded")
+    return out
+
+for r in of("elbv2.target-group"):
+    s = r["spec"]
+    args = ["elbv2", "create-target-group", "--name", s["name"], "--target-type", s["targetType"]]
+    if s.get("protocol"):
+        args += ["--protocol", s["protocol"], "--port", str(s["port"])]
+    if s.get("vpcId"):
+        args += ["--vpc-id", "vpc-default"]
+    if s.get("healthCheckPath"):
+        args += ["--health-check-path", s["healthCheckPath"]]
+    t = aws(r["id"], "create-target-group", *args)
+    if t:
+        local_arn[r["arn"]] = t["TargetGroups"][0]["TargetGroupArn"]
+        for fid, pargs in elb_perms.pop(r["arn"], []):
+            aws(fid, "add-permission (target group, re-pointed)", *pargs, "--source-arn", local_arn[r["arn"]])
+if elb_perms:
+    gap(",".join(sorted(elb_perms)), "Lambda permission for a target group not in the inventory; not seeded")
+
+for r in of("elbv2.load-balancer"):
+    s = r["spec"]
+    if s.get("subnets"):
+        gap(r["id"], "subnets and security groups are the account's; mapped to Floci's default VPC")
+    args = ["elbv2", "create-load-balancer", "--name", s["name"], "--type", s["type"], "--scheme", s["scheme"],
+            "--subnets", *LOCAL_SUBNETS[:max(2, min(3, len(s.get("subnets") or [])))]]
+    if s.get("securityGroups"):
+        args += ["--security-groups", "sg-default"]
+    lb = aws(r["id"], "create-load-balancer", *args)
+    if not lb:
+        continue
+    local_arn[r["arn"]] = larn = lb["LoadBalancers"][0]["LoadBalancerArn"]
+    for l in s["listeners"]:
+        rules = l["rules"]
+        default = next(x for x in rules if x["priority"] == "default")
+        largs = ["elbv2", "create-listener", "--load-balancer-arn", larn, "--protocol", l["protocol"], "--port", str(l["port"]),
+                 "--default-actions", json.dumps(elb_actions(r["id"], default["actions"]))]
+        if l.get("certificates"):
+            gap(r["id"], "listener certificates are the account's ACM certificates; not seeded")
+        nl = aws(r["id"], f"create-listener {l['protocol']}:{l['port']}", *largs)
+        if not nl:
+            continue
+        if l.get("arn"):
+            local_arn[l["arn"]] = nl["Listeners"][0]["ListenerArn"]
+        for x in rules:
+            if x["priority"] != "default":
+                aws(r["id"], f"create-rule {x['priority']}", "elbv2", "create-rule", "--listener-arn", nl["Listeners"][0]["ListenerArn"],
+                    "--priority", x["priority"], "--conditions", json.dumps(elb_conditions(r["id"], x.get("conditions"))),
+                    "--actions", json.dumps(elb_actions(r["id"], x["actions"])))
+
+# Targets last: an alb target group's target is a load balancer created above.
+for r in of("elbv2.target-group"):
+    s, tg = r["spec"], local_arn.get(r["arn"])
+    for t in (s.get("targets") or []) if tg else []:
+        target = local_arn.get(t["arn"], t["arn"])
+        aws(r["id"], f"register-targets {t.get('id') or target.rsplit('/', 2)[-2]}", "elbv2", "register-targets",
+            "--target-group-arn", tg, "--targets", f"Id={target}")
+
 for r in of("ecs.service"):
     s = r["spec"]
     args = ["ecs", "create-service", "--cluster", s["cluster"], "--service-name", s["serviceName"],
@@ -259,6 +363,9 @@ for r in of("ecs.service"):
     if s.get("network"):
         n = s["network"]
         args += ["--network-configuration", json.dumps({"awsvpcConfiguration": {"subnets": n.get("subnets") or [], "securityGroups": n.get("securityGroups") or [], "assignPublicIp": n.get("assignPublicIp") or "DISABLED"}})]
+    if s.get("loadBalancers"):
+        args += ["--load-balancers", json.dumps([{"targetGroupArn": local_arn.get(lb["targetGroupArn"], lb["targetGroupArn"]),
+                                                 "containerName": lb["containerName"], "containerPort": lb["containerPort"]} for lb in s["loadBalancers"]])]
     aws(r["id"], "create-service", *args)
 
 # ---------------------------------------------------------------- API Gateway
@@ -339,6 +446,7 @@ for r in of("apigateway.rest"):
             dargs += ["--variables", ",".join(f"{k}={v}" for k, v in sorted(st["variables"].items()))]
         aws(r["id"], f"create-deployment {st['name']}", *dargs)
 
+vpc_links = {}
 for r in of("apigateway.http"):
     s = r["spec"]
     api = aws(r["id"], "create-api", "apigatewayv2", "create-api", "--name", s["name"], "--protocol-type", s["protocol"])
@@ -357,6 +465,18 @@ for r in of("apigateway.http"):
                 iargs += [flag, it[key]]
         if it.get("requestParameters"):
             iargs += ["--request-parameters", json.dumps(it["requestParameters"])]
+        if it.get("connectionType") == "VPC_LINK":
+            # VPC links are not collected — the spec keeps only the id — so one
+            # is made per id, on Floci's default subnets. The URI (a listener)
+            # is re-pointed at the local listener.
+            if it["connectionId"] not in vpc_links:
+                gap(r["id"], "VPC links are not in the inventory (only their id is); one is created locally")
+                vl = aws(r["id"], f"create-vpc-link for {it['connectionId']}", "apigatewayv2", "create-vpc-link",
+                         "--name", f"seeded-{it['connectionId']}", "--subnet-ids", *LOCAL_SUBNETS[:2])
+                vpc_links[it["connectionId"]] = vl and vl["VpcLinkId"]
+            iargs += ["--connection-type", "VPC_LINK", "--connection-id", vpc_links[it["connectionId"]] or "none"]
+            i = iargs.index("--integration-uri") + 1
+            iargs[i] = local_arn.get(iargs[i], iargs[i])
         ni = aws(r["id"], f"create-integration {it.get('id')}", *iargs)
         if ni:
             int_map[it["id"]] = ni["IntegrationId"]
