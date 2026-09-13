@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/matheusrcd/cloud-echo/internal/awsx"
 	"github.com/matheusrcd/cloud-echo/internal/inventory"
@@ -21,33 +22,49 @@ import (
 
 // exchange is one recorded request/response pair.
 //
-// Fixtures are matched on the operation name plus an optional substring of the
-// request body, which is enough to disambiguate the repeated calls a real
-// collector makes (DescribeServices per cluster, DescribeTaskDefinition per
-// family) while staying readable in a diff. A stricter scheme — full request
-// equality, or ordered replay — makes fixtures brittle against harmless changes
-// like a new Include field.
+// An exchange is matched on the operation name plus an optional substring. That
+// substring is checked against the URL and the body both, because the discriminator
+// lives in different places per protocol: the JSON body for ECS/SQS/DynamoDB, the
+// path for Lambda (GET /functions/<name>/policy), the form-encoded body for IAM.
+// Stricter schemes — full request equality, ordered replay — make fixtures brittle
+// against harmless changes like a new Include field.
 type exchange struct {
-	Op       string          `json:"op"`
-	Match    string          `json:"match,omitempty"`
-	Status   int             `json:"status,omitempty"`
-	Response json.RawMessage `json:"response"`
+	Op    string `json:"op"`
+	Match string `json:"match,omitempty"`
+
+	Status  int               `json:"status,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+
+	// Response is a JSON body. Body is a raw one, for Query-protocol services
+	// like IAM that answer in XML. Exactly one should be set.
+	Response json.RawMessage `json:"response,omitempty"`
+	Body     string          `json:"body,omitempty"`
+
+	// service is the fixture file the exchange came from, e.g. "iam". It is
+	// set by the loader, never by the fixture author.
+	service string
 }
 
 // fixtureTransport replays recorded AWS responses and records which operations
 // the collector actually invoked.
+//
+// Service and operation come from the request context, not from headers. The SDK
+// puts both there before building the request, for every protocol — which is what
+// lets one transport serve JSON, REST and Query services, and what lets two
+// services share an operation name (lambda:GetPolicy and iam:GetPolicy) without
+// one answering the other's request.
 type fixtureTransport struct {
 	t         *testing.T
 	exchanges []exchange
 
 	mu       sync.Mutex
-	observed map[string]int
+	observed map[string]int // "SDKID:Operation" → calls
 	// unmatched records calls with no fixture, so the test can report all of
 	// them at once instead of failing on the first.
 	unmatched []string
 }
 
-func loadFixture(t *testing.T, account, service string) *fixtureTransport {
+func readExchanges(t *testing.T, account, service string) []exchange {
 	t.Helper()
 	path := filepath.Join("testdata", "accounts", account, service+".json")
 	raw, err := os.ReadFile(path)
@@ -58,62 +75,108 @@ func loadFixture(t *testing.T, account, service string) *fixtureTransport {
 	if err := json.Unmarshal(raw, &ex); err != nil {
 		t.Fatalf("parsing %s: %v", path, err)
 	}
-	return &fixtureTransport{t: t, exchanges: ex, observed: map[string]int{}}
+	for i := range ex {
+		ex[i].service = service
+		if (len(ex[i].Response) == 0) == (ex[i].Body == "") {
+			t.Fatalf("%s exchange %d (%s): set exactly one of response and body", path, i, ex[i].Op)
+		}
+	}
+	return ex
+}
+
+func loadFixture(t *testing.T, account, service string) *fixtureTransport {
+	t.Helper()
+	return &fixtureTransport{t: t, exchanges: readExchanges(t, account, service), observed: map[string]int{}}
+}
+
+// loadFixtures merges several service fixtures into one transport, so a test can
+// drive a full multi-collector scan. Exchanges stay namespaced by service.
+func loadFixtures(t *testing.T, account string, services ...string) *fixtureTransport {
+	t.Helper()
+	merged := &fixtureTransport{t: t, observed: map[string]int{}}
+	for _, svc := range services {
+		merged.exchanges = append(merged.exchanges, readExchanges(t, account, svc)...)
+	}
+	return merged
 }
 
 func (f *fixtureTransport) Do(req *http.Request) (*http.Response, error) {
-	// ECS speaks JSON 1.1, where the operation is in X-Amz-Target as
-	// "<ServicePrefix>.<Operation>".
-	target := req.Header.Get("X-Amz-Target")
-	op := target
-	if i := strings.LastIndex(target, "."); i >= 0 {
-		op = target[i+1:]
+	service := awsmiddleware.GetServiceID(req.Context())
+	op := awsmiddleware.GetOperationName(req.Context())
+	if service == "" || op == "" {
+		return nil, fmt.Errorf("request carries no service/operation in its context — "+
+			"the fixture transport depends on the SDK setting both (%s %s)", req.Method, req.URL)
 	}
 
 	var body []byte
 	if req.Body != nil {
 		body, _ = io.ReadAll(req.Body)
 	}
+	haystack := req.URL.RequestURI() + "\n" + string(body)
 
 	f.mu.Lock()
-	f.observed[op]++
+	f.observed[service+":"+op]++
 	f.mu.Unlock()
 
 	for _, ex := range f.exchanges {
-		if ex.Op != op {
+		if ex.Op != op || !strings.EqualFold(ex.service, service) {
 			continue
 		}
-		if ex.Match != "" && !bytes.Contains(body, []byte(ex.Match)) {
+		if ex.Match != "" && !strings.Contains(haystack, ex.Match) {
 			continue
 		}
-		status := ex.Status
-		if status == 0 {
-			status = 200
-		}
-		return &http.Response{
-			StatusCode: status,
-			Header:     http.Header{"Content-Type": []string{"application/x-amz-json-1.1"}},
-			Body:       io.NopCloser(bytes.NewReader(ex.Response)),
-			Request:    req,
-		}, nil
+		return ex.httpResponse(req), nil
 	}
 
 	f.mu.Lock()
-	f.unmatched = append(f.unmatched, fmt.Sprintf("%s body=%s", op, body))
+	f.unmatched = append(f.unmatched, fmt.Sprintf("%s:%s %s body=%s", service, op, req.URL.RequestURI(), body))
 	f.mu.Unlock()
-	return nil, fmt.Errorf("no fixture for %s with body %s", op, body)
+	return nil, fmt.Errorf("no fixture for %s:%s (%s, body %s)", service, op, req.URL.RequestURI(), body)
 }
 
-// operations returns the distinct operations the collector invoked.
-func (f *fixtureTransport) operations() []string {
+func (ex exchange) httpResponse(req *http.Request) *http.Response {
+	status := ex.Status
+	if status == 0 {
+		status = 200
+	}
+	h := http.Header{}
+	payload := []byte(ex.Response)
+	if ex.Body != "" {
+		payload = []byte(ex.Body)
+		h.Set("Content-Type", "text/xml")
+	} else {
+		h.Set("Content-Type", "application/json")
+	}
+	for k, v := range ex.Headers {
+		h.Set(k, v)
+	}
+	return &http.Response{
+		StatusCode: status,
+		Header:     h,
+		Body:       io.NopCloser(bytes.NewReader(payload)),
+		Request:    req,
+	}
+}
+
+// operations returns the distinct operations invoked on one service.
+func (f *fixtureTransport) operations(sdkID string) []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	out := make([]string, 0, len(f.observed))
-	for op := range f.observed {
-		out = append(out, op)
+	var out []string
+	for key := range f.observed {
+		if svc, op, _ := strings.Cut(key, ":"); svc == sdkID {
+			out = append(out, op)
+		}
 	}
 	sort.Strings(out)
 	return out
+}
+
+// count returns how many times one operation was invoked.
+func (f *fixtureTransport) count(sdkID, op string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.observed[sdkID+":"+op]
 }
 
 func (f *fixtureTransport) assertAllMatched(t *testing.T) {
@@ -175,5 +238,50 @@ func specOf(t *testing.T, r inventory.Resource, v any) {
 	t.Helper()
 	if err := json.Unmarshal(r.Spec, v); err != nil {
 		t.Fatalf("decoding spec of %s: %v", r.ID, err)
+	}
+}
+
+// assertOpsMatchAllowList is the drift check every collector runs.
+//
+// It compares the operations a collector *actually invoked*, observed by the
+// fixture transport, against the awsx allow-list — deliberately not against a
+// list the collector declares about itself, because a declaration can drift from
+// the code while observed calls cannot.
+//
+// Both directions are failures. An operation called but not allow-listed is a
+// scan that dies against a correctly-permissioned account. An operation
+// allow-listed but never called is a permission users are asked to grant for
+// nothing, and every unnecessary permission is a reason for a security team to
+// refuse the whole tool.
+func assertOpsMatchAllowList(t *testing.T, sdkID string, tr *fixtureTransport) {
+	t.Helper()
+
+	var allowed []string
+	for _, s := range awsx.Services() {
+		if s.SDKID == sdkID {
+			allowed = s.Ops
+		}
+	}
+	if allowed == nil {
+		t.Fatalf("%s is not in the awsx allow-list", sdkID)
+	}
+
+	observed := map[string]bool{}
+	for _, op := range tr.operations(sdkID) {
+		observed[op] = true
+	}
+
+	allowedSet := map[string]bool{}
+	for _, op := range allowed {
+		allowedSet[op] = true
+		if !observed[op] {
+			t.Errorf("allow-list grants %s:%s but the collector never calls it — "+
+				"either use it or stop asking users for the permission", sdkID, op)
+		}
+	}
+	for op := range observed {
+		if !allowedSet[op] {
+			t.Errorf("collector called %s:%s, which is not on the allow-list", sdkID, op)
+		}
 	}
 }

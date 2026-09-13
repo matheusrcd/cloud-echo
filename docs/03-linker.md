@@ -113,6 +113,13 @@ Handling of the messy parts:
 - Wildcard ARNs (`arn:aws:dynamodb:*:*:table/orders-*`) → expand against the
   inventory, `medium` confidence.
 - Explicit `Deny` statements → suppress the edge.
+- **Permissions boundary** → intersect. Effective permission is what the role's
+  policies allow *and* the boundary allows; a policy granting `dynamodb:*` under
+  a boundary that only permits SQS writes nothing to DynamoDB. The collector
+  records the boundary document alongside the role for exactly this.
+- Only application identities feed this tier: ECS **task** roles and Lambda
+  execution roles. ECS execution roles describe the agent, not the code, and are
+  not collected.
 - Managed AWS policies (`AmazonDynamoDBFullAccess`) → treated as `Resource: "*"`,
   i.e. annotation only.
 

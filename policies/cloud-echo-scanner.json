@@ -5,11 +5,27 @@
       "Sid": "CloudEchoDiscoveryReadOnly",
       "Effect": "Allow",
       "Action": [
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTables",
+        "dynamodb:ListTagsOfResource",
         "ecs:DescribeClusters",
         "ecs:DescribeServices",
         "ecs:DescribeTaskDefinition",
         "ecs:ListClusters",
-        "ecs:ListServices"
+        "ecs:ListServices",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "lambda:GetPolicy",
+        "lambda:ListEventSourceMappings",
+        "lambda:ListFunctions",
+        "sqs:GetQueueAttributes",
+        "sqs:ListQueueTags",
+        "sqs:ListQueues"
       ],
       "Resource": "*"
     }

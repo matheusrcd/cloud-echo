@@ -1,0 +1,143 @@
+[
+  {
+    "op": "GetRole",
+    "match": "RoleName=audit-writer-role&",
+    "body": "<GetRoleResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRoleResult><Role><Path>/</Path><AssumeRolePolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Principal%22%3A%20%7B%22Service%22%3A%20%22lambda.amazonaws.com%22%7D%2C%20%22Action%22%3A%20%22sts%3AAssumeRole%22%7D%5D%7D</AssumeRolePolicyDocument><MaxSessionDuration>3600</MaxSessionDuration><RoleId>AROAFIXTUREROLE0001</RoleId><RoleName>audit-writer-role</RoleName><Arn>arn:aws:iam::123456789012:role/audit-writer-role</Arn><CreateDate>2026-01-15T10:00:00Z</CreateDate></Role></GetRoleResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRoleResponse>"
+  },
+  {
+    "op": "ListRolePolicies",
+    "match": "RoleName=audit-writer-role&",
+    "body": "<ListRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListRolePoliciesResult><PolicyNames><member>audit</member></PolicyNames><IsTruncated>false</IsTruncated></ListRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRolePolicy",
+    "match": "RoleName=audit-writer-role&",
+    "body": "<GetRolePolicyResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRolePolicyResult><PolicyName>audit</PolicyName><RoleName>audit-writer-role</RoleName><PolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%5B%22dynamodb%3AGetRecords%22%2C%20%22dynamodb%3AGetShardIterator%22%2C%20%22dynamodb%3ADescribeStream%22%2C%20%22dynamodb%3AListStreams%22%5D%2C%20%22Resource%22%3A%20%22arn%3Aaws%3Adynamodb%3Aus-east-1%3A123456789012%3Atable%2Forders%2Fstream%2F%2A%22%7D%2C%20%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%22dynamodb%3APutItem%22%2C%20%22Resource%22%3A%20%22arn%3Aaws%3Adynamodb%3Aus-east-1%3A123456789012%3Atable%2Forders-audit%22%7D%5D%7D</PolicyDocument></GetRolePolicyResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRolePolicyResponse>"
+  },
+  {
+    "op": "ListAttachedRolePolicies",
+    "match": "RoleName=audit-writer-role&",
+    "body": "<ListAttachedRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListAttachedRolePoliciesResult><AttachedPolicies><member><PolicyName>AWSLambdaBasicExecutionRole</PolicyName><PolicyArn>arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole</PolicyArn></member></AttachedPolicies><IsTruncated>false</IsTruncated></ListAttachedRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListAttachedRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRole",
+    "match": "RoleName=notifications-task&",
+    "body": "<GetRoleResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRoleResult><Role><Path>/</Path><AssumeRolePolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Principal%22%3A%20%7B%22Service%22%3A%20%22ecs-tasks.amazonaws.com%22%7D%2C%20%22Action%22%3A%20%22sts%3AAssumeRole%22%7D%5D%7D</AssumeRolePolicyDocument><MaxSessionDuration>3600</MaxSessionDuration><RoleId>AROAFIXTUREROLE0002</RoleId><RoleName>notifications-task</RoleName><Arn>arn:aws:iam::123456789012:role/notifications-task</Arn><CreateDate>2026-01-15T10:00:00Z</CreateDate></Role></GetRoleResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRoleResponse>"
+  },
+  {
+    "op": "ListRolePolicies",
+    "match": "RoleName=notifications-task&",
+    "body": "<ListRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListRolePoliciesResult><PolicyNames></PolicyNames><IsTruncated>false</IsTruncated></ListRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListRolePoliciesResponse>"
+  },
+  {
+    "op": "ListAttachedRolePolicies",
+    "match": "RoleName=notifications-task&",
+    "body": "<ListAttachedRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListAttachedRolePoliciesResult><AttachedPolicies><member><PolicyName>AmazonSQSFullAccess</PolicyName><PolicyArn>arn:aws:iam::aws:policy/AmazonSQSFullAccess</PolicyArn></member></AttachedPolicies><IsTruncated>false</IsTruncated></ListAttachedRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListAttachedRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRole",
+    "match": "RoleName=order-processor-role&",
+    "body": "<GetRoleResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRoleResult><Role><Path>/</Path><AssumeRolePolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Principal%22%3A%20%7B%22Service%22%3A%20%22lambda.amazonaws.com%22%7D%2C%20%22Action%22%3A%20%22sts%3AAssumeRole%22%7D%5D%7D</AssumeRolePolicyDocument><MaxSessionDuration>3600</MaxSessionDuration><RoleId>AROAFIXTUREROLE0003</RoleId><RoleName>order-processor-role</RoleName><Arn>arn:aws:iam::123456789012:role/order-processor-role</Arn><CreateDate>2026-01-15T10:00:00Z</CreateDate></Role></GetRoleResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRoleResponse>"
+  },
+  {
+    "op": "ListRolePolicies",
+    "match": "RoleName=order-processor-role&",
+    "body": "<ListRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListRolePoliciesResult><PolicyNames><member>process</member></PolicyNames><IsTruncated>false</IsTruncated></ListRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRolePolicy",
+    "match": "RoleName=order-processor-role&",
+    "body": "<GetRolePolicyResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRolePolicyResult><PolicyName>process</PolicyName><RoleName>order-processor-role</RoleName><PolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%5B%22sqs%3AReceiveMessage%22%2C%20%22sqs%3ADeleteMessage%22%2C%20%22sqs%3AGetQueueAttributes%22%5D%2C%20%22Resource%22%3A%20%22arn%3Aaws%3Asqs%3Aus-east-1%3A123456789012%3Aorders-events%22%7D%2C%20%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%22dynamodb%3AUpdateItem%22%2C%20%22Resource%22%3A%20%22arn%3Aaws%3Adynamodb%3Aus-east-1%3A123456789012%3Atable%2Forders%22%7D%5D%7D</PolicyDocument></GetRolePolicyResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRolePolicyResponse>"
+  },
+  {
+    "op": "ListAttachedRolePolicies",
+    "match": "RoleName=order-processor-role&",
+    "body": "<ListAttachedRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListAttachedRolePoliciesResult><AttachedPolicies><member><PolicyName>AWSLambdaBasicExecutionRole</PolicyName><PolicyArn>arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole</PolicyArn></member></AttachedPolicies><IsTruncated>false</IsTruncated></ListAttachedRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListAttachedRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRole",
+    "match": "RoleName=orders-api-task&",
+    "body": "<GetRoleResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRoleResult><Role><Path>/</Path><AssumeRolePolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Principal%22%3A%20%7B%22Service%22%3A%20%22ecs-tasks.amazonaws.com%22%7D%2C%20%22Action%22%3A%20%22sts%3AAssumeRole%22%7D%5D%7D</AssumeRolePolicyDocument><MaxSessionDuration>3600</MaxSessionDuration><RoleId>AROAFIXTUREROLE0004</RoleId><RoleName>orders-api-task</RoleName><Arn>arn:aws:iam::123456789012:role/orders-api-task</Arn><CreateDate>2026-01-15T10:00:00Z</CreateDate><PermissionsBoundary><PermissionsBoundaryType>Policy</PermissionsBoundaryType><PermissionsBoundaryArn>arn:aws:iam::123456789012:policy/workload-boundary</PermissionsBoundaryArn></PermissionsBoundary><Tags><member><Key>team</Key><Value>orders</Value></member></Tags></Role></GetRoleResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRoleResponse>"
+  },
+  {
+    "op": "ListRolePolicies",
+    "match": "RoleName=orders-api-task&",
+    "body": "<ListRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListRolePoliciesResult><PolicyNames><member>orders-data</member></PolicyNames><IsTruncated>false</IsTruncated></ListRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRolePolicy",
+    "match": "RoleName=orders-api-task&",
+    "body": "<GetRolePolicyResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRolePolicyResult><PolicyName>orders-data</PolicyName><RoleName>orders-api-task</RoleName><PolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%5B%22dynamodb%3AGetItem%22%2C%20%22dynamodb%3APutItem%22%2C%20%22dynamodb%3AUpdateItem%22%2C%20%22dynamodb%3AQuery%22%5D%2C%20%22Resource%22%3A%20%5B%22arn%3Aaws%3Adynamodb%3Aus-east-1%3A123456789012%3Atable%2Forders%22%2C%20%22arn%3Aaws%3Adynamodb%3Aus-east-1%3A123456789012%3Atable%2Forders%2Findex%2F%2A%22%5D%7D%2C%20%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%22sqs%3ASendMessage%22%2C%20%22Resource%22%3A%20%22arn%3Aaws%3Asqs%3Aus-east-1%3A123456789012%3Aorders-events%22%7D%2C%20%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%22cloudwatch%3APutMetricData%22%2C%20%22Resource%22%3A%20%22%2A%22%7D%5D%7D</PolicyDocument></GetRolePolicyResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRolePolicyResponse>"
+  },
+  {
+    "op": "ListAttachedRolePolicies",
+    "match": "RoleName=orders-api-task&",
+    "body": "<ListAttachedRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListAttachedRolePoliciesResult><AttachedPolicies><member><PolicyName>orders-observability</PolicyName><PolicyArn>arn:aws:iam::123456789012:policy/orders-observability</PolicyArn></member></AttachedPolicies><IsTruncated>false</IsTruncated></ListAttachedRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListAttachedRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRole",
+    "match": "RoleName=webhook-receiver-role&",
+    "body": "<GetRoleResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRoleResult><Role><Path>/</Path><AssumeRolePolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Principal%22%3A%20%7B%22Service%22%3A%20%22lambda.amazonaws.com%22%7D%2C%20%22Action%22%3A%20%22sts%3AAssumeRole%22%7D%5D%7D</AssumeRolePolicyDocument><MaxSessionDuration>3600</MaxSessionDuration><RoleId>AROAFIXTUREROLE0005</RoleId><RoleName>webhook-receiver-role</RoleName><Arn>arn:aws:iam::123456789012:role/webhook-receiver-role</Arn><CreateDate>2026-01-15T10:00:00Z</CreateDate></Role></GetRoleResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRoleResponse>"
+  },
+  {
+    "op": "ListRolePolicies",
+    "match": "RoleName=webhook-receiver-role&",
+    "body": "<ListRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListRolePoliciesResult><PolicyNames><member>enqueue</member></PolicyNames><IsTruncated>false</IsTruncated></ListRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRolePolicy",
+    "match": "RoleName=webhook-receiver-role&",
+    "body": "<GetRolePolicyResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRolePolicyResult><PolicyName>enqueue</PolicyName><RoleName>webhook-receiver-role</RoleName><PolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%22sqs%3ASendMessage%22%2C%20%22Resource%22%3A%20%22arn%3Aaws%3Asqs%3Aus-east-1%3A123456789012%3Aorders-events%22%7D%2C%20%7B%22Effect%22%3A%20%22Deny%22%2C%20%22Action%22%3A%20%22dynamodb%3A%2A%22%2C%20%22Resource%22%3A%20%22%2A%22%7D%5D%7D</PolicyDocument></GetRolePolicyResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRolePolicyResponse>"
+  },
+  {
+    "op": "ListAttachedRolePolicies",
+    "match": "RoleName=webhook-receiver-role&",
+    "body": "<ListAttachedRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListAttachedRolePoliciesResult><AttachedPolicies><member><PolicyName>AWSLambdaBasicExecutionRole</PolicyName><PolicyArn>arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole</PolicyArn></member></AttachedPolicies><IsTruncated>false</IsTruncated></ListAttachedRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListAttachedRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRole",
+    "match": "RoleName=legacy-report-role&",
+    "status": 404,
+    "body": "<ErrorResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><Error><Type>Sender</Type><Code>NoSuchEntity</Code><Message>The role with name legacy-report-role cannot be found.</Message></Error><RequestId>fixture</RequestId></ErrorResponse>"
+  },
+  {
+    "op": "GetPolicy",
+    "match": "orders-observability",
+    "body": "<GetPolicyResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetPolicyResult><Policy><PolicyName>orders-observability</PolicyName><DefaultVersionId>v2</DefaultVersionId><PolicyId>ANPAFIXTUREPOL0001</PolicyId><Path>/</Path><Arn>arn:aws:iam::123456789012:policy/orders-observability</Arn><AttachmentCount>1</AttachmentCount><IsAttachable>true</IsAttachable></Policy></GetPolicyResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetPolicyResponse>"
+  },
+  {
+    "op": "GetPolicyVersion",
+    "match": "orders-observability",
+    "body": "<GetPolicyVersionResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetPolicyVersionResult><PolicyVersion><Document>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%22xray%3APutTraceSegments%22%2C%20%22Resource%22%3A%20%22%2A%22%2C%20%22Condition%22%3A%20%7B%22StringLike%22%3A%20%7B%22aws%3APrincipalTag%2Fteam%22%3A%20%22orders%2Bpayments%20team%22%7D%7D%7D%5D%7D</Document><VersionId>v2</VersionId><IsDefaultVersion>true</IsDefaultVersion></PolicyVersion></GetPolicyVersionResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetPolicyVersionResponse>"
+  },
+  {
+    "op": "GetPolicy",
+    "match": "workload-boundary",
+    "body": "<GetPolicyResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetPolicyResult><Policy><PolicyName>workload-boundary</PolicyName><DefaultVersionId>v1</DefaultVersionId><PolicyId>ANPAFIXTUREPOL0002</PolicyId><Path>/</Path><Arn>arn:aws:iam::123456789012:policy/workload-boundary</Arn><AttachmentCount>1</AttachmentCount><IsAttachable>true</IsAttachable></Policy></GetPolicyResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetPolicyResponse>"
+  },
+  {
+    "op": "GetPolicyVersion",
+    "match": "workload-boundary",
+    "body": "<GetPolicyVersionResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetPolicyVersionResult><PolicyVersion><Document>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%5B%22dynamodb%3A%2A%22%2C%20%22sqs%3A%2A%22%2C%20%22cloudwatch%3APutMetricData%22%2C%20%22xray%3APutTraceSegments%22%2C%20%22logs%3A%2A%22%5D%2C%20%22Resource%22%3A%20%22%2A%22%7D%5D%7D</Document><VersionId>v1</VersionId><IsDefaultVersion>true</IsDefaultVersion></PolicyVersion></GetPolicyVersionResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetPolicyVersionResponse>"
+  },
+  {
+    "op": "GetPolicy",
+    "match": "AmazonSQSFullAccess",
+    "body": "<GetPolicyResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetPolicyResult><Policy><PolicyName>AmazonSQSFullAccess</PolicyName><DefaultVersionId>v3</DefaultVersionId><PolicyId>ANPAFIXTUREPOL0003</PolicyId><Path>/</Path><Arn>arn:aws:iam::aws:policy/AmazonSQSFullAccess</Arn><AttachmentCount>1</AttachmentCount><IsAttachable>true</IsAttachable></Policy></GetPolicyResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetPolicyResponse>"
+  },
+  {
+    "op": "GetPolicyVersion",
+    "match": "AmazonSQSFullAccess",
+    "body": "<GetPolicyVersionResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetPolicyVersionResult><PolicyVersion><Document>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Action%22%3A%20%5B%22sqs%3A%2A%22%5D%2C%20%22Effect%22%3A%20%22Allow%22%2C%20%22Resource%22%3A%20%22%2A%22%7D%5D%7D</Document><VersionId>v3</VersionId><IsDefaultVersion>true</IsDefaultVersion></PolicyVersion></GetPolicyVersionResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetPolicyVersionResponse>"
+  },
+  {
+    "op": "GetPolicy",
+    "match": "AWSLambdaBasicExecutionRole",
+    "body": "<GetPolicyResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetPolicyResult><Policy><PolicyName>AWSLambdaBasicExecutionRole</PolicyName><DefaultVersionId>v1</DefaultVersionId><PolicyId>ANPAFIXTUREPOL0004</PolicyId><Path>/service-role/</Path><Arn>arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole</Arn><AttachmentCount>1</AttachmentCount><IsAttachable>true</IsAttachable></Policy></GetPolicyResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetPolicyResponse>"
+  },
+  {
+    "op": "GetPolicyVersion",
+    "match": "AWSLambdaBasicExecutionRole",
+    "body": "<GetPolicyVersionResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetPolicyVersionResult><PolicyVersion><Document>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%5B%22logs%3ACreateLogGroup%22%2C%20%22logs%3ACreateLogStream%22%2C%20%22logs%3APutLogEvents%22%5D%2C%20%22Resource%22%3A%20%22%2A%22%7D%5D%7D</Document><VersionId>v1</VersionId><IsDefaultVersion>true</IsDefaultVersion></PolicyVersion></GetPolicyVersionResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetPolicyVersionResponse>"
+  }
+]

@@ -46,6 +46,19 @@ type Service struct {
 // convention is not the control — this list is.
 var services = []Service{
 	{
+		SDKID:     "DynamoDB",
+		IAMPrefix: "dynamodb",
+		// DescribeContinuousBackups (PITR) is deliberately absent: point-in-time
+		// recovery has no meaning for a local emulated table, so asking for the
+		// permission would buy nothing.
+		Ops: []string{
+			"DescribeTable",
+			"DescribeTimeToLive",
+			"ListTables",
+			"ListTagsOfResource",
+		},
+	},
+	{
 		SDKID:     "ECS",
 		IAMPrefix: "ecs",
 		// Tags come back from Describe* via the Include parameter, so no
@@ -59,6 +72,53 @@ var services = []Service{
 			"DescribeTaskDefinition",
 			"ListClusters",
 			"ListServices",
+		},
+	},
+	{
+		SDKID:     "IAM",
+		IAMPrefix: "iam",
+		// Only the roles collected workloads assume are read, never the whole
+		// account — so there is no ListRoles and no ListPolicies. Every call
+		// below is keyed by a role or policy name that came from a workload.
+		Ops: []string{
+			"GetPolicy",
+			"GetPolicyVersion",
+			"GetRole",
+			"GetRolePolicy",
+			"ListAttachedRolePolicies",
+			"ListRolePolicies",
+		},
+	},
+	{
+		SDKID:     "Lambda",
+		IAMPrefix: "lambda",
+		// ListFunctions returns environment variables, role and runtime for
+		// every function, so there is no per-function GetFunctionConfiguration.
+		//
+		// GetFunction is deliberately absent until M3 needs a container image
+		// URI. Its response also carries Code.Location, a presigned URL to
+		// download the function's source — not something a topology scan should
+		// hold, even briefly.
+		Ops: []string{
+			"GetPolicy",
+			"ListEventSourceMappings",
+			"ListFunctions",
+		},
+	},
+	{
+		SDKID:     "SQS",
+		IAMPrefix: "sqs",
+		// GetQueueAttributes with AttributeNames=["All"] returns the ARN, the
+		// redrive policy, and the access policy in one call, so there is no
+		// GetQueueUrl or separate ARN lookup here.
+		//
+		// ReceiveMessage is forbidden (see `forbidden` above): it is a read by
+		// name and a mutation in effect, because it hides messages from the real
+		// consumer for the visibility timeout.
+		Ops: []string{
+			"GetQueueAttributes",
+			"ListQueueTags",
+			"ListQueues",
 		},
 	},
 	{

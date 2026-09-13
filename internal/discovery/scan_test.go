@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -118,4 +120,185 @@ func (s staticCollector) Service() string { return s.service }
 func (s staticCollector) Collect(_ context.Context, _ *awsx.Session, out Emitter) error {
 	out.Emit(inventory.Resource{ID: s.id, Type: "ecs.service", Name: s.id})
 	return nil
+}
+
+// TestScanAcrossCollectorsProducesTheLinkerFixture drives every registered
+// collector against one account, which is the input the linker will consume.
+//
+// The assertions here are about the *shape* the linker depends on, not about
+// collector internals — those have their own tests. If this breaks, the linker's
+// golden fixtures break with it.
+func TestScanAcrossCollectorsProducesTheLinkerFixture(t *testing.T) {
+	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb", "lambda", "iam")
+	reg := &Registry{
+		collectors: []Collector{&ECS{}, &SQS{}, &DynamoDB{}, &Lambda{}},
+		dependents: []DependentCollector{&IAM{}},
+	}
+
+	inv, err := reg.Scan(context.Background(), fixtureSession(tr), Options{Concurrency: 4})
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	tr.assertAllMatched(t)
+
+	// The fixture has exactly two findings, both about legacy-report: its
+	// environment is encrypted with a KMS key the scanner cannot use, and its
+	// role was deleted. Both must surface, the inventory must be partial, and
+	// nothing else may be reported.
+	var kinds []string
+	for _, w := range inv.Warnings {
+		kinds = append(kinds, w.Kind)
+	}
+	sort.Strings(kinds)
+	if !inv.Partial || !reflect.DeepEqual(kinds, []string{"dangling-reference", "unreadable"}) {
+		t.Fatalf("want exactly [dangling-reference unreadable] and a partial inventory, got partial=%v %+v",
+			inv.Partial, inv.Warnings)
+	}
+
+	counts := map[string]int{
+		"ecs.cluster":                 2,
+		"ecs.service":                 3,
+		"ecs.taskdefinition":          2,
+		"sqs.queue":                   4,
+		"dynamodb.table":              2,
+		"lambda.function":             4,
+		"lambda.event-source-mapping": 3,
+		"iam.role":                    5,
+		"iam.policy":                  4,
+	}
+	for typ, want := range counts {
+		if got := len(inv.ByType(typ)); got != want {
+			t.Errorf("%s: got %d want %d", typ, got, want)
+		}
+	}
+}
+
+// TestBareNameReferenceIsAmbiguous locks in a problem the linker must solve
+// rather than guess at.
+//
+// The orders-api task definition sets TABLE_NAME=orders. The account contains a
+// DynamoDB table named "orders" *and* an SQS queue named "orders" — legal, and
+// not unusual. Tier 2 config scanning matches the bare string against both.
+//
+// docs/03-linker.md is explicit that ambiguity must downgrade confidence and emit
+// candidates, never silently pick a winner. This test exists so that rule has a
+// concrete failing case waiting for it: if a future linker resolves TABLE_NAME to
+// exactly one resource without recording the other candidate, it is guessing.
+//
+// The env var *name* is a further signal (TABLE_NAME suggests a table), but it is
+// a heuristic on top of an ambiguity, not a resolution of it.
+func TestBareNameReferenceIsAmbiguous(t *testing.T) {
+	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb")
+	reg := &Registry{collectors: []Collector{&ECS{}, &SQS{}, &DynamoDB{}}}
+
+	inv, err := reg.Scan(context.Background(), fixtureSession(tr), Options{})
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+
+	var envValue string
+	for _, r := range inv.ByType("ecs.taskdefinition") {
+		var spec taskDefinitionSpec
+		specOf(t, r, &spec)
+		for _, c := range spec.Containers {
+			if v, ok := c.Env["TABLE_NAME"]; ok {
+				envValue = v
+			}
+		}
+	}
+	if envValue != "orders" {
+		t.Fatalf("fixture no longer sets TABLE_NAME=orders (got %q) — "+
+			"the ambiguity case this test guards has been removed", envValue)
+	}
+
+	var matches []string
+	for _, r := range inv.Resources {
+		if r.Name == envValue {
+			matches = append(matches, r.ID)
+		}
+	}
+	sort.Strings(matches)
+
+	want := []string{"ddb/orders", "sqs/orders"}
+	if !reflect.DeepEqual(matches, want) {
+		t.Fatalf("the ambiguity this fixture exists to create is gone:\n got %q\nwant %q",
+			matches, want)
+	}
+}
+
+// TestDependentsSeeFirstPhaseOutput pins the ordering the IAM collector relies
+// on: a dependent runs after every first-phase collector has finished, and sees
+// all of their output.
+func TestDependentsSeeFirstPhaseOutput(t *testing.T) {
+	var seen []string
+	reg := &Registry{
+		collectors: []Collector{staticCollector{"A", "a/one"}, staticCollector{"B", "b/two"}},
+		dependents: []DependentCollector{recordingDependent{seen: &seen}},
+	}
+	if _, err := reg.Scan(context.Background(), fixtureSession(loadFixture(t, "orders", "ecs")), Options{Concurrency: 1}); err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	sort.Strings(seen)
+	if !reflect.DeepEqual(seen, []string{"a/one", "b/two"}) {
+		t.Errorf("dependent saw %q, want both first-phase resources", seen)
+	}
+}
+
+// TestFailingDependentDegradesTheScan: a denied IAM must not cost the user the
+// workloads that were already read.
+func TestFailingDependentDegradesTheScan(t *testing.T) {
+	reg := &Registry{
+		collectors: []Collector{staticCollector{"A", "a/one"}},
+		dependents: []DependentCollector{failingDependent{}},
+	}
+	inv, err := reg.Scan(context.Background(), fixtureSession(loadFixture(t, "orders", "ecs")), Options{})
+	if err != nil {
+		t.Fatalf("a failing dependent aborted the scan: %v", err)
+	}
+	if len(inv.Resources) != 1 || !inv.Partial {
+		t.Errorf("want the first-phase resource kept and the inventory partial, got %d resources, partial=%v",
+			len(inv.Resources), inv.Partial)
+	}
+}
+
+type recordingDependent struct{ seen *[]string }
+
+func (recordingDependent) Service() string { return "Recorder" }
+func (d recordingDependent) CollectFrom(_ context.Context, _ *awsx.Session, prior []inventory.Resource, _ Emitter) error {
+	for _, r := range prior {
+		*d.seen = append(*d.seen, r.ID)
+	}
+	return nil
+}
+
+type failingDependent struct{}
+
+func (failingDependent) Service() string { return "Failing" }
+func (failingDependent) CollectFrom(context.Context, *awsx.Session, []inventory.Resource, Emitter) error {
+	return errors.New("denied")
+}
+
+// TestInventoryIsGrepFriendly: the way a user audits what a scan redacted is
+// grep '<redacted' inventory.json. Found against a real account — json.Marshal
+// escaped every marker to \u003credacted…\u003e and the grep came back empty.
+func TestInventoryIsGrepFriendly(t *testing.T) {
+	tr := loadFixtures(t, "orders", "ecs", "lambda")
+	reg := &Registry{collectors: []Collector{&ECS{}, &Lambda{}}}
+	inv, err := reg.Scan(context.Background(), fixtureSession(tr), Options{})
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := inv.Write(&buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "<redacted:") {
+		t.Error("redaction markers are not greppable as written")
+	}
+	for _, esc := range []string{`\u003c`, `\u003e`, `\u0026`} {
+		if strings.Contains(out, esc) {
+			t.Errorf("inventory contains HTML escape %s", esc)
+		}
+	}
 }

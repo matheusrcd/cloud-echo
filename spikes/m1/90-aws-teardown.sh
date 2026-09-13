@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Removes everything 10-aws-create.sh and 11-aws-scanner-roles.sh created, and the
+# local Floci. Touches only names starting with ce-test- in the configured
+# account and region, lists them first, and asks before deleting anything.
+#
+# Left in place on purpose: the ECS service-linked role (AWSServiceRoleForECS),
+# which AWS created the first time ECS was used in the account. Other ECS usage
+# depends on it, so removing it is not this script's call.
+source "$(dirname "$0")/lib.sh"
+
+fns=$(aws lambda list-functions --query "Functions[?starts_with(FunctionName,'$P-')].FunctionName" --output text)
+tables=$(aws dynamodb list-tables --query "TableNames[?starts_with(@,'$P-')]" --output text)
+queues=$(aws sqs list-queues --queue-name-prefix "$P-" --query QueueUrls --output text 2>/dev/null | grep -v None)
+clusters="$P-main $P-batch"
+roles=$(aws iam list-roles --query "Roles[?starts_with(RoleName,'$P-')].RoleName" --output text)
+policies=$(aws iam list-policies --scope Local --query "Policies[?starts_with(PolicyName,'$P-')].Arn" --output text)
+
+log "will delete (account $(echo "$ACCT" | redact), region $AWS_REGION)"
+printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  local:    ce-m1 Floci containers, network, volume\n' \
+  "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')"
+if [ "${1:-}" != "--yes" ]; then
+  read -r -p "type DELETE to continue: " ans; [ "$ans" = "DELETE" ] || { echo "aborted"; exit 1; }
+fi
+
+log "lambda (mappings first)"
+for f in $fns; do
+  for u in $(aws lambda list-event-source-mappings --function-name "$f" --query 'EventSourceMappings[].UUID' --output text); do
+    aws lambda delete-event-source-mapping --uuid "$u" >/dev/null && echo "  mapping $u"
+  done
+  for u in $(aws lambda list-event-source-mappings --function-name "$f:live" --query 'EventSourceMappings[].UUID' --output text 2>/dev/null); do
+    aws lambda delete-event-source-mapping --uuid "$u" >/dev/null && echo "  mapping $u"
+  done
+  aws lambda delete-function --function-name "$f" && echo "  $f"
+done
+
+log "ecs"
+for c in $clusters; do
+  for s in $(aws ecs list-services --cluster "$c" --query serviceArns --output text 2>/dev/null); do
+    aws ecs delete-service --cluster "$c" --service "$s" --force >/dev/null && echo "  ${s##*/}"
+  done
+  aws ecs delete-cluster --cluster "$c" >/dev/null 2>&1 && echo "  cluster $c"
+done
+for td in $(aws ecs list-task-definitions --family-prefix "$P-" --query taskDefinitionArns --output text); do
+  aws ecs deregister-task-definition --task-definition "$td" >/dev/null && echo "  deregistered ${td##*/}"
+done
+
+log "dynamodb"
+for t in $tables; do aws dynamodb delete-table --table-name "$t" >/dev/null && echo "  $t"; done
+
+log "sqs"
+for q in $queues; do aws sqs delete-queue --queue-url "$q" && echo "  ${q##*/}"; done
+
+log "iam"
+for r in $roles; do
+  for a in $(aws iam list-attached-role-policies --role-name "$r" --query 'AttachedPolicies[].PolicyArn' --output text); do
+    aws iam detach-role-policy --role-name "$r" --policy-arn "$a"; done
+  for i in $(aws iam list-role-policies --role-name "$r" --query PolicyNames --output text); do
+    aws iam delete-role-policy --role-name "$r" --policy-name "$i"; done
+  aws iam delete-role-permissions-boundary --role-name "$r" 2>/dev/null
+  aws iam delete-role --role-name "$r" && echo "  role $r"
+done
+for p in $policies; do aws iam delete-policy --policy-arn "$p" && echo "  policy ${p##*/}"; done
+
+log "local Floci"
+# Only containers on this suite's network: Floci's children join it. A broader
+# filter (label=floci=true) would also remove containers from any other Floci
+# setup on the machine.
+for id in $(docker network ls -q --filter 'name=^ce-m1$'); do
+  docker ps -aq --filter "network=$id" | xargs -r docker rm -f >/dev/null 2>&1
+  docker network rm "$id" >/dev/null
+done
+docker rm -f ce-m1-floci ce-m1-dockerproxy >/dev/null 2>&1
+docker volume rm ce-m1-data >/dev/null 2>&1
+echo "  done"

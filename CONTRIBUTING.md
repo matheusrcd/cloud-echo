@@ -62,6 +62,12 @@ used only with `WithDecryption=false`. Record a secret's **ARN** — it is a use
 linking signal — and never its value. See
 [docs/07-security.md](docs/07-security.md).
 
+Any collector that reads free-form configuration — env vars, command lines,
+parameter values — must pass it through `redactValue` / `redactArgs` **before**
+building either the spec or `Raw`, and its tests must assert on the serialized
+resource that no planted secret survives. Redacting only the normalized spec
+leaves the secret in `Raw`, which is written to disk too.
+
 ### 3. Every resource carries provenance
 
 The linker's evidence chains bottom out in `Resource.Source`. An edge cloud-echo
@@ -146,6 +152,21 @@ substring:
 Fixtures are hand-authored or captured from a real account — **if captured, redact
 the account id to `123456789012` and strip anything internal.** They are public.
 
+**Never commit a credential-shaped literal, even a fake one.** Secret scanners
+(GitHub push protection, GitGuardian, TruffleHog) match on shape, not validity: a
+made-up `ghp_…` token or a complete Slack webhook URL can block a push or open a
+public "secret leaked" alert. In Go tests, split the literal —
+`"gh" + "p_…"` produces the identical runtime value without the contiguous shape.
+In JSON fixtures, which cannot concatenate, use a value your redaction rule
+catches by key name or entropy but that matches no vendor format
+(`/services/T-FAKE/B-FAKE/<token>` rather than a real-shaped webhook).
+
+The fixture transport identifies requests by the service and operation the SDK
+puts on the request context, so it works for every protocol. JSON services answer
+with a `response` object; Query-protocol services like IAM answer XML through a
+`body` string. IAM policy documents are URL-encoded exactly as AWS returns them —
+encode with `python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.stdin.read(),safe=""))'`.
+
 Your fixtures must exercise **every** operation you added to the allow-list. The
 drift test checks both directions and will fail on an operation that is granted but
 never called. If you cannot write a fixture that triggers a permission, that is a
@@ -158,7 +179,10 @@ rather than assumed.
 ### 5. Register it
 
 Add the collector to `NewRegistry` in
-[`internal/discovery/scan.go`](internal/discovery/scan.go).
+[`internal/discovery/scan.go`](internal/discovery/scan.go). If it needs another
+collector's output — as IAM needs the roles ECS and Lambda reference — implement
+`DependentCollector` and register it under `dependents`; it runs in a second
+phase over a snapshot of the first.
 
 ### 6. Update the docs
 
@@ -172,6 +196,11 @@ The bar is that a test must be able to fail for the reason it claims. Before
 submitting, try breaking the thing your test covers and confirm it goes red — a
 test that passes unconditionally is worse than no test, because it advertises
 coverage that does not exist.
+
+Two traps when you do: check that the mutated code **compiles** before reading a
+green result as "the test is weak" (a filtered `grep FAIL` hides `build failed`),
+and check that your fixture actually contains the input that distinguishes the
+behaviour you are pinning. Both have happened in this repo.
 
 Tests that replay fixtures go through the **real** middleware stack, so they
 exercise the guard too. Do not stub it out.

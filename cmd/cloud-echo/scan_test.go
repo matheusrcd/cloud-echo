@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/matheusrcd/cloud-echo/internal/inventory"
@@ -74,5 +76,36 @@ func TestWriteInventoryLeavesPreviousFileIntactOnFailure(t *testing.T) {
 	}
 	if len(entries) != 1 {
 		t.Errorf("failed write left temp files behind: %v", entries)
+	}
+}
+
+// TestSummaryGroupsDenialsByAction reproduces a real-account scan: two denied
+// actions across ten resources. The summary must name each missing permission
+// once, with a count, and still list the findings that are about one resource.
+func TestSummaryGroupsDenialsByAction(t *testing.T) {
+	inv := &inventory.Inventory{}
+	for i := 0; i < 6; i++ {
+		inv.Warn(inventory.Warning{Service: "IAM", Op: "GetRole", Kind: "access-denied", Message: "api error AccessDenied: long SDK text"})
+	}
+	for i := 0; i < 4; i++ {
+		inv.Warn(inventory.Warning{Service: "Lambda", Op: "GetPolicy", Kind: "access-denied", Message: "api error AccessDeniedException"})
+	}
+	inv.Warn(inventory.Warning{Service: "IAM", Op: "GetRole", Kind: "dangling-reference", Message: "role x is assumed by lambda/y but does not exist"})
+
+	var buf bytes.Buffer
+	writeSummary(&buf, inv, "out.json")
+	out := buf.String()
+
+	for _, want := range []string{"iam:GetRole", "6 call(s) refused", "lambda:GetPolicy", "4 call(s) refused",
+		"grant iam:GetRole, lambda:GetPolicy", "[dangling-reference] IAM:GetRole — role x"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("summary lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "long SDK text") {
+		t.Errorf("per-call SDK error text leaked into the summary:\n%s", out)
+	}
+	if n := strings.Count(out, "[access-denied]"); n != 2 {
+		t.Errorf("want 2 grouped denial lines, got %d:\n%s", n, out)
 	}
 }

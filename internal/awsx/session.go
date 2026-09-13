@@ -3,6 +3,9 @@ package awsx
 import (
 	"context"
 	"fmt"
+	"os"
+	"sort"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -24,6 +27,7 @@ type Session struct {
 	accountID string
 	alias     string
 	region    string
+	endpoint  string
 }
 
 // Options configures how the session authenticates. Zero value is valid and
@@ -84,7 +88,7 @@ func NewSession(ctx context.Context, opts Options) (*Session, error) {
 		return nil, fmt.Errorf("--assume-role is not implemented yet")
 	}
 
-	s := &Session{cfg: cfg, region: cfg.Region}
+	s := &Session{cfg: cfg, region: cfg.Region, endpoint: endpointOverride(cfg)}
 
 	ident, err := sts.NewFromConfig(cfg).GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
@@ -94,6 +98,36 @@ func NewSession(ctx context.Context, opts Options) (*Session, error) {
 
 	return s, nil
 }
+
+// endpointOverride describes any endpoint the SDK will use instead of AWS's
+// public ones: AWS_ENDPOINT_URL, a profile's endpoint_url, or a service-specific
+// AWS_ENDPOINT_URL_<SERVICE>.
+//
+// The SDK honours all of these silently. That is useful — it is how cloud-echo
+// scans a local Floci for round-trip tests — and it is a trap: a shell with
+// AWS_ENDPOINT_URL left exported from LocalStack work would scan the emulator
+// while the output claimed an AWS account. The scan must say where it is reading.
+func endpointOverride(cfg aws.Config) string {
+	var parts []string
+	if cfg.BaseEndpoint != nil && *cfg.BaseEndpoint != "" {
+		parts = append(parts, *cfg.BaseEndpoint)
+	}
+	var specific []string
+	for _, kv := range os.Environ() {
+		if k, v, _ := strings.Cut(kv, "="); strings.HasPrefix(k, "AWS_ENDPOINT_URL_") && v != "" {
+			specific = append(specific, k)
+		}
+	}
+	sort.Strings(specific)
+	if len(specific) > 0 {
+		parts = append(parts, "service-specific: "+strings.Join(specific, ", "))
+	}
+	return strings.Join(parts, "; ")
+}
+
+// EndpointOverride is non-empty when requests are not going to AWS's public
+// endpoints. See endpointOverride.
+func (s *Session) EndpointOverride() string { return s.endpoint }
 
 // Config returns a guarded config. Every client built from it is read-only.
 func (s *Session) Config() aws.Config { return s.cfg }

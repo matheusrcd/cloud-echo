@@ -47,6 +47,17 @@ env:
 
 Anything not wrapped in `${...}` is a literal and is passed through untouched.
 
+Two attributes must *always* be references, never literals copied from the scan,
+because their values differ per environment by construction (measured in
+[m1-real-account-findings.md](spikes/m1-real-account-findings.md)):
+
+- `${ref:sqs/x.url}` — the URL embeds the endpoint (`https://sqs.<region>…` in
+  AWS, `http://floci:4566/…` locally).
+- `${ref:ddb/x.streamArn}` — the stream label is its creation timestamp.
+
+Event sources on a function are keyed by `from:` (and the function's qualifier),
+never by the mapping's UUID, which is minted per environment.
+
 **What database refs resolve to.** M0 found that Floci *proxies* RDS and
 ElastiCache connections: `DescribeDBInstances` reports the **Floci container's**
 address, not the backing Postgres container's. So `${ref:rds/x.host}` resolves to

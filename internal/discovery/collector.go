@@ -38,6 +38,23 @@ type Collector interface {
 	Collect(ctx context.Context, s *awsx.Session, out Emitter) error
 }
 
+// DependentCollector runs after every Collector has finished, and reads what they
+// found.
+//
+// IAM is the reason it exists. cloud-echo collects the roles that collected
+// workloads assume — not every role in the account, which in a real account means
+// hundreds of SSO, service-linked and bootstrap roles the linker would only have
+// to ignore — and it cannot know which roles those are until the workloads have
+// been read.
+type DependentCollector interface {
+	Service() string
+
+	// CollectFrom receives a snapshot of the first phase's resources. It must
+	// not assume any particular collector ran successfully: a denied ECS scan
+	// simply means fewer roles to read.
+	CollectFrom(ctx context.Context, s *awsx.Session, prior []inventory.Resource, out Emitter) error
+}
+
 // Emitter is how a collector reports what it found and what it could not see.
 type Emitter interface {
 	Emit(inventory.Resource)
@@ -60,6 +77,24 @@ func isAccessDenied(err error) bool {
 	switch ae.ErrorCode() {
 	case "AccessDenied", "AccessDeniedException", "UnauthorizedOperation",
 		"AuthorizationError", "MissingAuthenticationToken":
+		return true
+	}
+	return false
+}
+
+// isNotFound reports whether AWS said the thing does not exist.
+//
+// That is a different fact from "you may not see it", and often not a failure at
+// all: lambda:GetPolicy answers ResourceNotFoundException for every function that
+// simply has no resource policy. Where it *is* a finding — a task definition
+// naming an IAM role that was deleted — the caller decides how to report it.
+func isNotFound(err error) bool {
+	var ae smithy.APIError
+	if !errors.As(err, &ae) {
+		return false
+	}
+	switch ae.ErrorCode() {
+	case "ResourceNotFoundException", "NoSuchEntity", "NotFoundException":
 		return true
 	}
 	return false

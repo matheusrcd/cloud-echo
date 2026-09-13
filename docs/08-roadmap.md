@@ -49,8 +49,14 @@ default and we scope a metadata shim.
 
 *Deliverable: `cloud-echo scan` + `cloud-echo graph`. No local environment yet.*
 
-- [ ] Collectors: **ECS ✅**, Lambda, SQS, DynamoDB, RDS, ElastiCache, API Gateway
-      v1/v2, plus supporting IAM, ECR, SNS, EC2, ELBv2, Secrets Manager, SSM.
+- [x] The minimum collector set the linker needs: **ECS ✅ · SQS ✅ · DynamoDB ✅ ·
+      Lambda ✅ · IAM ✅** (IAM as a second-phase collector over the others).
+- [ ] Remaining collectors: RDS, ElastiCache, API Gateway v1/v2, plus supporting
+      ECR, SNS, EC2, ELBv2, Secrets Manager, SSM.
+- [x] Secret-shaped value redaction at collection time (Guarantee 2).
+- [x] Validated against a real account, including a scan with only the shipped
+      policy and a round trip through Floci —
+      [m1-real-account-findings.md](spikes/m1-real-account-findings.md).
 - [x] Read-only guard middleware + the test that proves it.
 - [x] `policies/cloud-echo-scanner.json` and the drift test that keeps it honest.
 - [x] Inventory model, deterministic serialization, scan runner, `scan --dry-run`.
@@ -58,6 +64,14 @@ default and we scope a metadata shim.
 - [ ] `graph --format=text|json|dot|mermaid`, `graph --explain <from> <to>`.
 - [ ] Golden-test harness with at least three fixture accounts, including negative
       cases.
+
+**Sequencing note.** Lambda and IAM are prioritised over the remaining primary
+services because they are what the linker needs, not because they are next
+alphabetically. Lambda gives Tier 1 its highest-value rule
+(`lambda.event-source-mapping`, a `certain` edge needing no inference) and IAM is
+the only tier that yields **direction and intent** — Tier 2 tells you a service
+knows a table's name, Tier 3 tells you it writes to it. Until both exist, any
+linker rule is written against imagined data.
 
 **Foundation notes (2026-08-27).** The guard is an explicit allow-list, not the
 prefix check originally sketched — a prefix check would have permitted

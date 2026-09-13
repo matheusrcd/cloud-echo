@@ -18,11 +18,23 @@
           "status": "ACTIVE",
           "activeServicesCount": 2,
           "runningTasksCount": 5,
-          "capacityProviders": ["FARGATE", "FARGATE_SPOT"],
-          "defaultCapacityProviderStrategy": [
-            { "capacityProvider": "FARGATE", "weight": 1, "base": 0 }
+          "capacityProviders": [
+            "FARGATE",
+            "FARGATE_SPOT"
           ],
-          "tags": [{ "key": "env", "value": "prod" }]
+          "defaultCapacityProviderStrategy": [
+            {
+              "capacityProvider": "FARGATE",
+              "weight": 1,
+              "base": 0
+            }
+          ],
+          "tags": [
+            {
+              "key": "env",
+              "value": "prod"
+            }
+          ]
         },
         {
           "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/batch",
@@ -30,14 +42,15 @@
           "status": "ACTIVE",
           "activeServicesCount": 1,
           "runningTasksCount": 1,
-          "capacityProviders": ["FARGATE"],
+          "capacityProviders": [
+            "FARGATE"
+          ],
           "tags": []
         }
       ],
       "failures": []
     }
   },
-
   {
     "op": "ListServices",
     "match": "\"cluster\":\"main\"",
@@ -72,12 +85,22 @@
           ],
           "networkConfiguration": {
             "awsvpcConfiguration": {
-              "subnets": ["subnet-0a1b2c3d", "subnet-0e4f5a6b"],
-              "securityGroups": ["sg-0123456789abcdef0"],
+              "subnets": [
+                "subnet-0a1b2c3d",
+                "subnet-0e4f5a6b"
+              ],
+              "securityGroups": [
+                "sg-0123456789abcdef0"
+              ],
               "assignPublicIp": "DISABLED"
             }
           },
-          "tags": [{ "key": "team", "value": "orders" }]
+          "tags": [
+            {
+              "key": "team",
+              "value": "orders"
+            }
+          ]
         },
         {
           "serviceArn": "arn:aws:ecs:us-east-1:123456789012:service/main/notifications",
@@ -95,7 +118,6 @@
       "failures": []
     }
   },
-
   {
     "op": "ListServices",
     "match": "\"cluster\":\"batch\"",
@@ -126,7 +148,6 @@
       "failures": []
     }
   },
-
   {
     "op": "DescribeTaskDefinition",
     "match": "orders-api:41",
@@ -141,21 +162,51 @@
         "memory": "2048",
         "taskRoleArn": "arn:aws:iam::123456789012:role/orders-api-task",
         "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
-        "requiresCompatibilities": ["FARGATE"],
+        "requiresCompatibilities": [
+          "FARGATE"
+        ],
         "containerDefinitions": [
           {
             "name": "app",
             "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/orders-api:v1.42",
             "essential": true,
             "portMappings": [
-              { "containerPort": 8080, "hostPort": 8080, "protocol": "tcp", "name": "http" }
+              {
+                "containerPort": 8080,
+                "hostPort": 8080,
+                "protocol": "tcp",
+                "name": "http"
+              }
             ],
             "environment": [
-              { "name": "TABLE_NAME", "value": "orders" },
-              { "name": "QUEUE_URL", "value": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events" },
-              { "name": "DB_HOST", "value": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com" },
-              { "name": "PAYMENTS_URL", "value": "https://api.payments.example.com" },
-              { "name": "LOG_LEVEL", "value": "info" }
+              {
+                "name": "TABLE_NAME",
+                "value": "orders"
+              },
+              {
+                "name": "QUEUE_URL",
+                "value": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events"
+              },
+              {
+                "name": "DB_HOST",
+                "value": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com"
+              },
+              {
+                "name": "PAYMENTS_URL",
+                "value": "https://api.payments.example.com"
+              },
+              {
+                "name": "LOG_LEVEL",
+                "value": "info"
+              },
+              {
+                "name": "PAYMENTS_API_KEY",
+                "value": "not-a-real-payments-key-7f3a9c"
+              },
+              {
+                "name": "DATABASE_URL",
+                "value": "postgres://orders_app:hunter2@orders-db.cluster-abc123.us-east-1.rds.amazonaws.com:5432/orders"
+              }
             ],
             "secrets": [
               {
@@ -163,7 +214,12 @@
                 "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/orders/db-AbCdEf"
               }
             ],
-            "dependsOn": [{ "containerName": "otel", "condition": "START" }],
+            "dependsOn": [
+              {
+                "containerName": "otel",
+                "condition": "START"
+              }
+            ],
             "logConfiguration": {
               "logDriver": "awslogs",
               "options": {
@@ -180,9 +236,19 @@
             "environment": []
           }
         ],
-        "tags": [{ "key": "team", "value": "orders" }]
+        "tags": [
+          {
+            "key": "team",
+            "value": "orders"
+          }
+        ]
       },
-      "tags": [{ "key": "team", "value": "orders" }]
+      "tags": [
+        {
+          "key": "team",
+          "value": "orders"
+        }
+      ]
     }
   },
   {
@@ -198,17 +264,43 @@
         "cpu": "512",
         "memory": "1024",
         "taskRoleArn": "arn:aws:iam::123456789012:role/notifications-task",
-        "requiresCompatibilities": ["FARGATE"],
+        "requiresCompatibilities": [
+          "FARGATE"
+        ],
         "containerDefinitions": [
           {
             "name": "worker",
             "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/notifications:v0.9",
             "essential": true,
-            "command": ["node", "worker.js"],
+            "command": [
+              "node",
+              "worker.js",
+              "--smtp-password=correcthorsebattery"
+            ],
             "environment": [
-              { "name": "QUEUE_URL", "value": "https://sqs.us-east-1.amazonaws.com/123456789012/notifications" },
-              { "name": "CACHE_HOST", "value": "sessions.abc123.ng.0001.use1.cache.amazonaws.com" }
-            ]
+              {
+                "name": "QUEUE_URL",
+                "value": "https://sqs.us-east-1.amazonaws.com/123456789012/notifications"
+              },
+              {
+                "name": "CACHE_HOST",
+                "value": "sessions.abc123.ng.0001.use1.cache.amazonaws.com"
+              }
+            ],
+            "logConfiguration": {
+              "logDriver": "splunk",
+              "options": {
+                "splunk-url": "https://splunk.example.com:8088",
+                "splunk-token": "not-a-real-splunk-token-00",
+                "splunk-format": "json"
+              },
+              "secretOptions": [
+                {
+                  "name": "splunk-token-v2",
+                  "valueFrom": "arn:aws:ssm:us-east-1:123456789012:parameter/splunk/token"
+                }
+              ]
+            }
           }
         ]
       }

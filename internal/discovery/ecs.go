@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -209,6 +210,10 @@ func (c *ECS) collectTaskDefinitions(
 		if td == nil {
 			continue
 		}
+		// Redact in place, before either the normalized spec or Raw is built,
+		// so that no copy of a secret-shaped value survives into the inventory.
+		redacted := redactContainerDefinitions(td.ContainerDefinitions)
+
 		family := aws.ToString(td.Family)
 		name := fmt.Sprintf("%s:%d", family, td.Revision)
 
@@ -226,9 +231,10 @@ func (c *ECS) collectTaskDefinitions(
 				CPU:              aws.ToString(td.Cpu),
 				Memory:           aws.ToString(td.Memory),
 				TaskRoleARN:      aws.ToString(td.TaskRoleArn),
+				TaskRoleID:       roleIDFromARN(aws.ToString(td.TaskRoleArn)),
 				ExecutionRoleARN: aws.ToString(td.ExecutionRoleArn),
 				RequiresCompat:   compatibilities(td.RequiresCompatibilities),
-				Containers:       containerSpecs(td.ContainerDefinitions),
+				Containers:       containerSpecs(td.ContainerDefinitions, redacted),
 			},
 			Raw: td,
 		}))
@@ -282,6 +288,7 @@ type taskDefinitionSpec struct {
 	CPU              string          `json:"cpu,omitempty"`
 	Memory           string          `json:"memory,omitempty"`
 	TaskRoleARN      string          `json:"taskRoleArn,omitempty"`
+	TaskRoleID       string          `json:"taskRoleId,omitempty"`
 	ExecutionRoleARN string          `json:"executionRoleArn,omitempty"`
 	RequiresCompat   []string        `json:"requiresCompatibilities,omitempty"`
 	Containers       []containerSpec `json:"containers"`
@@ -306,8 +313,38 @@ type containerSpec struct {
 	Secrets map[string]string `json:"secrets,omitempty"`
 
 	PortMappings []portMapping `json:"portMappings,omitempty"`
-	DependsOn    []string      `json:"dependsOn,omitempty"`
-	LogGroup     string        `json:"logGroup,omitempty"`
+
+	// DependsOn keeps the condition as well as the container: START, COMPLETE,
+	// SUCCESS and HEALTHY order a task differently, and a round trip that knew
+	// only the names had to guess.
+	DependsOn []dependency `json:"dependsOn,omitempty"`
+
+	// LogGroup is the awslogs group, kept as a convenience for mapping
+	// workloads to their logs. Log is the full configuration, needed to
+	// recreate the container faithfully.
+	LogGroup string   `json:"logGroup,omitempty"`
+	Log      *logSpec `json:"log,omitempty"`
+
+	// Redacted lists what cloud-echo refused to copy out of AWS, e.g.
+	// "env:DB_PASSWORD" or "command[2]". The planner uses it to generate a local
+	// placeholder instead of an empty value, and it is how a user can tell a
+	// redaction from a variable that was genuinely empty.
+	Redacted []string `json:"redacted,omitempty"`
+}
+
+type dependency struct {
+	Container string `json:"container"`
+	Condition string `json:"condition"`
+}
+
+type logSpec struct {
+	Driver string `json:"driver"`
+	// Options are redacted like env vars: drivers such as splunk, datadog and
+	// firelens outputs take credentials here (splunk-token, apikey).
+	Options map[string]string `json:"options,omitempty"`
+	// SecretOptions maps option name to a Secrets Manager or SSM ARN, never a
+	// value — the same treatment as secrets[].
+	SecretOptions map[string]string `json:"secretOptions,omitempty"`
 }
 
 type portMapping struct {
@@ -319,7 +356,54 @@ type portMapping struct {
 
 // ---------------------------------------------------------------- conversion
 
-func containerSpecs(defs []ecstypes.ContainerDefinition) []containerSpec {
+// redactContainerDefinitions removes secret-shaped values from env vars, command
+// and entrypoint, mutating defs in place, and reports what it removed per
+// container.
+func redactContainerDefinitions(defs []ecstypes.ContainerDefinition) map[string][]string {
+	out := map[string][]string{}
+	for i := range defs {
+		d := &defs[i]
+		name := aws.ToString(d.Name)
+		for j := range d.Environment {
+			kv := &d.Environment[j]
+			if v, red := redactValue(aws.ToString(kv.Name), aws.ToString(kv.Value)); red {
+				kv.Value = aws.String(v)
+				out[name] = append(out[name], "env:"+aws.ToString(kv.Name))
+			}
+		}
+		if lc := d.LogConfiguration; lc != nil {
+			for k, v := range lc.Options {
+				if r, red := redactValue(k, v); red {
+					lc.Options[k] = r
+					out[name] = append(out[name], "log:"+k)
+				}
+			}
+		}
+		if fc := d.FirelensConfiguration; fc != nil {
+			for k, v := range fc.Options {
+				if r, red := redactValue(k, v); red {
+					fc.Options[k] = r
+					out[name] = append(out[name], "firelens:"+k)
+				}
+			}
+		}
+		var hit []int
+		if d.Command, hit = redactArgs(d.Command); len(hit) > 0 {
+			for _, n := range hit {
+				out[name] = append(out[name], fmt.Sprintf("command[%d]", n))
+			}
+		}
+		if d.EntryPoint, hit = redactArgs(d.EntryPoint); len(hit) > 0 {
+			for _, n := range hit {
+				out[name] = append(out[name], fmt.Sprintf("entryPoint[%d]", n))
+			}
+		}
+		sort.Strings(out[name])
+	}
+	return out
+}
+
+func containerSpecs(defs []ecstypes.ContainerDefinition, redacted map[string][]string) []containerSpec {
 	out := make([]containerSpec, 0, len(defs))
 	for _, d := range defs {
 		cs := containerSpec{
@@ -328,6 +412,7 @@ func containerSpecs(defs []ecstypes.ContainerDefinition) []containerSpec {
 			Essential:  aws.ToBool(d.Essential),
 			Command:    d.Command,
 			EntryPoint: d.EntryPoint,
+			Redacted:   redacted[aws.ToString(d.Name)],
 		}
 
 		if len(d.Environment) > 0 {
@@ -351,10 +436,23 @@ func containerSpecs(defs []ecstypes.ContainerDefinition) []containerSpec {
 			})
 		}
 		for _, dep := range d.DependsOn {
-			cs.DependsOn = append(cs.DependsOn, aws.ToString(dep.ContainerName))
+			cs.DependsOn = append(cs.DependsOn, dependency{
+				Container: aws.ToString(dep.ContainerName),
+				Condition: string(dep.Condition),
+			})
 		}
-		if d.LogConfiguration != nil {
-			cs.LogGroup = d.LogConfiguration.Options["awslogs-group"]
+		if lc := d.LogConfiguration; lc != nil {
+			cs.LogGroup = lc.Options["awslogs-group"]
+			cs.Log = &logSpec{Driver: string(lc.LogDriver)}
+			if len(lc.Options) > 0 {
+				cs.Log.Options = lc.Options
+			}
+			for _, so := range lc.SecretOptions {
+				if cs.Log.SecretOptions == nil {
+					cs.Log.SecretOptions = map[string]string{}
+				}
+				cs.Log.SecretOptions[aws.ToString(so.Name)] = aws.ToString(so.ValueFrom)
+			}
 		}
 
 		out = append(out, cs)
@@ -459,17 +557,24 @@ func failureWarning(op string, f ecstypes.Failure) inventory.Warning {
 
 type resourceArgs struct {
 	ID, Type, ARN, Name, API string
-	Tags                     map[string]string
-	Spec                     any
-	Raw                      any
+	// Region overrides the session's region, for global services like IAM
+	// whose resources belong to no region at all.
+	Region string
+	Tags   map[string]string
+	Spec   any
+	Raw    any
 }
 
 func newResource(s *awsx.Session, a resourceArgs) inventory.Resource {
+	region := s.Region()
+	if a.Region != "" {
+		region = a.Region
+	}
 	return inventory.Resource{
 		ID:        a.ID,
 		Type:      a.Type,
 		ARN:       a.ARN,
-		Region:    s.Region(),
+		Region:    region,
 		AccountID: s.AccountID(),
 		Name:      a.Name,
 		Tags:      a.Tags,
@@ -485,15 +590,24 @@ func newResource(s *awsx.Session, a resourceArgs) inventory.Resource {
 // mustJSON marshals a value that is known to be marshalable. A failure here is a
 // programming error in a spec struct, not a runtime condition, so it is recorded
 // inline rather than silently dropped.
+//
+// HTML escaping is off. json.Marshal would store "<redacted:key-name>" as
+// "\u003credacted:key-name\u003e" and every '&' in a URL as "\u0026" — still
+// valid JSON, but it breaks the obvious way to audit a scan, grep '<redacted'
+// inventory.json, and it makes a file meant to be read and diffed harder to read.
+// The outer inventory encoder already disables escaping; that does not undo
+// escaping already baked into these raw messages.
 func mustJSON(v any) json.RawMessage {
 	if v == nil {
 		return nil
 	}
-	b, err := json.Marshal(v)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
 		return json.RawMessage(fmt.Sprintf("{%q:%q}", "marshalError", err.Error()))
 	}
-	return b
+	return bytes.TrimRight(buf.Bytes(), "\n")
 }
 
 func chunk[T any](in []T, size int) [][]T {

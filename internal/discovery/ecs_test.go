@@ -1,11 +1,12 @@
 package discovery
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
-
-	"github.com/matheusrcd/cloud-echo/internal/awsx"
 )
 
 func collectECS(t *testing.T) (*captureEmitter, *fixtureTransport) {
@@ -77,11 +78,7 @@ func TestECSDistinguishesSameNamedServicesAcrossClusters(t *testing.T) {
 func TestECSDescribesEachTaskDefinitionOnce(t *testing.T) {
 	_, tr := collectECS(t)
 
-	tr.mu.Lock()
-	n := tr.observed["DescribeTaskDefinition"]
-	tr.mu.Unlock()
-
-	if n != 2 {
+	if n := tr.count("ECS", "DescribeTaskDefinition"); n != 2 {
 		t.Errorf("DescribeTaskDefinition called %d times, want 2 (one per distinct definition)", n)
 	}
 }
@@ -187,41 +184,95 @@ func TestECSRecordsProvenance(t *testing.T) {
 
 // TestECSUsesExactlyTheAllowListedOperations is the drift test ADR-0006 layer 3
 // calls for, run against observed behaviour rather than a declaration.
-//
-// Both directions matter. An operation the collector calls but the allow-list
-// omits is a scan that dies against a correctly-permissioned account. An
-// operation on the allow-list that the collector never calls is a permission we
-// ask users to grant for nothing — and every unnecessary permission is a reason
-// for a security team to say no.
 func TestECSUsesExactlyTheAllowListedOperations(t *testing.T) {
 	_, tr := collectECS(t)
+	assertOpsMatchAllowList(t, "ECS", tr)
+}
 
-	observed := map[string]bool{}
-	for _, op := range tr.operations() {
-		observed[op] = true
-	}
+// TestECSSecretsNeverReachTheInventory checks the property, not the mechanism.
+//
+// The fixture plants three secrets in places an operator might really put them:
+// a plain env var with a vendor-shaped key, a connection URL with an embedded
+// password, and a command-line flag. The assertion is on the *serialized
+// resource* — Spec and Raw both — because Raw is written to disk too, and a
+// redaction applied only to the normalized spec would be a guarantee with a hole
+// in it.
+func TestECSSecretsNeverReachTheInventory(t *testing.T) {
+	out, _ := collectECS(t)
 
-	var allowed []string
-	for _, s := range awsx.Services() {
-		if s.SDKID == "ECS" {
-			allowed = s.Ops
+	secrets := []string{"not-a-real-payments-key-7f3a9c", "hunter2", "correcthorsebattery", "not-a-real-splunk-token-00"}
+	for _, r := range out.resources {
+		blob, err := json.Marshal(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, s := range secrets {
+			if bytes.Contains(blob, []byte(s)) {
+				t.Errorf("%s: secret %q survived into the serialized resource", r.ID, s)
+			}
 		}
 	}
-	if allowed == nil {
-		t.Fatal("ECS is not in the awsx allow-list")
+}
+
+// TestECSRedactionKeepsWhatTheLinkerNeeds is the counterweight: removing the
+// password from DATABASE_URL must not remove the RDS hostname, which is the only
+// thing in that value the linker cares about.
+func TestECSRedactionKeepsWhatTheLinkerNeeds(t *testing.T) {
+	out, _ := collectECS(t)
+
+	td, _ := out.byID("ecs/taskdef/orders-api:41")
+	var spec taskDefinitionSpec
+	specOf(t, td, &spec)
+	app := spec.Containers[0]
+
+	if got := app.Env["DATABASE_URL"]; !strings.Contains(got, "@orders-db.cluster-abc123.us-east-1.rds.amazonaws.com:5432/orders") {
+		t.Errorf("DATABASE_URL lost its host: %q", got)
+	}
+	if got := app.Env["TABLE_NAME"]; got != "orders" {
+		t.Errorf("TABLE_NAME was altered: %q", got)
 	}
 
-	allowedSet := map[string]bool{}
-	for _, op := range allowed {
-		allowedSet[op] = true
-		if !observed[op] {
-			t.Errorf("allow-list grants ecs:%s but the collector never calls it — "+
-				"either use it or stop asking users for the permission", op)
-		}
+	want := []string{"env:DATABASE_URL", "env:PAYMENTS_API_KEY"}
+	if !reflect.DeepEqual(app.Redacted, want) {
+		t.Errorf("redacted list: got %q want %q", app.Redacted, want)
 	}
-	for op := range observed {
-		if !allowedSet[op] {
-			t.Errorf("collector called ecs:%s, which is not on the allow-list", op)
-		}
+
+	notif, _ := out.byID("ecs/taskdef/notifications:7")
+	var nspec taskDefinitionSpec
+	specOf(t, notif, &nspec)
+	if got := nspec.Containers[0].Redacted; !reflect.DeepEqual(got, []string{"command[2]", "log:splunk-token"}) {
+		t.Errorf("command redaction not recorded: %q", got)
+	}
+}
+
+// TestECSKeepsWhatARebuildNeeds covers two fields a round trip through Floci had
+// to recover from Raw: the dependsOn condition and the full log configuration.
+// Log options are redacted like env vars — the splunk driver takes a token there.
+func TestECSKeepsWhatARebuildNeeds(t *testing.T) {
+	out, _ := collectECS(t)
+
+	td, _ := out.byID("ecs/taskdef/orders-api:41")
+	var spec taskDefinitionSpec
+	specOf(t, td, &spec)
+	app := spec.Containers[0]
+	if want := []dependency{{Container: "otel", Condition: "START"}}; !reflect.DeepEqual(app.DependsOn, want) {
+		t.Errorf("dependsOn: got %+v want %+v", app.DependsOn, want)
+	}
+	if app.Log == nil || app.Log.Driver != "awslogs" || app.Log.Options["awslogs-stream-prefix"] != "ecs" {
+		t.Errorf("log configuration incomplete: %+v", app.Log)
+	}
+
+	nt, _ := out.byID("ecs/taskdef/notifications:7")
+	var nspec taskDefinitionSpec
+	specOf(t, nt, &nspec)
+	lg := nspec.Containers[0].Log
+	if lg == nil || lg.Driver != "splunk" {
+		t.Fatalf("splunk log driver not recorded: %+v", lg)
+	}
+	if lg.Options["splunk-token"] != "<redacted:key-name>" || lg.Options["splunk-url"] != "https://splunk.example.com:8088" {
+		t.Errorf("log options: token must be redacted and url kept, got %+v", lg.Options)
+	}
+	if lg.SecretOptions["splunk-token-v2"] != "arn:aws:ssm:us-east-1:123456789012:parameter/splunk/token" {
+		t.Errorf("secretOptions should keep the ARN: %+v", lg.SecretOptions)
 	}
 }

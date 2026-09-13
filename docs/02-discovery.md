@@ -19,6 +19,19 @@ type Emitter interface {
 }
 ```
 
+Collectors that depend on what others found implement `DependentCollector`
+instead, and run in a **second phase** over a snapshot of the first:
+
+```go
+type DependentCollector interface {
+    Service() string
+    CollectFrom(ctx context.Context, s *awsx.Session, prior []inventory.Resource, out Emitter) error
+}
+```
+
+IAM is the reason it exists: cloud-echo reads the roles that collected workloads
+assume, and cannot know which roles those are until the workloads have been read.
+
 `Emitter` rather than a bare `chan<- Resource`: rule 3 below requires a collector
 to report *partial* failure, and a channel of resources has nowhere to put "I was
 denied `DescribeTaskDefinition` on this one." Warnings that travel out-of-band
@@ -34,6 +47,9 @@ Rules every collector obeys:
    permissions; a scanner that dies on the first denial is useless.
 4. **Records provenance.** Every resource keeps the API call and response path it
    came from. The linker's evidence chain depends on this.
+5. **Redacts before it records.** Free-form configuration (env vars, command
+   lines) passes through `redactValue`/`redactArgs` before `Spec` *or* `Raw` is
+   built. Tests assert on the serialized resource, because `Raw` reaches disk too.
 
 ## Normalized resource model
 
@@ -47,13 +63,15 @@ type Resource struct {
     Name      string
     Tags      map[string]string
     Spec      json.RawMessage   // type-specific, normalized
-    Raw       json.RawMessage   // untouched API response (for evidence + future rules)
+    Raw       json.RawMessage   // API response, secret-shaped values redacted (evidence + future rules)
     Source    Provenance        // {api: "ecs:DescribeServices", collectedAt: ...}
 }
 ```
 
 Keeping `Raw` matters: new linker heuristics can be developed and tested against
-old inventories without re-scanning.
+old inventories without re-scanning. The one change made to it is redaction of
+secret-shaped configuration values, applied before `Spec` or `Raw` is built — see
+[07-security.md](07-security.md), Guarantee 2.
 
 ### Resource IDs
 
@@ -65,6 +83,13 @@ make the name unique:
 | `ecs/cluster/main` | cluster |
 | `ecs/main/orders-api` | service — **scoped by cluster** |
 | `ecs/taskdef/orders-api:41` | task definition, family + revision |
+| `sqs/orders-events` | queue — unique per account-region, no scope needed |
+| `ddb/orders` | table — unique per account-region |
+| `lambda/order-processor` | function — unique per account-region |
+| `lambda/esm/<uuid>` | event source mapping — its own resource, see below |
+| `iam/role/orders-api-task` | role — unique per account **regardless of path** |
+| `iam/policy/orders-rw` | customer-managed policy |
+| `iam/aws-policy/AmazonSQSFullAccess` | AWS-managed policy — a customer policy may reuse the name, so they must not share an id |
 
 ECS service names are only unique *within a cluster*. A bare `ecs/orders-api`
 would silently collapse two different services in any account that reuses names
@@ -88,9 +113,9 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | Service | Calls | Key fields for linking |
 | --- | --- | --- |
 | **ECS** ✅ | `ListClusters`, `DescribeClusters`, `ListServices`, `DescribeServices`, `DescribeTaskDefinition` | container `image`, `environment`, `secrets`, `portMappings`, `command`, `taskRoleArn`, `executionRoleArn`, `networkConfiguration`, `loadBalancers`, `serviceRegistries` |
-| **Lambda** | `ListFunctions`, `GetFunctionConfiguration`, `ListEventSourceMappings`, `GetPolicy`, `ListFunctionUrlConfigs`, `GetFunctionCodeSigningConfig` | `Environment.Variables`, `Role`, `ImageUri`, `Handler`, `Runtime`, event source ARNs, resource-policy principals |
-| **SQS** | `ListQueues`, `GetQueueAttributes`, `ListQueueTags` | `RedrivePolicy` (→ DLQ), `VisibilityTimeout`, `Policy` (→ who can send), `FifoQueue` |
-| **DynamoDB** | `ListTables`, `DescribeTable`, `DescribeTimeToLive`, `DescribeContinuousBackups` | key schema, GSIs/LSIs, `StreamSpecification` |
+| **Lambda** ✅ | `ListFunctions`, `ListEventSourceMappings`, `GetPolicy` | `Environment.Variables`, `Role`, `DeadLetterConfig`, event source ARNs, resource-policy principals |
+| **SQS** ✅ | `ListQueues`, `GetQueueAttributes`, `ListQueueTags` | `RedrivePolicy` (→ DLQ), `VisibilityTimeout`, `Policy` (→ who can send), `FifoQueue` |
+| **DynamoDB** ✅ | `ListTables`, `DescribeTable`, `DescribeTimeToLive`, `ListTagsOfResource` | key schema, GSIs/LSIs, `StreamSpecification` |
 | **RDS** | `DescribeDBInstances`, `DescribeDBClusters`, `DescribeDBSubnetGroups` | `Engine`, `EngineVersion`, `Endpoint`, `Port`, `DBName`, `VpcSecurityGroups` |
 | **API Gateway v1** | `GetRestApis`, `GetResources`, `GetMethod`, `GetIntegration`, `GetStages`, `GetAuthorizers` | integration `uri`, `type`, `connectionId` |
 | **API Gateway v2** | `GetApis`, `GetRoutes`, `GetIntegrations`, `GetStages`, `GetAuthorizers` | same |
@@ -106,6 +131,44 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 > asking for a permission we never exercise is exactly what the drift test exists
 > to prevent.
 
+> **`DescribeContinuousBackups` was dropped from the DynamoDB list.** Point-in-time
+> recovery has no meaning for a local emulated table, so the permission would buy
+> nothing. The same reasoning removed `ecs:ListTasks`: if a permission cannot be
+> justified by something the materializer uses, it should not be requested.
+
+> **Two DynamoDB calls are load-bearing and easy to miss.** `DescribeTable`
+> returns the key schema and the attribute *types* as two separate lists, and a
+> local table built from either half alone accepts writes in production and
+> rejects them locally. TTL is not in `DescribeTable` at all — it needs
+> `DescribeTimeToLive`, and without it a local table keeps rows the real one
+> would have expired.
+
+> **`ListQueues` needs `MaxResults` to paginate at all.** Without it AWS returns up
+> to 1000 queues and no `NextToken` — silent truncation, confirmed against the
+> real API. The collector always sends it.
+
+> **Mapping state is tri-state.** `Creating` and `Updating` say nothing about
+> whether a mapping is enabled; a live mapping scanned mid-update read as disabled
+> under a two-state rule. `enabled` is `null` there, with `transitional: true`.
+
+> **Lambda asks for three permissions, not six.** `ListFunctions` already
+> returns environment, role and runtime, so `GetFunctionConfiguration` is
+> redundant. `GetFunction` is deferred to M3, when a container image URI is
+> actually needed — and its response carries `Code.Location`, a presigned URL to
+> download the function's source, which a topology scan has no business holding.
+> `ListFunctionUrlConfigs` and `GetFunctionCodeSigningConfig` feed nothing the
+> linker or materializer uses yet.
+>
+> Event source mappings are emitted as **their own resources**: they are
+> independent AWS resources listed account-wide, a function can have several, and
+> they often target an alias. Keeping them separate also keeps provenance honest —
+> the evidence for a queue → function edge is `ListEventSourceMappings`, not the
+> call that listed the function.
+>
+> **Known gap:** `ListFunctions` returns `$LATEST`. If production goes through an
+> alias pinned to an older version, that version's environment can differ. The
+> mapping's `qualifier` is recorded so the gap is at least visible.
+
 > **ElastiCache is two APIs, not one.** Redis and Valkey clusters are *only*
 > visible through `DescribeReplicationGroups`; `DescribeCacheClusters` covers
 > memcached. M0 confirmed Floci enforces the same split as modern AWS
@@ -117,7 +180,7 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 
 | Service | Calls | Why |
 | --- | --- | --- |
-| **IAM** | `GetRole`, `ListAttachedRolePolicies`, `GetPolicy`, `GetPolicyVersion`, `ListRolePolicies`, `GetRolePolicy` | Tier-3 permission-based edge inference — the highest-value heuristic |
+| **IAM** ✅ | `GetRole`, `ListRolePolicies`, `GetRolePolicy`, `ListAttachedRolePolicies`, `GetPolicy`, `GetPolicyVersion` | Tier-3 permission-based edge inference — the highest-value heuristic |
 | **ECR** | `DescribeRepositories`, `DescribeImages` | resolve image tag → digest so the local env is pinned |
 | **SNS** | `ListTopics`, `GetTopicAttributes`, `ListSubscriptionsByTopic` | fan-out edges |
 | **Secrets Manager** | `ListSecrets`, `DescribeSecret` | **never `GetSecretValue`** by default |
@@ -125,6 +188,23 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | **EC2** | `DescribeVpcs`, `DescribeSubnets`, `DescribeSecurityGroups` | Tier-4 reachability corroboration |
 | **ELBv2** | `DescribeLoadBalancers`, `DescribeTargetGroups`, `DescribeListeners`, `DescribeRules` | API GW / ALB → ECS path |
 | **CloudWatch Logs** | `DescribeLogGroups` | map workloads to log groups (used later for runtime observation) |
+
+> **IAM reads only the roles workloads assume.** No `ListRoles`, no
+> `ListPolicies`: a real account holds hundreds of SSO, service-linked and
+> bootstrap roles the linker would only have to ignore. The roles read are ECS
+> *task* roles and Lambda execution roles — the identities application code runs
+> as. ECS *execution* roles are skipped on purpose: they belong to the ECS agent,
+> which uses them to pull images and inject `secrets[]`, and reading them as the
+> application's permissions would make every service appear to read every secret
+> the agent fetches for it.
+>
+> Also recorded: the **permissions boundary**, because effective permission is
+> the intersection of the role's policies with it; roles that are referenced but
+> **no longer exist** (a `dangling-reference` warning — that workload cannot
+> start); and roles in **another account**, which are reported and never looked
+> up, since `GetRole` takes a name and would silently return a different,
+> same-named local role. Every policy document IAM returns is URL-encoded; the SDK
+> does not decode it, the collector does.
 
 ## Scan scope and cost
 

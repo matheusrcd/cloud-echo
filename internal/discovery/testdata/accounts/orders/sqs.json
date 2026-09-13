@@ -1,0 +1,101 @@
+[
+  {
+    "op": "ListQueues",
+    "match": "\"NextToken\":\"page-2\"",
+    "response": {
+      "QueueUrls": [
+        "https://sqs.us-east-1.amazonaws.com/123456789012/notifications",
+        "https://sqs.us-east-1.amazonaws.com/123456789012/orders"
+      ]
+    }
+  },
+  {
+    "op": "ListQueues",
+    "match": "\"MaxResults\":1000",
+    "response": {
+      "QueueUrls": [
+        "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events",
+        "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events-dlq"
+      ],
+      "NextToken": "page-2"
+    }
+  },
+  {
+    "op": "GetQueueAttributes",
+    "match": "orders-events\"",
+    "response": {
+      "Attributes": {
+        "QueueArn": "arn:aws:sqs:us-east-1:123456789012:orders-events",
+        "VisibilityTimeout": "30",
+        "MessageRetentionPeriod": "345600",
+        "DelaySeconds": "0",
+        "MaximumMessageSize": "262144",
+        "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-1:123456789012:orders-events-dlq\",\"maxReceiveCount\":5}",
+        "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::123456789012:role/orders-api-task\"},\"Action\":\"sqs:SendMessage\",\"Resource\":\"arn:aws:sqs:us-east-1:123456789012:orders-events\"}]}"
+      }
+    }
+  },
+  {
+    "op": "ListQueueTags",
+    "match": "orders-events\"",
+    "response": {
+      "Tags": {
+        "team": "orders"
+      }
+    }
+  },
+  {
+    "op": "GetQueueAttributes",
+    "match": "orders-events-dlq",
+    "response": {
+      "Attributes": {
+        "QueueArn": "arn:aws:sqs:us-east-1:123456789012:orders-events-dlq",
+        "VisibilityTimeout": "30",
+        "MessageRetentionPeriod": "1209600"
+      }
+    }
+  },
+  {
+    "op": "ListQueueTags",
+    "match": "orders-events-dlq",
+    "response": {
+      "Tags": {}
+    }
+  },
+  {
+    "op": "GetQueueAttributes",
+    "match": "notifications",
+    "response": {
+      "Attributes": {
+        "QueueArn": "arn:aws:sqs:us-east-1:123456789012:notifications",
+        "VisibilityTimeout": "60",
+        "FifoQueue": "true",
+        "ContentBasedDeduplication": "true"
+      }
+    }
+  },
+  {
+    "op": "ListQueueTags",
+    "match": "notifications",
+    "response": {
+      "Tags": {}
+    }
+  },
+  {
+    "op": "GetQueueAttributes",
+    "match": "/orders\"",
+    "response": {
+      "Attributes": {
+        "QueueArn": "arn:aws:sqs:us-east-1:123456789012:orders",
+        "VisibilityTimeout": "30"
+      }
+    }
+  },
+  {
+    "op": "ListQueueTags",
+    "match": "/orders\"",
+    "response": {
+      "Tags": {}
+    }
+  }
+]
