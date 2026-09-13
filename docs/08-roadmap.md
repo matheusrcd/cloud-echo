@@ -49,9 +49,11 @@ default and we scope a metadata shim.
 
 *Deliverable: `cloud-echo scan` + `cloud-echo graph`. No local environment yet.*
 
-- [ ] Collectors: **ECS ✅ · SQS ✅ · DynamoDB ✅**, then Lambda and IAM (the
-      minimum set that makes the linker testable), then RDS, ElastiCache, API
-      Gateway v1/v2, plus supporting ECR, SNS, EC2, ELBv2, Secrets Manager, SSM.
+- [x] The minimum collector set the linker needs: **ECS ✅ · SQS ✅ · DynamoDB ✅ ·
+      Lambda ✅ · IAM ✅** (IAM as a second-phase collector over the others).
+- [ ] Remaining collectors: RDS, ElastiCache, API Gateway v1/v2, plus supporting
+      ECR, SNS, EC2, ELBv2, Secrets Manager, SSM.
+- [x] Secret-shaped value redaction at collection time (Guarantee 2).
 - [x] Read-only guard middleware + the test that proves it.
 - [x] `policies/cloud-echo-scanner.json` and the drift test that keeps it honest.
 - [x] Inventory model, deterministic serialization, scan runner, `scan --dry-run`.

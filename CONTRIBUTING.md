@@ -152,6 +152,12 @@ substring:
 Fixtures are hand-authored or captured from a real account — **if captured, redact
 the account id to `123456789012` and strip anything internal.** They are public.
 
+The fixture transport identifies requests by the service and operation the SDK
+puts on the request context, so it works for every protocol. JSON services answer
+with a `response` object; Query-protocol services like IAM answer XML through a
+`body` string. IAM policy documents are URL-encoded exactly as AWS returns them —
+encode with `python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.stdin.read(),safe=""))'`.
+
 Your fixtures must exercise **every** operation you added to the allow-list. The
 drift test checks both directions and will fail on an operation that is granted but
 never called. If you cannot write a fixture that triggers a permission, that is a
@@ -164,7 +170,10 @@ rather than assumed.
 ### 5. Register it
 
 Add the collector to `NewRegistry` in
-[`internal/discovery/scan.go`](internal/discovery/scan.go).
+[`internal/discovery/scan.go`](internal/discovery/scan.go). If it needs another
+collector's output — as IAM needs the roles ECS and Lambda reference — implement
+`DependentCollector` and register it under `dependents`; it runs in a second
+phase over a snapshot of the first.
 
 ### 6. Update the docs
 
@@ -178,6 +187,7 @@ The bar is that a test must be able to fail for the reason it claims. Before
 submitting, try breaking the thing your test covers and confirm it goes red — a
 test that passes unconditionally is worse than no test, because it advertises
 coverage that does not exist.
+
 
 Tests that replay fixtures go through the **real** middleware stack, so they
 exercise the guard too. Do not stub it out.

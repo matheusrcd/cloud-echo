@@ -75,6 +75,21 @@ var services = []Service{
 		},
 	},
 	{
+		SDKID:     "IAM",
+		IAMPrefix: "iam",
+		// Only the roles collected workloads assume are read, never the whole
+		// account — so there is no ListRoles and no ListPolicies. Every call
+		// below is keyed by a role or policy name that came from a workload.
+		Ops: []string{
+			"GetPolicy",
+			"GetPolicyVersion",
+			"GetRole",
+			"GetRolePolicy",
+			"ListAttachedRolePolicies",
+			"ListRolePolicies",
+		},
+	},
+	{
 		SDKID:     "Lambda",
 		IAMPrefix: "lambda",
 		// ListFunctions returns environment variables, role and runtime for

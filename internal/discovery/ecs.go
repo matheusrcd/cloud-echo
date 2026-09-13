@@ -230,6 +230,7 @@ func (c *ECS) collectTaskDefinitions(
 				CPU:              aws.ToString(td.Cpu),
 				Memory:           aws.ToString(td.Memory),
 				TaskRoleARN:      aws.ToString(td.TaskRoleArn),
+				TaskRoleID:       roleIDFromARN(aws.ToString(td.TaskRoleArn)),
 				ExecutionRoleARN: aws.ToString(td.ExecutionRoleArn),
 				RequiresCompat:   compatibilities(td.RequiresCompatibilities),
 				Containers:       containerSpecs(td.ContainerDefinitions, redacted),
@@ -286,6 +287,7 @@ type taskDefinitionSpec struct {
 	CPU              string          `json:"cpu,omitempty"`
 	Memory           string          `json:"memory,omitempty"`
 	TaskRoleARN      string          `json:"taskRoleArn,omitempty"`
+	TaskRoleID       string          `json:"taskRoleId,omitempty"`
 	ExecutionRoleARN string          `json:"executionRoleArn,omitempty"`
 	RequiresCompat   []string        `json:"requiresCompatibilities,omitempty"`
 	Containers       []containerSpec `json:"containers"`
@@ -501,17 +503,24 @@ func failureWarning(op string, f ecstypes.Failure) inventory.Warning {
 
 type resourceArgs struct {
 	ID, Type, ARN, Name, API string
-	Tags                     map[string]string
-	Spec                     any
-	Raw                      any
+	// Region overrides the session's region, for global services like IAM
+	// whose resources belong to no region at all.
+	Region string
+	Tags   map[string]string
+	Spec   any
+	Raw    any
 }
 
 func newResource(s *awsx.Session, a resourceArgs) inventory.Resource {
+	region := s.Region()
+	if a.Region != "" {
+		region = a.Region
+	}
 	return inventory.Resource{
 		ID:        a.ID,
 		Type:      a.Type,
 		ARN:       a.ARN,
-		Region:    s.Region(),
+		Region:    region,
 		AccountID: s.AccountID(),
 		Name:      a.Name,
 		Tags:      a.Tags,

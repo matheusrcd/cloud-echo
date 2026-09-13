@@ -19,6 +19,19 @@ type Emitter interface {
 }
 ```
 
+Collectors that depend on what others found implement `DependentCollector`
+instead, and run in a **second phase** over a snapshot of the first:
+
+```go
+type DependentCollector interface {
+    Service() string
+    CollectFrom(ctx context.Context, s *awsx.Session, prior []inventory.Resource, out Emitter) error
+}
+```
+
+IAM is the reason it exists: cloud-echo reads the roles that collected workloads
+assume, and cannot know which roles those are until the workloads have been read.
+
 `Emitter` rather than a bare `chan<- Resource`: rule 3 below requires a collector
 to report *partial* failure, and a channel of resources has nowhere to put "I was
 denied `DescribeTaskDefinition` on this one." Warnings that travel out-of-band
@@ -74,6 +87,9 @@ make the name unique:
 | `ddb/orders` | table — unique per account-region |
 | `lambda/order-processor` | function — unique per account-region |
 | `lambda/esm/<uuid>` | event source mapping — its own resource, see below |
+| `iam/role/orders-api-task` | role — unique per account **regardless of path** |
+| `iam/policy/orders-rw` | customer-managed policy |
+| `iam/aws-policy/AmazonSQSFullAccess` | AWS-managed policy — a customer policy may reuse the name, so they must not share an id |
 
 ECS service names are only unique *within a cluster*. A bare `ecs/orders-api`
 would silently collapse two different services in any account that reuses names
@@ -156,7 +172,7 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 
 | Service | Calls | Why |
 | --- | --- | --- |
-| **IAM** | `GetRole`, `ListAttachedRolePolicies`, `GetPolicy`, `GetPolicyVersion`, `ListRolePolicies`, `GetRolePolicy` | Tier-3 permission-based edge inference — the highest-value heuristic |
+| **IAM** ✅ | `GetRole`, `ListRolePolicies`, `GetRolePolicy`, `ListAttachedRolePolicies`, `GetPolicy`, `GetPolicyVersion` | Tier-3 permission-based edge inference — the highest-value heuristic |
 | **ECR** | `DescribeRepositories`, `DescribeImages` | resolve image tag → digest so the local env is pinned |
 | **SNS** | `ListTopics`, `GetTopicAttributes`, `ListSubscriptionsByTopic` | fan-out edges |
 | **Secrets Manager** | `ListSecrets`, `DescribeSecret` | **never `GetSecretValue`** by default |
@@ -164,6 +180,23 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | **EC2** | `DescribeVpcs`, `DescribeSubnets`, `DescribeSecurityGroups` | Tier-4 reachability corroboration |
 | **ELBv2** | `DescribeLoadBalancers`, `DescribeTargetGroups`, `DescribeListeners`, `DescribeRules` | API GW / ALB → ECS path |
 | **CloudWatch Logs** | `DescribeLogGroups` | map workloads to log groups (used later for runtime observation) |
+
+> **IAM reads only the roles workloads assume.** No `ListRoles`, no
+> `ListPolicies`: a real account holds hundreds of SSO, service-linked and
+> bootstrap roles the linker would only have to ignore. The roles read are ECS
+> *task* roles and Lambda execution roles — the identities application code runs
+> as. ECS *execution* roles are skipped on purpose: they belong to the ECS agent,
+> which uses them to pull images and inject `secrets[]`, and reading them as the
+> application's permissions would make every service appear to read every secret
+> the agent fetches for it.
+>
+> Also recorded: the **permissions boundary**, because effective permission is
+> the intersection of the role's policies with it; roles that are referenced but
+> **no longer exist** (a `dangling-reference` warning — that workload cannot
+> start); and roles in **another account**, which are reported and never looked
+> up, since `GetRole` takes a name and would silently return a different,
+> same-named local role. Every policy document IAM returns is URL-encoded; the SDK
+> does not decode it, the collector does.
 
 ## Scan scope and cost
 

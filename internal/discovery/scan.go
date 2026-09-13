@@ -13,19 +13,25 @@ import (
 // Registry is the set of collectors a scan will run.
 type Registry struct {
 	collectors []Collector
+	dependents []DependentCollector
 }
 
 // NewRegistry returns the collectors enabled for v1.
 func NewRegistry() *Registry {
-	return &Registry{collectors: []Collector{
-		&DynamoDB{},
-		&ECS{},
-		&Lambda{},
-		&SQS{},
-	}}
+	return &Registry{
+		collectors: []Collector{
+			&DynamoDB{},
+			&ECS{},
+			&Lambda{},
+			&SQS{},
+		},
+		dependents: []DependentCollector{
+			&IAM{},
+		},
+	}
 }
 
-// Collectors returns the registered collectors.
+// Collectors returns the registered first-phase collectors.
 func (r *Registry) Collectors() []Collector { return r.collectors }
 
 // Options tunes a scan.
@@ -60,35 +66,27 @@ func (r *Registry) Scan(ctx context.Context, s *awsx.Session, opts Options) (*in
 	sink := &syncEmitter{inv: inv}
 	sem := make(chan struct{}, opts.Concurrency)
 
-	var wg sync.WaitGroup
-	for _, c := range r.collectors {
-		wg.Add(1)
-		go func(c Collector) {
-			defer wg.Done()
-
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-ctx.Done():
-				return
-			}
-
-			if err := c.Collect(ctx, s, sink); err != nil {
-				// A collector that fails outright still leaves the rest of the
-				// scan usable. Losing ECS should not cost you the DynamoDB
-				// tables you already paid for.
-				sink.Warn(inventory.Warning{
-					Service: c.Service(),
-					Kind:    "api-error",
-					Message: err.Error(),
-				})
-			}
-		}(c)
-	}
-	wg.Wait()
-
+	// Phase 1: independent collectors, concurrently.
+	runPhase(ctx, sem, len(r.collectors), func(i int) (string, error) {
+		c := r.collectors[i]
+		return c.Service(), c.Collect(ctx, s, sink)
+	}, sink)
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+
+	// Phase 2: collectors that read what phase 1 found. They get a snapshot,
+	// not the live slice, so nothing they emit can change what another
+	// dependent sees — the order dependents run in must not matter.
+	if len(r.dependents) > 0 {
+		prior := sink.snapshot()
+		runPhase(ctx, sem, len(r.dependents), func(i int) (string, error) {
+			d := r.dependents[i]
+			return d.Service(), d.CollectFrom(ctx, s, prior, sink)
+		}, sink)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 	}
 
 	inv.Normalize()
@@ -98,10 +96,40 @@ func (r *Registry) Scan(ctx context.Context, s *awsx.Session, opts Options) (*in
 	return inv, nil
 }
 
+// runPhase runs n collectors under the shared concurrency bound and waits for all
+// of them. A collector that fails outright becomes a warning: losing ECS should
+// not cost the user the DynamoDB tables that were already read.
+func runPhase(ctx context.Context, sem chan struct{}, n int, run func(i int) (string, error), sink *syncEmitter) {
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+			if service, err := run(i); err != nil {
+				sink.Warn(inventory.Warning{Service: service, Kind: "api-error", Message: err.Error()})
+			}
+		}(i)
+	}
+	wg.Wait()
+}
+
 // syncEmitter serializes concurrent collector output.
 type syncEmitter struct {
 	mu  sync.Mutex
 	inv *inventory.Inventory
+}
+
+// snapshot copies the resources emitted so far.
+func (e *syncEmitter) snapshot() []inventory.Resource {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]inventory.Resource(nil), e.inv.Resources...)
 }
 
 func (e *syncEmitter) Emit(r inventory.Resource) {

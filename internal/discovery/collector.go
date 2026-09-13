@@ -38,6 +38,23 @@ type Collector interface {
 	Collect(ctx context.Context, s *awsx.Session, out Emitter) error
 }
 
+// DependentCollector runs after every Collector has finished, and reads what they
+// found.
+//
+// IAM is the reason it exists. cloud-echo collects the roles that collected
+// workloads assume — not every role in the account, which in a real account means
+// hundreds of SSO, service-linked and bootstrap roles the linker would only have
+// to ignore — and it cannot know which roles those are until the workloads have
+// been read.
+type DependentCollector interface {
+	Service() string
+
+	// CollectFrom receives a snapshot of the first phase's resources. It must
+	// not assume any particular collector ran successfully: a denied ECS scan
+	// simply means fewer roles to read.
+	CollectFrom(ctx context.Context, s *awsx.Session, prior []inventory.Resource, out Emitter) error
+}
+
 // Emitter is how a collector reports what it found and what it could not see.
 type Emitter interface {
 	Emit(inventory.Resource)

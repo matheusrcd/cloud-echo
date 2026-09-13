@@ -129,8 +129,11 @@ func (s staticCollector) Collect(_ context.Context, _ *awsx.Session, out Emitter
 // collector internals — those have their own tests. If this breaks, the linker's
 // golden fixtures break with it.
 func TestScanAcrossCollectorsProducesTheLinkerFixture(t *testing.T) {
-	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb", "lambda")
-	reg := &Registry{collectors: []Collector{&ECS{}, &SQS{}, &DynamoDB{}, &Lambda{}}}
+	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb", "lambda", "iam")
+	reg := &Registry{
+		collectors: []Collector{&ECS{}, &SQS{}, &DynamoDB{}, &Lambda{}},
+		dependents: []DependentCollector{&IAM{}},
+	}
 
 	inv, err := reg.Scan(context.Background(), fixtureSession(tr), Options{Concurrency: 4})
 	if err != nil {
@@ -138,12 +141,17 @@ func TestScanAcrossCollectorsProducesTheLinkerFixture(t *testing.T) {
 	}
 	tr.assertAllMatched(t)
 
-	// The fixture has exactly one blind spot: legacy-report's environment is
-	// encrypted with a KMS key the scanner cannot use. That must mark the
-	// inventory partial — the graph may be missing that function's edges — and
-	// nothing else may.
-	if !inv.Partial || len(inv.Warnings) != 1 || inv.Warnings[0].Kind != "unreadable" {
-		t.Fatalf("want exactly one 'unreadable' warning and a partial inventory, got partial=%v %+v",
+	// The fixture has exactly two findings, both about legacy-report: its
+	// environment is encrypted with a KMS key the scanner cannot use, and its
+	// role was deleted. Both must surface, the inventory must be partial, and
+	// nothing else may be reported.
+	var kinds []string
+	for _, w := range inv.Warnings {
+		kinds = append(kinds, w.Kind)
+	}
+	sort.Strings(kinds)
+	if !inv.Partial || !reflect.DeepEqual(kinds, []string{"dangling-reference", "unreadable"}) {
+		t.Fatalf("want exactly [dangling-reference unreadable] and a partial inventory, got partial=%v %+v",
 			inv.Partial, inv.Warnings)
 	}
 
@@ -155,6 +163,8 @@ func TestScanAcrossCollectorsProducesTheLinkerFixture(t *testing.T) {
 		"dynamodb.table":              2,
 		"lambda.function":             4,
 		"lambda.event-source-mapping": 3,
+		"iam.role":                    5,
+		"iam.policy":                  4,
 	}
 	for typ, want := range counts {
 		if got := len(inv.ByType(typ)); got != want {
@@ -214,4 +224,56 @@ func TestBareNameReferenceIsAmbiguous(t *testing.T) {
 		t.Fatalf("the ambiguity this fixture exists to create is gone:\n got %q\nwant %q",
 			matches, want)
 	}
+}
+
+// TestDependentsSeeFirstPhaseOutput pins the ordering the IAM collector relies
+// on: a dependent runs after every first-phase collector has finished, and sees
+// all of their output.
+func TestDependentsSeeFirstPhaseOutput(t *testing.T) {
+	var seen []string
+	reg := &Registry{
+		collectors: []Collector{staticCollector{"A", "a/one"}, staticCollector{"B", "b/two"}},
+		dependents: []DependentCollector{recordingDependent{seen: &seen}},
+	}
+	if _, err := reg.Scan(context.Background(), fixtureSession(loadFixture(t, "orders", "ecs")), Options{Concurrency: 1}); err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	sort.Strings(seen)
+	if !reflect.DeepEqual(seen, []string{"a/one", "b/two"}) {
+		t.Errorf("dependent saw %q, want both first-phase resources", seen)
+	}
+}
+
+// TestFailingDependentDegradesTheScan: a denied IAM must not cost the user the
+// workloads that were already read.
+func TestFailingDependentDegradesTheScan(t *testing.T) {
+	reg := &Registry{
+		collectors: []Collector{staticCollector{"A", "a/one"}},
+		dependents: []DependentCollector{failingDependent{}},
+	}
+	inv, err := reg.Scan(context.Background(), fixtureSession(loadFixture(t, "orders", "ecs")), Options{})
+	if err != nil {
+		t.Fatalf("a failing dependent aborted the scan: %v", err)
+	}
+	if len(inv.Resources) != 1 || !inv.Partial {
+		t.Errorf("want the first-phase resource kept and the inventory partial, got %d resources, partial=%v",
+			len(inv.Resources), inv.Partial)
+	}
+}
+
+type recordingDependent struct{ seen *[]string }
+
+func (recordingDependent) Service() string { return "Recorder" }
+func (d recordingDependent) CollectFrom(_ context.Context, _ *awsx.Session, prior []inventory.Resource, _ Emitter) error {
+	for _, r := range prior {
+		*d.seen = append(*d.seen, r.ID)
+	}
+	return nil
+}
+
+type failingDependent struct{}
+
+func (failingDependent) Service() string { return "Failing" }
+func (failingDependent) CollectFrom(context.Context, *awsx.Session, []inventory.Resource, Emitter) error {
+	return errors.New("denied")
 }
