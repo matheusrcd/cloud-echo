@@ -75,11 +75,7 @@ func TestECSDistinguishesSameNamedServicesAcrossClusters(t *testing.T) {
 func TestECSDescribesEachTaskDefinitionOnce(t *testing.T) {
 	_, tr := collectECS(t)
 
-	tr.mu.Lock()
-	n := tr.observed["DescribeTaskDefinition"]
-	tr.mu.Unlock()
-
-	if n != 2 {
+	if n := tr.count("ECS", "DescribeTaskDefinition"); n != 2 {
 		t.Errorf("DescribeTaskDefinition called %d times, want 2 (one per distinct definition)", n)
 	}
 }
