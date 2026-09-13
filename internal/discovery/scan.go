@@ -20,6 +20,7 @@ func NewRegistry() *Registry {
 	return &Registry{collectors: []Collector{
 		&DynamoDB{},
 		&ECS{},
+		&Lambda{},
 		&SQS{},
 	}}
 }

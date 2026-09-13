@@ -14,6 +14,9 @@
         "ecs:DescribeTaskDefinition",
         "ecs:ListClusters",
         "ecs:ListServices",
+        "lambda:GetPolicy",
+        "lambda:ListEventSourceMappings",
+        "lambda:ListFunctions",
         "sqs:GetQueueAttributes",
         "sqs:ListQueueTags",
         "sqs:ListQueues"

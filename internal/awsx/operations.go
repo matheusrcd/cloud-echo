@@ -75,6 +75,22 @@ var services = []Service{
 		},
 	},
 	{
+		SDKID:     "Lambda",
+		IAMPrefix: "lambda",
+		// ListFunctions returns environment variables, role and runtime for
+		// every function, so there is no per-function GetFunctionConfiguration.
+		//
+		// GetFunction is deliberately absent until M3 needs a container image
+		// URI. Its response also carries Code.Location, a presigned URL to
+		// download the function's source — not something a topology scan should
+		// hold, even briefly.
+		Ops: []string{
+			"GetPolicy",
+			"ListEventSourceMappings",
+			"ListFunctions",
+		},
+	},
+	{
 		SDKID:     "SQS",
 		IAMPrefix: "sqs",
 		// GetQueueAttributes with AttributeNames=["All"] returns the ARN, the

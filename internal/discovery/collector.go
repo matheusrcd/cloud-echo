@@ -65,6 +65,24 @@ func isAccessDenied(err error) bool {
 	return false
 }
 
+// isNotFound reports whether AWS said the thing does not exist.
+//
+// That is a different fact from "you may not see it", and often not a failure at
+// all: lambda:GetPolicy answers ResourceNotFoundException for every function that
+// simply has no resource policy. Where it *is* a finding — a task definition
+// naming an IAM role that was deleted — the caller decides how to report it.
+func isNotFound(err error) bool {
+	var ae smithy.APIError
+	if !errors.As(err, &ae) {
+		return false
+	}
+	switch ae.ErrorCode() {
+	case "ResourceNotFoundException", "NoSuchEntity", "NotFoundException":
+		return true
+	}
+	return false
+}
+
 // warnOrFail converts an error into either a warning (returning nil, so the
 // collector continues) or a hard error the caller should propagate.
 func warnOrFail(out Emitter, service, op string, err error) error {

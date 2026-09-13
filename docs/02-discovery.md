@@ -72,6 +72,8 @@ make the name unique:
 | `ecs/taskdef/orders-api:41` | task definition, family + revision |
 | `sqs/orders-events` | queue — unique per account-region, no scope needed |
 | `ddb/orders` | table — unique per account-region |
+| `lambda/order-processor` | function — unique per account-region |
+| `lambda/esm/<uuid>` | event source mapping — its own resource, see below |
 
 ECS service names are only unique *within a cluster*. A bare `ecs/orders-api`
 would silently collapse two different services in any account that reuses names
@@ -95,7 +97,7 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | Service | Calls | Key fields for linking |
 | --- | --- | --- |
 | **ECS** ✅ | `ListClusters`, `DescribeClusters`, `ListServices`, `DescribeServices`, `DescribeTaskDefinition` | container `image`, `environment`, `secrets`, `portMappings`, `command`, `taskRoleArn`, `executionRoleArn`, `networkConfiguration`, `loadBalancers`, `serviceRegistries` |
-| **Lambda** | `ListFunctions`, `GetFunctionConfiguration`, `ListEventSourceMappings`, `GetPolicy`, `ListFunctionUrlConfigs`, `GetFunctionCodeSigningConfig` | `Environment.Variables`, `Role`, `ImageUri`, `Handler`, `Runtime`, event source ARNs, resource-policy principals |
+| **Lambda** ✅ | `ListFunctions`, `ListEventSourceMappings`, `GetPolicy` | `Environment.Variables`, `Role`, `DeadLetterConfig`, event source ARNs, resource-policy principals |
 | **SQS** ✅ | `ListQueues`, `GetQueueAttributes`, `ListQueueTags` | `RedrivePolicy` (→ DLQ), `VisibilityTimeout`, `Policy` (→ who can send), `FifoQueue` |
 | **DynamoDB** ✅ | `ListTables`, `DescribeTable`, `DescribeTimeToLive`, `ListTagsOfResource` | key schema, GSIs/LSIs, `StreamSpecification` |
 | **RDS** | `DescribeDBInstances`, `DescribeDBClusters`, `DescribeDBSubnetGroups` | `Engine`, `EngineVersion`, `Endpoint`, `Port`, `DBName`, `VpcSecurityGroups` |
@@ -124,6 +126,24 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 > rejects them locally. TTL is not in `DescribeTable` at all — it needs
 > `DescribeTimeToLive`, and without it a local table keeps rows the real one
 > would have expired.
+
+> **Lambda asks for three permissions, not six.** `ListFunctions` already
+> returns environment, role and runtime, so `GetFunctionConfiguration` is
+> redundant. `GetFunction` is deferred to M3, when a container image URI is
+> actually needed — and its response carries `Code.Location`, a presigned URL to
+> download the function's source, which a topology scan has no business holding.
+> `ListFunctionUrlConfigs` and `GetFunctionCodeSigningConfig` feed nothing the
+> linker or materializer uses yet.
+>
+> Event source mappings are emitted as **their own resources**: they are
+> independent AWS resources listed account-wide, a function can have several, and
+> they often target an alias. Keeping them separate also keeps provenance honest —
+> the evidence for a queue → function edge is `ListEventSourceMappings`, not the
+> call that listed the function.
+>
+> **Known gap:** `ListFunctions` returns `$LATEST`. If production goes through an
+> alias pinned to an older version, that version's environment can differ. The
+> mapping's `qualifier` is recorded so the gap is at least visible.
 
 > **ElastiCache is two APIs, not one.** Redis and Valkey clusters are *only*
 > visible through `DescribeReplicationGroups`; `DescribeCacheClusters` covers

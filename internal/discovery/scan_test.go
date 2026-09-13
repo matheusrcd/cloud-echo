@@ -129,23 +129,32 @@ func (s staticCollector) Collect(_ context.Context, _ *awsx.Session, out Emitter
 // collector internals — those have their own tests. If this breaks, the linker's
 // golden fixtures break with it.
 func TestScanAcrossCollectorsProducesTheLinkerFixture(t *testing.T) {
-	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb")
-	reg := &Registry{collectors: []Collector{&ECS{}, &SQS{}, &DynamoDB{}}}
+	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb", "lambda")
+	reg := &Registry{collectors: []Collector{&ECS{}, &SQS{}, &DynamoDB{}, &Lambda{}}}
 
 	inv, err := reg.Scan(context.Background(), fixtureSession(tr), Options{Concurrency: 4})
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
-	if inv.Partial {
-		t.Fatalf("clean scan reported partial: %+v", inv.Warnings)
+	tr.assertAllMatched(t)
+
+	// The fixture has exactly one blind spot: legacy-report's environment is
+	// encrypted with a KMS key the scanner cannot use. That must mark the
+	// inventory partial — the graph may be missing that function's edges — and
+	// nothing else may.
+	if !inv.Partial || len(inv.Warnings) != 1 || inv.Warnings[0].Kind != "unreadable" {
+		t.Fatalf("want exactly one 'unreadable' warning and a partial inventory, got partial=%v %+v",
+			inv.Partial, inv.Warnings)
 	}
 
 	counts := map[string]int{
-		"ecs.cluster":        2,
-		"ecs.service":        3,
-		"ecs.taskdefinition": 2,
-		"sqs.queue":          4,
-		"dynamodb.table":     2,
+		"ecs.cluster":                 2,
+		"ecs.service":                 3,
+		"ecs.taskdefinition":          2,
+		"sqs.queue":                   4,
+		"dynamodb.table":              2,
+		"lambda.function":             4,
+		"lambda.event-source-mapping": 3,
 	}
 	for typ, want := range counts {
 		if got := len(inv.ByType(typ)); got != want {
