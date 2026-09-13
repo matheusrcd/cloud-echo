@@ -47,17 +47,28 @@ func Tier1() []Rule {
 	}
 }
 
+// Tier2 rules read configuration values: what a workload's env vars, command
+// line and stage variables name.
+func Tier2() []Rule {
+	return []Rule{configValueRule{}}
+}
+
+// Rules is every implemented rule, in tier order.
+func Rules() []Rule {
+	return append(Tier1(), Tier2()...)
+}
+
 // Options configures a link run.
 type Options struct {
 	GeneratedBy string
-	Rules       []Rule // defaults to Tier1()
+	Rules       []Rule // defaults to Rules()
 }
 
 // Link builds the graph for an inventory.
 func Link(inv *inventory.Inventory, opts Options) *Graph {
 	rules := opts.Rules
 	if rules == nil {
-		rules = Tier1()
+		rules = Rules()
 	}
 	b := newBuilder()
 	for _, r := range inv.Resources {
@@ -71,6 +82,7 @@ func Link(inv *inventory.Inventory, opts Options) *Graph {
 		r.Apply(c)
 	}
 	b.resolveCorroborations()
+	b.absorbReferences()
 
 	g := b.graph()
 	classify(g)
@@ -88,6 +100,7 @@ type Context struct {
 	inv  *inventory.Inventory
 	b    *builder
 	rule string
+	byID map[string]int // resource index by id, built on first lookup
 }
 
 // Each calls fn for every resource of one type, with its spec decoded into v's
@@ -173,7 +186,12 @@ func (c *Context) Corroborate(from, to string, kind Kind, source, detail string,
 
 // Unresolved records a reference a rule could not turn into an edge.
 func (c *Context) Unresolved(node, target, detail string) {
-	c.b.findings = append(c.b.findings, Finding{Kind: "unresolved", Node: node, Target: target, Rule: c.rule, Detail: detail})
+	c.Finding("unresolved", node, target, detail)
+}
+
+// Finding records something a rule saw and could not turn into an edge.
+func (c *Context) Finding(kind, node, target, detail string) {
+	c.b.findings = append(c.b.findings, Finding{Kind: kind, Node: node, Target: target, Rule: c.rule, Detail: detail})
 }
 
 // ---------------------------------------------------------------- flow
@@ -185,10 +203,15 @@ func (c *Context) Unresolved(node, target, detail string) {
 // worker would flip between runs. The rule here is order-free: a node is sync
 // if *any* path from an entrypoint to it is all synchronous; otherwise async if
 // it is reachable at all. Disabled edges carry nothing and are not followed.
+//
+// Neither are low-confidence edges. Low is a suggestion the user has not
+// accepted (docs/03-linker.md, the confidence policy), and a flow resting on one
+// would put a service on the request path because LOG_LEVEL=info happens to be
+// the name of a queue.
 func classify(g *Graph) {
 	out := map[string][]Edge{}
 	for _, e := range g.Edges {
-		if e.Status == Disabled {
+		if e.Status == Disabled || e.Confidence == Low {
 			continue
 		}
 		out[e.From] = append(out[e.From], e)
@@ -200,7 +223,7 @@ func classify(g *Graph) {
 			entry = append(entry, n.ID)
 		}
 	}
-	syncSet := reach(entry, out, func(e Edge) bool { return e.Kind.Synchronous() })
+	syncSet := reach(entry, out, g.Synchronous)
 	anySet := reach(entry, out, func(Edge) bool { return true })
 
 	for i := range g.Nodes {

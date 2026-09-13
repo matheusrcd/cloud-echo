@@ -287,6 +287,131 @@ resources outside the test topology removed — is now `internal/linker/testdata
 The script refuses to write if any original identifier survives, and an
 independent grep confirmed none did.
 
+## Linker round (Tier 2)
+
+**Date:** 2026-09-13 (fourth round) · Configuration values: what env vars,
+command lines and stage variables name. The same topology, plus three values set
+on the function behind both APIs by
+[`12-aws-apigw-create.sh`](../../spikes/m1/12-aws-apigw-create.sh): an ARN, an API
+invoke URL, and a queue URL in another account whose queue shares its name with
+a local one.
+
+Seven requirements in [03-linker.md](../03-linker.md#tier-2--configuration-value-scanning--high--medium--low-)
+changed before any code: a reference says nothing about intent (a new
+`references` kind, never `publish` or `write`); a reference folds into the edge
+that states its intent; AWS endpoints, sidecars and domain-less hosts are never
+third parties; the key name breaks a tie and says so; "generic" is defined; the
+namesake trap applies to configuration; blind spots are findings. The fifth
+requirement — low confidence is a suggestion — also changed flow classification:
+low edges are no longer followed.
+
+| Check | Result |
+| --- | --- |
+| Real account: scan → graph, Tier 1 only | 31 nodes, 13 edges, 23 unreached |
+| Real account: Tiers 1 + 2 | 32 nodes, **40 edges**, 18 unreached, 21 findings (18 unresolved, 3 ambiguous) |
+| Expected edges and flows ([`check-graph.py`](../../spikes/m1/check-graph.py), Tier-2 checks written before looking at the output) | **49 / 49** after one correction to the checker (below) |
+| Same checker against the sanitized fixture | **49 / 49** |
+| Mutations of the Tier-2 decisions | **17 / 17** killed by named tests, after closing two gaps (below) |
+
+The real graph (the eleven services sharing the notifications task definition,
+and nodes with no edge, left out):
+
+```mermaid
+flowchart LR
+  n0["apigw/fakeapi0001<br/>ce-test-orders-http"]:::entrypoint
+  n1["apigw/fakeapi0002<br/>ce-test-orders-rest"]:::entrypoint
+  n2[("ddb/ce-test-orders")]:::async
+  n3[("ddb/ce-test-orders-audit")]:::sync
+  n4["ecs/ce-test-batch/ce-test-orders-api"]:::unreached
+  n16["ecs/ce-test-main/ce-test-notifications"]:::unreached
+  n17["ecs/ce-test-main/ce-test-orders-api"]:::unreached
+  n18(["ext/api.payments.example.com"]):::external
+  n19(["ext/hooks.slack.com"]):::external
+  n20["lambda/ce-test-audit-writer"]:::async
+  n21["lambda/ce-test-authorizer-fn"]:::sync
+  n23["lambda/ce-test-order-processor"]:::async
+  n24["lambda/ce-test-orders-fn"]:::sync
+  n25["lambda/ce-test-webhook-receiver"]:::entrypoint
+  n26[/"sqs/ce-test-inbox"/]:::async
+  n27[/"sqs/ce-test-notifications.fifo"/]:::unreached
+  n28[/"sqs/ce-test-orders"/]:::unreached
+  n29[/"sqs/ce-test-orders-events"/]:::async
+  n30[/"sqs/ce-test-orders-events-dlq"/]:::async
+  n0 -->|http| n18
+  n0 -->|invoke| n24
+  n0 -.->|publish| n26
+  n1 -->|http| n18
+  n1 -->|invoke| n21
+  n1 -->|invoke| n24
+  n1 -.->|publish| n26
+  n2 -.->|consume| n20
+  n4 -->|references, medium| n2
+  n4 -->|http| n18
+  n4 -.->|references, low| n28
+  n4 -.->|references| n29
+  n16 -.->|references| n27
+  n17 -->|references, medium| n2
+  n17 -->|http| n18
+  n17 -.->|references, low| n28
+  n17 -.->|references| n29
+  n20 -->|references, medium| n3
+  n20 -.->|publish| n30
+  n23 -->|references, medium| n2
+  n23 -->|http| n19
+  n23 -.->|references, low| n28
+  n24 -->|http| n0
+  n24 -->|references| n3
+  n25 -.->|references| n29
+  n25 -.->|publish| n30
+  n28 -.-x|consume, disabled| n23
+  n29 -.->|consume| n23
+  n29 -.->|publish| n30
+  classDef async fill:#fff8e1,stroke:#f9a825
+  classDef entrypoint fill:#e3f2fd,stroke:#1565c0
+  classDef external fill:#fce4ec,stroke:#ad1457
+  classDef scheduled fill:#f3e5f5,stroke:#6a1b9a
+  classDef sync fill:#e8f5e9,stroke:#2e7d32
+  classDef unreached fill:#f5f5f5,stroke:#9e9e9e,color:#616161
+```
+
+Things worth reading in it:
+
+- **The pipeline Tier 1 left unreached is connected**, and not by the service
+  expected. The ECS `orders-api` names `orders-events`, but it has no load
+  balancer here and is unreached itself. What reaches the pipeline is
+  `webhook-receiver` — an entrypoint — through `ORDERS_QUEUE_URL`. The Tier-1 round
+  predicted the ECS service would do it; the graph corrected the prediction.
+- **The planted ambiguity is reported, not guessed.** `TABLE_NAME=ce-test-orders`
+  names a table and a queue. All three holders get the table at `medium` — the key
+  says table — and the queue as a `low` candidate, plus an `ambiguous` finding
+  each. The queue stays unreached: a candidate carries no flow.
+- **`orders-audit` is sync.** It is written by the stream consumer (async) and
+  named by `AUDIT_TABLE_ARN` on the request path; sync takes precedence.
+- **`PARTNER_QUEUE_URL` is reported and not linked.** It names `ce-test-orders-events`
+  in account `999999999999`; the local queue of that name gains nothing from it.
+- **Exactly two third parties**, and none of them AWS: the RDS and ElastiCache
+  endpoints in `DB_HOST`, `DATABASE_URL` and `CACHE_HOST` are findings naming the
+  collector each needs — the ElastiCache one reported once for twelve services in
+  the text output. The Slack webhook lost its token to redaction at scan time and
+  kept its host, which is all linking needs.
+
+**The one check that failed was the checker's.** A Tier-1 check compared the
+evidence on `REST → orders-fn` for equality, and Tier 2 added a third piece: the
+REST stage variable `backend=ce-test-orders-fn`, which no integration URI uses, now
+names the function the API invokes and folds into the edge — the absorption the
+design calls for. `--explain` showed where it came from before the check was
+changed to say so explicitly.
+
+**Two mutants survived the first mutation run**, both fixture gaps. Removing the
+loopback guard changed nothing because the only sidecar was `localhost`, which the
+no-domain guard caught by accident (as a bogus finding) — `http://127.0.0.1:4318`,
+the usual OpenTelemetry collector, would have become a third party. And letting an
+unhinted ambiguity pick its first candidate changed nothing because the only such
+case was `orders`, already `low` as a generic word — a *specific* name shared by a
+table and a queue, the real account's exact shape, was missing. Both are in
+`tier2-cases` now. A third "survivor" was a mutant that did not compile; the
+harness checks that first.
+
 ## Reproducing
 
 ```bash
@@ -298,7 +423,7 @@ go build -o .work/cloud-echo ../../cmd/cloud-echo
 python3 check-inventory.py .work/inventory-aws.json
 ./21-scan-as.sh ce-test-scanner .work/inventory-least.json
 python3 diff-inventory.py .work/inventory-aws.json .work/inventory-least.json
-./12-aws-apigw-create.sh     # API Gateway topology
+./12-aws-apigw-create.sh     # API Gateway topology, and the Tier-2 values on orders-fn
 python3 check-apigw.py .work/inventory-aws.json
 ./22-probe-scope.sh          # the policy cannot read API key values
 ./.work/cloud-echo graph --inventory .work/inventory-aws.json --out .work/graph-aws.json --format json >/dev/null

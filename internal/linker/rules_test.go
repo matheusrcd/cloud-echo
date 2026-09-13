@@ -45,8 +45,9 @@ func finding(g *Graph, kind, node, targetPart string) bool {
 // TestEveryEdgeHasEvidence is the design's first rule: an edge without evidence
 // is a bug.
 func TestEveryEdgeHasEvidence(t *testing.T) {
-	for _, dir := range []string{"orders", "tier1-cases"} {
-		g := linkFixture(t, filepath.Join("testdata", dir))
+	dirs, _ := filepath.Glob(filepath.Join("testdata", "*"))
+	for _, dir := range dirs {
+		g := linkFixture(t, dir)
 		for _, e := range g.Edges {
 			if len(e.Evidence) == 0 {
 				t.Errorf("%s: %s → %s (%s) has no evidence", dir, e.From, e.To, e.Kind)

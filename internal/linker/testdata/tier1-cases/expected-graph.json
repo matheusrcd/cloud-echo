@@ -351,11 +351,18 @@
       "detail": "integration GET /internal: VPC link target needs the ELBv2 collector"
     },
     {
+      "kind": "unscanned",
+      "node": "ecs/main/web",
+      "target": "ecs/taskdef/web:1",
+      "rule": "config.value-scan",
+      "detail": "task definition not in the inventory: its configuration was not scanned"
+    },
+    {
       "kind": "unresolved",
       "node": "lambda/kinesis-fn",
       "target": "arn:aws:kinesis:us-east-1:123456789012:stream/clicks",
       "rule": "lambda.event-source-mapping",
-      "detail": "event source kinesis: no collector for this kind of target"
+      "detail": "event source kinesis: cloud-echo has no node for kinesis resources"
     },
     {
       "kind": "stale-permission",

@@ -18,11 +18,18 @@ func (c *Context) Local(node string, ref *spec.TargetRef, what string) (string, 
 	if ref == nil {
 		return "", false
 	}
+	a, isARN := spec.ParseARN(ref.ARN)
 	if ref.ID == "" {
-		c.Unresolved(node, ref.ARN, fmt.Sprintf("%s: no collector for this kind of target", what))
+		// "No node", not "no collector": IAM roles are collected and still are
+		// not nodes.
+		kind := "this kind of target"
+		if isARN {
+			kind = a.Service + " resources"
+		}
+		c.Unresolved(node, ref.ARN, fmt.Sprintf("%s: cloud-echo has no node for %s", what, kind))
 		return "", false
 	}
-	if a, ok := spec.ParseARN(ref.ARN); ok {
+	if isARN {
 		if a.Account != "" && a.Account != c.inv.AccountID {
 			c.Unresolved(node, ref.ARN, fmt.Sprintf("%s: target is in account %s, outside this scan", what, a.Account))
 			return "", false

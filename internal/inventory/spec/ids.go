@@ -2,6 +2,7 @@ package spec
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -44,21 +45,25 @@ func LambdaFromInvokeURI(uri string) (*TargetRef, string) {
 	return &TargetRef{ARN: fnARN, ID: "lambda/" + name}, q
 }
 
-// QueueFromURL maps https://sqs.<region>.amazonaws.com/<acct>/<name> to a
-// target. The URL is only trusted in that exact shape.
+// queueURL accepts the current SQS endpoint and the two legacy ones AWS still
+// answers on — https://<region>.queue.amazonaws.com and, for us-east-1,
+// https://queue.amazonaws.com — which older queues' URLs and older configs carry.
+var queueURL = regexp.MustCompile(
+	`^https://(?:sqs\.([a-z0-9-]+)|([a-z0-9-]+)\.queue|queue)\.amazonaws\.com/(\d{12})/([A-Za-z0-9_-]{1,80}(?:\.fifo)?)$`)
+
+// QueueFromURL maps an SQS queue URL to a target. The URL is only trusted in
+// those exact shapes: a twelve-digit account and a valid queue name, nothing
+// after it.
 func QueueFromURL(u string) *TargetRef {
-	rest, ok := strings.CutPrefix(u, "https://sqs.")
-	if !ok {
+	m := queueURL.FindStringSubmatch(u)
+	if m == nil {
 		return nil
 	}
-	host, path, ok := strings.Cut(rest, "/")
-	region, _, ok2 := strings.Cut(host, ".amazonaws.com")
-	acct, name, ok3 := strings.Cut(path, "/")
-	if !ok || !ok2 || !ok3 || name == "" || strings.Contains(name, "/") {
-		return nil
+	region := m[1] + m[2]
+	if region == "" {
+		region = "us-east-1"
 	}
-	region = strings.TrimSuffix(region, ".")
-	arn := fmt.Sprintf("arn:aws:sqs:%s:%s:%s", region, acct, name)
+	arn := fmt.Sprintf("arn:aws:sqs:%s:%s:%s", region, m[3], m[4])
 	return &TargetRef{ARN: arn, ID: IDFromARN(arn)}
 }
 

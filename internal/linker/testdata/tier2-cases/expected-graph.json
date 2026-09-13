@@ -1,0 +1,589 @@
+{
+  "formatVersion": 1,
+  "generatedBy": "cloud-echo/golden",
+  "inventoryScanId": "tier2-cases",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "nodes": [
+    {
+      "id": "apigw/api0000009",
+      "type": "apigateway.http",
+      "name": "front-http",
+      "flow": "entrypoint",
+      "triggers": [
+        "HTTP API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "apigw/api0000010",
+      "type": "apigateway.rest",
+      "name": "reports-rest",
+      "flow": "entrypoint",
+      "triggers": [
+        "REST API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "ddb/ledger",
+      "type": "dynamodb.table",
+      "name": "ledger",
+      "flow": "sync"
+    },
+    {
+      "id": "ddb/order-archive",
+      "type": "dynamodb.table",
+      "name": "order-archive",
+      "flow": "unreached"
+    },
+    {
+      "id": "ddb/order-events-store",
+      "type": "dynamodb.table",
+      "name": "order-events-store",
+      "flow": "sync"
+    },
+    {
+      "id": "ddb/orders",
+      "type": "dynamodb.table",
+      "name": "orders",
+      "flow": "sync"
+    },
+    {
+      "id": "ecs/main/api",
+      "type": "ecs.service",
+      "name": "api",
+      "flow": "entrypoint",
+      "triggers": [
+        "behind a load balancer (target group api; internet-facing or internal needs the ELBv2 collector)"
+      ]
+    },
+    {
+      "id": "ecs/main/ghost",
+      "type": "ecs.service",
+      "name": "ghost",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/main/worker",
+      "type": "ecs.service",
+      "name": "worker",
+      "flow": "unreached"
+    },
+    {
+      "id": "ext/api.partner-pay.example.com",
+      "type": "external.http",
+      "name": "api.partner-pay.example.com",
+      "flow": "sync",
+      "external": true
+    },
+    {
+      "id": "ext/hooks.partner.example.com",
+      "type": "external.http",
+      "name": "hooks.partner.example.com",
+      "flow": "sync",
+      "external": true
+    },
+    {
+      "id": "lambda/dlq-fn",
+      "type": "lambda.function",
+      "name": "dlq-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/front-fn",
+      "type": "lambda.function",
+      "name": "front-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/jobs-worker",
+      "type": "lambda.function",
+      "name": "jobs-worker",
+      "flow": "async"
+    },
+    {
+      "id": "lambda/locked-fn",
+      "type": "lambda.function",
+      "name": "locked-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/notify-fn",
+      "type": "lambda.function",
+      "name": "notify-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/templated-fn",
+      "type": "lambda.function",
+      "name": "templated-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "sqs/fn-dlq",
+      "type": "sqs.queue",
+      "name": "fn-dlq",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/info",
+      "type": "sqs.queue",
+      "name": "info",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/jobs",
+      "type": "sqs.queue",
+      "name": "jobs",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/legacy-jobs",
+      "type": "sqs.queue",
+      "name": "legacy-jobs",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/order-archive",
+      "type": "sqs.queue",
+      "name": "order-archive",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/order-events",
+      "type": "sqs.queue",
+      "name": "order-events",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/orders",
+      "type": "sqs.queue",
+      "name": "orders",
+      "flow": "unreached"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apigw/api0000009",
+      "to": "ddb/ledger",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "apigatewayv2:GetStages api0000009 stage prod variable table",
+          "detail": "stage variable table = \"ledger\", the name of ddb/ledger — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000009",
+      "to": "lambda/front-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations api0000009 i1 (route GET /front)",
+          "detail": "AWS_PROXY GET /front → front-fn"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000009",
+      "to": "lambda/templated-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations api0000009 i2 (route GET /t)",
+          "detail": "AWS_PROXY GET /t → templated-fn (stage prod resolves arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}/invocations)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/api",
+      "to": "ddb/order-archive",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition api:1 container app env ARCHIVE",
+          "detail": "ARCHIVE = \"order-archive\", the name of ddb/order-archive — a candidate only: the name fits ddb/order-archive and sqs/order-archive"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/api",
+      "to": "ddb/order-events-store",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition api:1 container app command[3]",
+          "detail": "--events-table (command[3]) = \"order-events-store\", the name of ddb/order-events-store — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/api",
+      "to": "ddb/orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition api:1 container app env TARGET",
+          "detail": "TARGET = \"orders\", the name of ddb/orders — a candidate only: the name fits ddb/orders and sqs/orders"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/api",
+      "to": "ext/hooks.partner.example.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition api:1 container app command[4]",
+          "detail": "--callback (command[4]) calls https://hooks.partner.example.com/cb"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/api",
+      "to": "sqs/legacy-jobs",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition api:1 container app env LEGACY_QUEUE",
+          "detail": "LEGACY_QUEUE holds the URL of sqs/legacy-jobs"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/api",
+      "to": "sqs/order-archive",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition api:1 container app env ARCHIVE",
+          "detail": "ARCHIVE = \"order-archive\", the name of sqs/order-archive — a candidate only: the name fits ddb/order-archive and sqs/order-archive"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/api",
+      "to": "sqs/order-events",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition api:1 container app env ORDER_EVENTS_URL",
+          "detail": "ORDER_EVENTS_URL holds the URL of sqs/order-events"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/api",
+      "to": "sqs/orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition api:1 container app env TARGET",
+          "detail": "TARGET = \"orders\", the name of sqs/orders — a candidate only: the name fits ddb/orders and sqs/orders"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/worker",
+      "to": "sqs/jobs",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/jobs"
+        }
+      ]
+    },
+    {
+      "from": "lambda/dlq-fn",
+      "to": "sqs/fn-dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions dlq-fn env DLQ_URL",
+          "detail": "DLQ_URL holds the URL of sqs/fn-dlq"
+        },
+        {
+          "rule": "lambda.dead-letter",
+          "source": "lambda:ListFunctions dlq-fn",
+          "detail": "DeadLetterConfig: failed asynchronous invocations go to fn-dlq"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "apigw/api0000010",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env REPORTS_API",
+          "detail": "REPORTS_API holds the invoke URL of apigw/api0000010"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "ddb/ledger",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env LEDGER_TABLE_ARN",
+          "detail": "LEDGER_TABLE_ARN holds the ARN of ddb/ledger"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "ddb/order-events-store",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env QUEUE_NAME",
+          "detail": "QUEUE_NAME = \"order-events-store\", the name of ddb/order-events-store — a candidate only: the key names a queue, and no queue has this name"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "ddb/orders",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "ext/api.partner-pay.example.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env PAYMENTS_URL",
+          "detail": "PAYMENTS_URL calls https://api.partner-pay.example.com/v2/charges"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "ext/hooks.partner.example.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env WEBHOOK_URL",
+          "detail": "WEBHOOK_URL calls https://hooks.partner.example.com/cb/REDACTED"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "lambda/notify-fn",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env NOTIFY_FUNCTION",
+          "detail": "NOTIFY_FUNCTION = \"notify-fn\", the name of lambda/notify-fn — the key names a function"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "sqs/info",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env LOG_LEVEL",
+          "detail": "LOG_LEVEL = \"info\", the name of sqs/info — a candidate only: a single common word matches by coincidence as easily as by design"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "sqs/jobs",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env JOBS_QUEUE_URL",
+          "detail": "JOBS_QUEUE_URL holds the URL of sqs/jobs"
+        }
+      ]
+    },
+    {
+      "from": "lambda/front-fn",
+      "to": "sqs/orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions front-fn env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of sqs/orders — a candidate only: the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "lambda/jobs-worker",
+      "to": "sqs/jobs",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions jobs-worker env JOBS_QUEUE_URL",
+          "detail": "JOBS_QUEUE_URL holds the URL of sqs/jobs"
+        }
+      ]
+    },
+    {
+      "from": "sqs/jobs",
+      "to": "lambda/jobs-worker",
+      "kind": "consume",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings m-jobs",
+          "detail": "sqs jobs → jobs-worker, state Enabled, batch 10"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/api",
+      "target": "ledger-db.cluster-abc123.us-east-1.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "ecs/main/api",
+      "target": "order-archive",
+      "rule": "config.value-scan",
+      "detail": "ARCHIVE = \"order-archive\" names ddb/order-archive and sqs/order-archive; all are low-confidence candidates to choose from"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "ecs/main/api",
+      "target": "orders",
+      "rule": "config.value-scan",
+      "detail": "TARGET = \"orders\" names ddb/orders and sqs/orders; all are low-confidence candidates to choose from"
+    },
+    {
+      "kind": "unscanned",
+      "node": "ecs/main/ghost",
+      "target": "ecs/taskdef/ghost:1",
+      "rule": "config.value-scan",
+      "detail": "task definition not in the inventory: its configuration was not scanned"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/front-fn",
+      "target": "amqp://mq.vendor.example.net:5671",
+      "rule": "config.value-scan",
+      "detail": "BROKER_URL names a non-HTTP endpoint (amqp) outside AWS; the gateway stands in only for HTTP, so this dependency will not exist locally"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/front-fn",
+      "target": "arn:aws:secretsmanager:us-east-1:123456789012:secret:front/db-AbCdEf",
+      "rule": "config.value-scan",
+      "detail": "SECRET_ARN: cloud-echo has no node for secretsmanager resources"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/front-fn",
+      "target": "arn:aws:sqs:us-east-1:999999999999:jobs",
+      "rule": "config.value-scan",
+      "detail": "PARTNER_QUEUE_URL: target is in account 999999999999, outside this scan"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/front-fn",
+      "target": "ledger-db.cluster-abc123.us-east-1.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "lambda/front-fn",
+      "target": "orders",
+      "rule": "config.value-scan",
+      "detail": "TABLE_NAME = \"orders\" names ddb/orders and sqs/orders; the key points at ddb/orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/front-fn",
+      "target": "s3://front-config",
+      "rule": "config.value-scan",
+      "detail": "CONFIG_URI names an S3 bucket; cloud-echo has no S3 collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/front-fn",
+      "target": "search",
+      "rule": "config.value-scan",
+      "detail": "SEARCH_URL calls search, a name with no domain (Service Connect, Cloud Map or a container link); resolving it needs a collector cloud-echo does not have yet"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/front-fn",
+      "target": "zzz0000001.execute-api.eu-west-1.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "EU_API names the invoke URL of API zzz0000001 in region eu-west-1, outside this scan"
+    },
+    {
+      "kind": "unscanned",
+      "node": "lambda/locked-fn",
+      "target": "environment",
+      "rule": "config.value-scan",
+      "detail": "environment variables could not be read (KMSAccessDeniedException): references in them were not scanned"
+    }
+  ]
+}

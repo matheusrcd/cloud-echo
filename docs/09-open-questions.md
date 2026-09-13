@@ -105,6 +105,37 @@ seed only when the user asks for "who calls this". Needs deciding before M2.
 
 ---
 
+### Q17 — Tier 3 and the references it contradicts
+
+**Raised by Tier 2.** A `references` edge points from the holder to the target
+because that is where the configuration lives. For a worker that only *receives*
+from the queue it names, Tier 3 will draw `queue → worker` (`consume`) from
+`sqs:ReceiveMessage` — the opposite direction — and the reference will not fold
+into it (only same-direction edges absorb, by design). Left alone, the graph
+shows both.
+
+Leaning: a Tier-3 `consume` edge absorbs the reverse reference *when the role has
+no send permission on that queue*, since then the configuration can only be
+there to poll. Decide with Tier 3, against the real account's notifications
+worker.
+
+---
+
+### Q18 — How the planner rewrites configuration
+
+**Raised by Tier 2.** The materializer must rewrite `QUEUE_URL`, a table name in a
+flag, a Slack webhook's host — every value that names something in or outside
+the slice — to `${ref:…}` in the blueprint. Tier 2 already finds exactly those
+values, but its evidence records them as text.
+
+Leaning: the planner calls the same matcher (`internal/linker`'s scanner) over
+the inventory rather than parsing evidence strings, so there is one definition
+of "this value names that resource". Values naming AWS endpoints that are not
+resources (`https://dynamodb.us-east-1.amazonaws.com`, reported as unresolved
+today) need rewriting to the local endpoint too.
+
+---
+
 ### Q2 — Stateful mocks
 
 Sequence-dependent responses ("first poll returns `pending`, second returns
