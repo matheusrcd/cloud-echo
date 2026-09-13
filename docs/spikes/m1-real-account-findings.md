@@ -144,7 +144,8 @@ verify by exercising (run the task, send the message), not by describing.
 
 ## Not tested
 
-- RDS, ElastiCache, API Gateway — cost, and no collectors yet.
+- ElastiCache — it bills by the hour, and has no collector yet. (RDS and API
+  Gateway have their own rounds below.)
 - A Lambda environment encrypted with a customer KMS key — a key costs money; the
   `unreadable` path is covered by fixtures only.
 - Pagination at real scale beyond ECS services (e.g. >1000 queues); the mechanism
@@ -489,6 +490,76 @@ by a broad grant" and "is the target permitted", and the first can never decide
 anything, because a broad grant already permits every target it reaches. It was
 removed.
 
+## RDS round
+
+**Date:** 2026-09-13 (sixth round) · The RDS collector and its linking, the first
+round to create resources that bill by the hour. Topology from
+[`14-aws-rds-create.sh`](../../spikes/m1/14-aws-rds-create.sh): an Aurora
+PostgreSQL cluster (Serverless v2, 0–1 ACU, so it pauses when idle) and a
+standalone PostgreSQL `db.t4g.micro`, plus configuration and grants naming them —
+the cluster's writer in `order-processor`'s `DATABASE_URL`, its reader and the
+instance's managed secret in `orders-fn`, the instance in `webhook-receiver`, the
+Data API granted to `order-processor`, `GetSecretValue` to the role `orders-fn`
+shares with `authorizer-fn`. `orders-api` keeps its made-up
+`ce-test-db.cluster-abc123…`: the cluster's real name, another account's suffix.
+
+| Check | Result |
+| --- | --- |
+| Inventory checker ([`check-rds.py`](../../spikes/m1/check-rds.py), written before looking) | **19 / 19** |
+| Scan with only the shipped policy vs admin | **0 differences** across 50 resources — `rds:DescribeDBClusters` and `rds:DescribeDBInstances` suffice |
+| Graph checker, with 9 RDS checks written before looking | **77 / 77**, and the same on the sanitized fixture |
+| Earlier checkers, re-run | **46 / 46**, **29 / 29** |
+| Mutations | RDS **17 / 17**; Tier 2 **17 / 17** and Tier 3 **23 / 23** still killed |
+| Floci round trip | 109 calls, 1 failure (the Data API); **real connections** to both databases |
+
+What reading real payloads first changed, before any code:
+
+- **`DescribeDBSubnetGroups` was dropped** — instances embed their subnet group —
+  and custom endpoints come with the cluster. Two permissions, not three.
+- **The node is the cluster**; its instances are members.
+- **The API also returns DocumentDB and Neptune**, which are skipped and reported.
+- **An express cluster is outside any VPC**: no subnets, no security groups, an
+  internet access gateway. Recorded.
+
+What the graph shows:
+
+- `order-processor → ce-test-db` is **high**: `DATABASE_URL` names the writer and
+  the role may use the Data API — two sources agreeing.
+- `orders-fn` connects to the cluster through its **reader endpoint**, and to the
+  instance through its **managed secret** — config and `GetSecretValue` agreeing.
+- `authorizer-fn` connects to the instance at **medium**: it shares the role, and
+  the grant alone is a permission, not a use.
+- **The namesake endpoint is reported, not linked**, for both `orders-api`
+  services: "a namesake, not this database".
+- Both databases are on the request path (sync), and none is `unpermitted`: a
+  database takes a password, not IAM.
+
+**The free plan shaped the topology.** The account is on AWS's free plan, which
+refuses a plain Aurora cluster (`FreeTierRestrictionError`) and allows only
+`--with-express-configuration` — which in turn refuses an initial database, a
+managed master secret and the Data API at creation. The managed secret moved to
+the standalone instance. And the Data API taught something about the tooling: the
+script's `modify-db-cluster --enable-http-endpoint` **returned success and did
+nothing** (that flag is Serverless v1's); the first scan showed it off, and
+`check-rds.py` failed on the account's word, not the script's. `EnableHttpEndpoint`
+is the call for v2, and it applies asynchronously — the cluster reads `modifying`
+for a few minutes, which the checker also caught.
+
+**Floci, exercised rather than described.** Floci ran real `postgres:17.7` and
+`postgres:18.3` containers for the cluster and the instance, and `psql` connected
+to both through its proxy — to the instance with the password read from the
+managed secret Floci created. What differs: the **port** (a proxy port per
+database, so it must be a `${ref:}`), Aurora is plain Postgres with no members, and
+the Data API (the one failed call), Serverless v2 and IAM authentication are not
+emulated. Floci's managed secret also carries `host`/`port`/`dbname`, which AWS's
+does not. Consequences are in [05-materializer.md](../05-materializer.md) and
+[04-blueprint.md](../04-blueprint.md).
+
+**Cost.** Created and scanned the same day: the t4g.micro and its storage run at
+about US$0.02/hour, and the Aurora cluster bills compute only while awake. On a
+free-plan account this draws on its credits. `90-aws-teardown.sh` now removes
+both, with no final snapshot.
+
 ## Reproducing
 
 ```bash
@@ -502,6 +573,8 @@ python3 check-inventory.py .work/inventory-aws.json
 python3 diff-inventory.py .work/inventory-aws.json .work/inventory-least.json
 ./12-aws-apigw-create.sh     # API Gateway topology, and the Tier-2 values on orders-fn
 ./13-aws-iam-tier3.sh        # Tier-3 grants to cancel, widen and read the other way
+./14-aws-rds-create.sh       # RDS — COSTS MONEY: an Aurora cluster and a t4g.micro
+python3 check-rds.py .work/inventory-aws.json
 python3 check-apigw.py .work/inventory-aws.json
 ./22-probe-scope.sh          # the policy cannot read API key values
 ./.work/cloud-echo graph --inventory .work/inventory-aws.json --out .work/graph-aws.json --format json >/dev/null
@@ -511,5 +584,6 @@ python3 group-diff.py .work/inventory-aws.json .work/inventory-floci.json
 ./90-aws-teardown.sh         # lists, asks, then removes every ce-test- resource
 ```
 
-Idle cost is effectively zero; the one continuous activity is the enabled SQS
-mapping's long-polling, well inside the SQS free tier.
+Idle cost is effectively zero without `14-aws-rds-create.sh`; the one continuous
+activity is the enabled SQS mapping's long-polling, well inside the SQS free
+tier. With it, the RDS instance bills by the hour until the teardown.

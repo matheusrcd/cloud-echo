@@ -87,14 +87,19 @@ check("order-processor → hooks.slack.com (webhook path withheld, host kept)", 
 check("…async: it is called beside the request path", flow(S) == "async", flow(S))
 ext = sorted(n["id"] for n in g["nodes"] if n.get("external"))
 check("exactly two third parties; no AWS host became one", ext == [X, S], str(ext))
-check("RDS endpoints reported for both orders-api services and order-processor",
-      sorted({f["node"] for f in findings("unresolved", ".rds.amazonaws.com")}) == sorted(holders))
+# With the RDS collector, only orders-api's made-up host stays unresolved;
+# order-processor's DATABASE_URL now names the real cluster (checked below).
+check("the only unresolved RDS endpoints are orders-api's",
+      sorted({f["node"] for f in findings("unresolved", ".rds.amazonaws.com")}) == sorted(API_SVC))
 check("the ElastiCache endpoint reported for all 12 services", len({f["node"] for f in findings("unresolved", ".cache.amazonaws.com")}) == 12)
 check("every environment was readable", not [f for f in g.get("findings", []) if f["kind"] == "unscanned" and f["rule"] == "config.value-scan"])
 refs = [e for e in g["edges"] if any(ev["rule"] == "config.value-scan" for ev in e["evidence"])]
 check("every config edge names the variable it came from", refs and all(
     any(ev["rule"] == "config.value-scan" and (" env " in ev["source"] or " variable " in ev["source"]) for ev in e["evidence"]) for e in refs))
-check("no edge's intent rests on configuration alone", all(e["kind"] in ("references", "http") or
+# Configuration states a verb only where the value allows one: a URL is for
+# calling (http), a database endpoint for connecting (connect, since the RDS
+# round). Never publish, consume, read or write.
+check("no edge's intent rests on configuration alone", all(e["kind"] in ("references", "http", "connect") or
     any(ev["rule"] != "config.value-scan" for ev in e["evidence"]) for e in refs))
 
 # --- Tier 3: what roles permit (10-aws-create.sh roles, 13-aws-iam-tier3.sh additions)
@@ -143,6 +148,28 @@ check("a role alone never makes an edge more than medium", all(e["confidence"] i
       if e["evidence"] and all(ev["rule"] == IAM for ev in e["evidence"])))
 check("no edge from a broad grant: nothing IAM-only leaves the 12 notification services",
       not any(e["from"] in NOTIF and all(ev["rule"] == IAM for ev in e["evidence"]) for e in g["edges"]))
+
+# --- RDS (14-aws-rds-create.sh): written before the RDS round's output was looked at
+CL, LG = "rds/cluster/" + P + "-db", "rds/" + P + "-legacy-db"
+check("RDS: the cluster and the instance are nodes; the Aurora member is not",
+      nodes.get(CL, {}).get("type") == "rds.cluster" and nodes.get(LG, {}).get("type") == "rds.instance"
+      and not any(i.endswith(P + "-db-instance-1") for i in nodes))
+check("order-processor connects to the cluster, high: DATABASE_URL (writer) + the Data API grant",
+      conf(L+P+"-order-processor", CL, "connect") == "high" and rules(L+P+"-order-processor", CL, "connect") == ["config.value-scan", IAM],
+      str(rules(L+P+"-order-processor", CL, "connect")))
+check("orders-fn connects to the cluster through its reader endpoint (DB_READER_HOST)",
+      named(L+P+"-orders-fn", CL, "DB_READER_HOST") and conf(L+P+"-orders-fn", CL, "connect") == "high")
+check("orders-fn connects to the instance, high: its master secret's ARN + GetSecretValue on it",
+      conf(L+P+"-orders-fn", LG, "connect") == "high" and rules(L+P+"-orders-fn", LG, "connect") == ["config.value-scan", IAM])
+check("authorizer-fn shares the role: connects to the instance at medium, from the grant alone",
+      conf(L+P+"-authorizer-fn", LG, "connect") == "medium")
+check("webhook-receiver connects to the instance (LEGACY_DB_URL, password redacted, host kept)",
+      named(L+P+"-webhook-receiver", LG, "LEGACY_DB_URL") and conf(L+P+"-webhook-receiver", LG, "connect") == "high")
+check("orders-api's ce-test-db.cluster-abc123…: the cluster's name, another account's suffix — reported, not linked",
+      not any(has(s, CL, "connect") for s in API_SVC)
+      and sorted({f["node"] for f in findings("unresolved", "namesake") if "cluster-abc123" in f["target"]}) == sorted(API_SVC))
+check("both databases are on the request path (sync)", flow(CL) == "sync" and flow(LG) == "sync", f"{flow(CL)} {flow(LG)}")
+check("no database is called unpermitted", not [f for f in g.get("findings", []) if f["kind"] == "unpermitted" and f["target"].startswith("rds/")])
 
 # --- hygiene
 check("every edge has evidence", all(e["evidence"] for e in g["edges"]))
