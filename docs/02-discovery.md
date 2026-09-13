@@ -122,7 +122,7 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | **Lambda** ✅ | `ListFunctions`, `ListEventSourceMappings`, `GetPolicy` | `Environment.Variables`, `Role`, `DeadLetterConfig`, event source ARNs, resource-policy principals |
 | **SQS** ✅ | `ListQueues`, `GetQueueAttributes`, `ListQueueTags` | `RedrivePolicy` (→ DLQ), `VisibilityTimeout`, `Policy` (→ who can send), `FifoQueue` |
 | **DynamoDB** ✅ | `ListTables`, `DescribeTable`, `DescribeTimeToLive`, `ListTagsOfResource` | key schema, GSIs/LSIs, `StreamSpecification` |
-| **RDS** | `DescribeDBInstances`, `DescribeDBClusters`, `DescribeDBSubnetGroups` | `Engine`, `EngineVersion`, `Endpoint`, `Port`, `DBName`, `VpcSecurityGroups` |
+| **RDS** ✅ | `DescribeDBInstances`, `DescribeDBClusters` | endpoints (writer, reader, custom, members'), `Port`, `Engine`/`EngineVersion`, the managed master secret's ARN, `DbiResourceId`, subnet group and security groups, Data API, Serverless v2 range |
 | **API Gateway v1** ✅ | `GetRestApis`, `GetResources` (`embed=methods`), `GetStages`, `GetAuthorizers` | integration `uri`, `type`, `credentials`, `connectionId`; authorizer function; stage variables |
 | **API Gateway v2** ✅ | `GetApis`, `GetRoutes`, `GetIntegrations`, `GetStages`, `GetAuthorizers` | integration `uri`/subtype + `QueueUrl`; JWT issuer; authorizer function |
 | **ElastiCache** | `DescribeReplicationGroups` (Redis/Valkey), `DescribeCacheClusters` (memcached only) | `Engine`, `EngineVersion`, endpoint, port |
@@ -173,6 +173,31 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 >   reach API key values — [ADR-0008](adr/0008-scope-coarse-iam-actions.md).
 > - Known gap: routes are the API's *current definition*; a REST stage serves a
 >   deployment snapshot that can lag behind undeployed edits.
+
+> **RDS, read against a real account before the collector was written:**
+>
+> - **Two calls, not three.** `DescribeDBInstances` embeds each instance's subnet
+>   group (VPC and subnets), so `DescribeDBSubnetGroups` was dropped; clusters list
+>   their custom endpoints, so `DescribeDBClusterEndpoints` is not needed either.
+>   Tags arrive in both responses.
+> - **The node for an Aurora or Multi-AZ DB cluster is the cluster.** Applications
+>   connect to its writer, reader or custom endpoints; its instances are recorded
+>   as the cluster's `members`, their own endpoints kept, never as databases of
+>   their own. Instance and cluster identifiers are separate namespaces in RDS, so
+>   the ids are `rds/<instance>` and `rds/cluster/<cluster>`.
+> - **The RDS API also serves DocumentDB and Neptune.** A Neptune graph database
+>   comes back from `DescribeDBInstances` beside a Postgres one; those engines are
+>   reported (`out-of-scope`) and skipped.
+> - **An endpoint's suffix belongs to the account and region**
+>   (`<name>.cluster-<suffix>.<region>.rds.amazonaws.com`), which is what lets the
+>   linker tell this account's `orders-db` from another account's.
+> - **Express clusters live outside any VPC.** `VPCNetworkingEnabled` is false,
+>   `InternetAccessGatewayEnabled` true, no subnet group, no security groups —
+>   recorded, since it changes both network reachability (Tier 4) and exposure.
+> - The master password is never returned and never recorded; the ARN of the
+>   secret RDS manages for it is, because a workload holding that ARN connects.
+> - Known gaps: RDS Proxy endpoints (`DescribeDBProxies`) and Aurora global
+>   databases are not collected.
 
 > **`ListQueues` needs `MaxResults` to paginate at all.** Without it AWS returns up
 > to 1000 queues and no `NextToken` — silent truncation, confirmed against the

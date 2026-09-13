@@ -87,6 +87,16 @@ requirements no earlier section had:
 - **Verify by exercising, not by describing.** Floci does not return `command`,
   `dependsOn` or `logConfiguration` from `DescribeTaskDefinition`, yet a real
   `RunTask` applied `command`. Describing Floci cannot confirm what was built.
+- **Databases are real, at the scanned version** (RDS round): an Aurora
+  PostgreSQL 17.7 cluster became a `postgres:17.7` container, a PostgreSQL 18.3
+  instance a `postgres:18.3` one, and `psql` connected to both through Floci's
+  proxy. But the **port changes** per database, Aurora is plain Postgres (no
+  members, no reader), and the Data API, Serverless v2 and IAM authentication are
+  not emulated.
+- **Managed master secrets work locally**: Floci creates one, and the password in
+  it connects. Its content is richer than AWS's (it adds `host`, `port`,
+  `dbname`), so an application reading the host from the secret works locally and
+  not in AWS — the materializer should seed only the keys AWS stores.
 
 ## Talking to Floci
 

@@ -116,7 +116,9 @@ Each value is matched against these patterns, strongest first:
 | An API invoke URL `https://<id>.execute-api.<r>.amazonaws.com` | `http` to the API | `high` |
 | Any other `http(s)://` URL whose host is not AWS, not loopback, and has a domain | `http` to `ext/<host>` | `high` |
 | The whole value equal to a table, queue or function name | `references` | `medium` or `low` — below |
-| An RDS, ElastiCache or load-balancer endpoint, a Function URL, an S3 bucket, another AWS endpoint, a non-HTTP URL outside AWS, a host with no domain | an `unresolved` finding | — |
+| An RDS endpoint — writer, reader, custom, or a member's own — matching a database exactly | `connect` to the database | `high` |
+| The ARN of a database's managed master secret (in env, or injected through ECS `secrets[]`) | `connect` to the database | `high` |
+| An ElastiCache or load-balancer endpoint, an RDS Proxy, a Function URL, an S3 bucket, another AWS endpoint, a non-HTTP URL outside AWS, a host with no domain | an `unresolved` finding | — |
 
 A command line is read with its flags: `--table orders` and `--table=orders`
 carry `table` as their key, and a positional argument yields only what names
@@ -283,6 +285,37 @@ or deleted — is `unresolved`; grants on services without nodes (logs, X-Ray, K
 S3, SNS, Secrets Manager) are the infrastructure every role carries and are not
 reported until each service's collector exists.
 
+#### Databases (RDS)
+
+What linking a database adds to the tiers above, each pinned by a named test in
+`rds_test.go` and a mutation it kills:
+
+- **An endpoint matches exactly or not at all.** `<name>.<suffix>.<region>.rds.amazonaws.com`:
+  the suffix belongs to the account and region. `ce-test-db.cluster-abc123…` is
+  another account's `ce-test-db` — the real validation account's ECS service
+  carries exactly that — and matching on the name would link a service to a
+  database it cannot reach. A near miss says so: "a namesake, not this database".
+  RDS Proxy endpoints and other regions are reported as such.
+- **A database endpoint states its verb.** It is only good for connecting, so
+  Tier 2 draws `connect` — as a URL draws `http` — not `references`.
+- **Every endpoint of a cluster is the cluster**: writer, reader, custom, and
+  each member's own.
+- **The managed master secret is a link.** A workload handed a database's
+  password — its ARN in an env var, injected through `secrets[]` (even with a
+  `:password::` JSON-key suffix), or read with `secretsmanager:GetSecretValue`
+  (Tier 3) — connects to that database. Other secrets say nothing until the
+  Secrets Manager collector exists.
+- **The Data API is IAM**: `rds-data:ExecuteStatement` on a cluster's ARN is a
+  Tier-3 `connect`.
+- **A database is not IAM-gated.** It takes a password over a route; a role with
+  no grant on it proves nothing, so a reference to one is never `unpermitted`.
+  And a `GetSecretValue` on `*` is broad access to *secrets*: `broad-access` is
+  named by the grant's service, not the target's.
+- Database names (`DB_NAME=orders`) and bare identifiers are never matched: names
+  repeat everywhere, and identifiers are not how applications reach a database.
+- Gap: IAM database authentication (`rds-db:connect`) names a resource id and a
+  database user rather than an ARN, and is not read yet.
+
 **Known gaps.** Service control policies and session policies are not collected;
 a DynamoDB resource policy is not collected (so `unpermitted` names it as a
 possibility); a queue or function policy that grants a role is read only to hold
@@ -390,7 +423,7 @@ on). The text
 output groups identical findings, so twelve services sharing one task definition
 report one ElastiCache endpoint once; `graph.json` keeps every one.
 
-Every rule ships with a golden case **and a negative case**. Five golden
+Every rule ships with a golden case **and a negative case**. Six golden
 accounts in `internal/linker/testdata`:
 
 | Account | What it is |
@@ -399,6 +432,7 @@ accounts in `internal/linker/testdata`:
 | `tier1-cases` | hand-written, one scenario per Tier-1 rule and per trap |
 | `tier2-cases` | hand-written, one scenario per Tier-2 pattern and per trap; `tier2_test.go` names each |
 | `tier3-cases` | hand-written, one scenario per Tier-3 decision and per trap; `tier3_test.go` names each |
+| `rds-cases` | hand-written, one scenario per database-linking decision and trap; `rds_test.go` names each |
 | `real-m1` | a real account's inventory, sanitized by `spikes/m1/sanitize-inventory.py` |
 
 Goldens pin the output; named tests in `rules_test.go` say why each behaviour
