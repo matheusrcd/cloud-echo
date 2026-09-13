@@ -152,6 +152,15 @@ substring:
 Fixtures are hand-authored or captured from a real account — **if captured, redact
 the account id to `123456789012` and strip anything internal.** They are public.
 
+**Never commit a credential-shaped literal, even a fake one.** Secret scanners
+(GitHub push protection, GitGuardian, TruffleHog) match on shape, not validity: a
+made-up `ghp_…` token or a complete Slack webhook URL can block a push or open a
+public "secret leaked" alert. In Go tests, split the literal —
+`"gh" + "p_…"` produces the identical runtime value without the contiguous shape.
+In JSON fixtures, which cannot concatenate, use a value your redaction rule
+catches by key name or entropy but that matches no vendor format
+(`/services/T-FAKE/B-FAKE/<token>` rather than a real-shaped webhook).
+
 The fixture transport identifies requests by the service and operation the SDK
 puts on the request context, so it works for every protocol. JSON services answer
 with a `response` object; Query-protocol services like IAM answer XML through a
@@ -188,6 +197,10 @@ submitting, try breaking the thing your test covers and confirm it goes red — 
 test that passes unconditionally is worse than no test, because it advertises
 coverage that does not exist.
 
+Two traps when you do: check that the mutated code **compiles** before reading a
+green result as "the test is weak" (a filtered `grep FAIL` hides `build failed`),
+and check that your fixture actually contains the input that distinguishes the
+behaviour you are pinning. Both have happened in this repo.
 
 Tests that replay fixtures go through the **real** middleware stack, so they
 exercise the guard too. Do not stub it out.
