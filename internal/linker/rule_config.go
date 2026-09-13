@@ -50,6 +50,14 @@ func (configValueRule) Apply(c *Context) {
 			for _, v := range argValues(ct.EntryPoint, "entryPoint", src) {
 				s.scan(r.ID, v)
 			}
+			// secrets[] injects a value the ECS agent fetches. Only a database's
+			// managed master secret links anything yet: the container is handed
+			// that database's password. Other secrets wait for the Secrets
+			// Manager collector (the Tier-1 ecs.secrets rule).
+			for _, k := range sortedKeys(ct.Secrets) {
+				s.dbSecret(r.ID, configValue{Key: k, Label: "secret " + k, Value: ct.Secrets[k],
+					Source: src + " secrets " + k}, ct.Secrets[k])
+			}
 		}
 	})
 

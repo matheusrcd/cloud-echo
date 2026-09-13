@@ -46,6 +46,7 @@ type scanner struct {
 	// Names repeat across types: a table and a queue called "orders" is an
 	// ordinary account, not a corner case.
 	names map[string][]nameCandidate
+	db    *dbIndex
 }
 
 type nameCandidate struct{ id, typ string }
@@ -53,7 +54,7 @@ type nameCandidate struct{ id, typ string }
 var namedTypes = []string{spec.TypeDynamoDBTable, spec.TypeSQSQueue, spec.TypeLambdaFunction}
 
 func newScanner(c *Context) *scanner {
-	s := &scanner{c: c, names: map[string][]nameCandidate{}}
+	s := &scanner{c: c, names: map[string][]nameCandidate{}, db: newDBIndex(c)}
 	for _, r := range c.inv.Resources {
 		if contains(namedTypes, r.Type) && c.HasNode(r.ID) && r.Name != "" {
 			s.names[r.Name] = append(s.names[r.Name], nameCandidate{r.ID, r.Type})
@@ -89,6 +90,9 @@ func (s *scanner) scan(holder string, v configValue) {
 }
 
 func (s *scanner) arn(holder string, v configValue, arn string) {
+	if s.dbSecret(holder, v, arn) {
+		return
+	}
 	ref := &spec.TargetRef{ARN: arn, ID: spec.IDFromARN(arn)}
 	if to, ok := s.c.Local(holder, ref, v.Label); ok && to != holder {
 		s.c.Edge(holder, to, KindReferences, High, Active, v.Source,
@@ -168,7 +172,7 @@ func (s *scanner) awsHost(holder string, v configValue, host, u string) {
 				fmt.Sprintf("%s holds the invoke URL of %s", v.Label, id))
 		}
 	case strings.HasSuffix(host, ".rds.amazonaws.com"):
-		report("an RDS endpoint; linking it needs the RDS collector")
+		s.rdsHost(holder, v, host)
 	case strings.HasSuffix(host, ".cache.amazonaws.com"):
 		report("an ElastiCache endpoint; linking it needs the ElastiCache collector")
 	case strings.HasSuffix(host, ".elb.amazonaws.com"):

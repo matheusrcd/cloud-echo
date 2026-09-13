@@ -1,0 +1,370 @@
+{
+  "formatVersion": 1,
+  "scanId": "rds-cases",
+  "generatedBy": "hand-written",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "scannedAt": "2026-09-13T00:00:00Z",
+  "resources": [
+    {
+      "id": "apigw/api0000030",
+      "type": "apigateway.http",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "rds-http",
+      "spec": {
+        "apiId": "api0000030",
+        "name": "rds-http",
+        "protocol": "HTTP",
+        "endpointType": "REGIONAL",
+        "routes": [
+          {
+            "routeKey": "GET /orders",
+            "method": "GET",
+            "path": "/orders",
+            "authorization": "NONE",
+            "integration": {
+              "id": "i1",
+              "type": "AWS_PROXY",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:api-fn",
+                "id": "lambda/api-fn"
+              }
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/api",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "api",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "api:1",
+        "taskDefinitionId": "ecs/taskdef/api:1",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api/abc",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/worker",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "worker",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "worker",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "worker:1",
+        "taskDefinitionId": "ecs/taskdef/worker:1"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/api:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api:1",
+      "spec": {
+        "family": "api",
+        "revision": 1,
+        "containers": [
+          {
+            "name": "app",
+            "image": "api:1",
+            "essential": true,
+            "env": {
+              "DATABASE_URL": "postgres://app:<redacted:url-credentials>@orders-db.cluster-other9.us-east-1.rds.amazonaws.com:5432/orders"
+            },
+            "secrets": {
+              "DB_PASSWORD": "arn:aws:secretsmanager:us-east-1:123456789012:secret:rds!db-0bbbb-GhIjKl:password::",
+              "API_KEY": "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/api/key-XyZabc"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/worker:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "worker:1",
+      "spec": {
+        "family": "worker",
+        "revision": 1,
+        "containers": [
+          {
+            "name": "app",
+            "image": "worker:1",
+            "essential": true,
+            "env": {
+              "PROXY_HOST": "orders-proxy.proxy-fix001.us-east-1.rds.amazonaws.com",
+              "EU_DB": "eu-db.fix001.eu-west-1.rds.amazonaws.com",
+              "MEMBER_HOST": "orders-db-2.fix001.us-east-1.rds.amazonaws.com",
+              "ANALYTICS_HOST": "analytics.cluster-custom-fix001.us-east-1.rds.amazonaws.com",
+              "LEGACY_ARN": "arn:aws:rds:us-east-1:123456789012:db:legacy-db"
+            }
+          }
+        ],
+        "taskRoleArn": "arn:aws:iam::123456789012:role/worker-task",
+        "taskRoleId": "iam/role/worker-task"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/api-fn-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/api-fn-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "api-fn-role",
+      "spec": {
+        "roleName": "api-fn-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/api-fn"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "data",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "rds-data:ExecuteStatement",
+                  "Resource": "arn:aws:rds:us-east-1:123456789012:cluster:orders-db"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/report-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/report-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "report-role",
+      "spec": {
+        "roleName": "report-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/report-fn"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "secrets",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "secretsmanager:GetSecretValue",
+                  "Resource": "arn:aws:secretsmanager:us-east-1:123456789012:secret:rds!db-0bbbb-GhIjKl"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "secretsmanager:GetSecretValue",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/worker-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/worker-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "worker-task",
+      "spec": {
+        "roleName": "worker-task",
+        "path": "/",
+        "assumedBy": [
+          "ecs/taskdef/worker:1"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "logs",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "logs:PutLogEvents",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/api-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api-fn",
+      "spec": {
+        "functionName": "api-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/api-fn-role",
+        "roleId": "iam/role/api-fn-role",
+        "env": {
+          "DB_HOST": "orders-db.cluster-ro-fix001.us-east-1.rds.amazonaws.com",
+          "DB_SECRET_ARN": "arn:aws:secretsmanager:us-east-1:123456789012:secret:rds!cluster-0aaaa-AbCdEf",
+          "DB_NAME": "orders",
+          "CLUSTER": "orders-db"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/report-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "report-fn",
+      "spec": {
+        "functionName": "report-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/report-role",
+        "roleId": "iam/role/report-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "rds/cluster/orders-db",
+      "type": "rds.cluster",
+      "arn": "arn:aws:rds:us-east-1:123456789012:cluster:orders-db",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-db",
+      "spec": {
+        "identifier": "orders-db",
+        "engine": "aurora-postgresql",
+        "engineVersion": "16.4",
+        "status": "available",
+        "endpoint": "orders-db.cluster-fix001.us-east-1.rds.amazonaws.com",
+        "readerEndpoint": "orders-db.cluster-ro-fix001.us-east-1.rds.amazonaws.com",
+        "customEndpoints": [
+          "analytics.cluster-custom-fix001.us-east-1.rds.amazonaws.com"
+        ],
+        "port": 5432,
+        "dbName": "orders",
+        "members": [
+          {
+            "identifier": "orders-db-1",
+            "writer": true,
+            "endpoint": "orders-db-1.fix001.us-east-1.rds.amazonaws.com"
+          },
+          {
+            "identifier": "orders-db-2",
+            "endpoint": "orders-db-2.fix001.us-east-1.rds.amazonaws.com"
+          }
+        ],
+        "masterSecretArn": "arn:aws:secretsmanager:us-east-1:123456789012:secret:rds!cluster-0aaaa-AbCdEf",
+        "dataApi": true
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "rds/legacy-db",
+      "type": "rds.instance",
+      "arn": "arn:aws:rds:us-east-1:123456789012:db:legacy-db",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "legacy-db",
+      "spec": {
+        "identifier": "legacy-db",
+        "engine": "postgres",
+        "engineVersion": "16.4",
+        "instanceClass": "db.t4g.micro",
+        "status": "available",
+        "endpoint": "legacy-db.fix001.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "dbName": "legacy",
+        "masterSecretArn": "arn:aws:secretsmanager:us-east-1:123456789012:secret:rds!db-0bbbb-GhIjKl"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    }
+  ]
+}

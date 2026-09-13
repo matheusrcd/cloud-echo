@@ -33,6 +33,7 @@ func (iamPolicyRule) Tier() int    { return 3 }
 
 var serviceOfType = map[string]string{
 	spec.TypeSQSQueue: "sqs", spec.TypeDynamoDBTable: "dynamodb", spec.TypeLambdaFunction: "lambda",
+	spec.TypeRDSInstance: "rds", spec.TypeRDSCluster: "rds",
 }
 
 // actionClass is one intent and the actions that state it.
@@ -63,6 +64,18 @@ var (
 	// A grant on fn:* covers qualified invocations only; either way it names
 	// the function.
 	functionARNs = func(t *iamTarget, _ string) []string { return []string{t.arn, t.arn + ":$LATEST"} }
+	masterSecret = func(t *iamTarget, _ string) []string {
+		if t.secretARN == "" {
+			return nil
+		}
+		return []string{t.secretARN}
+	}
+
+	// Reading a database's managed master secret is how a workload gets its
+	// password: it connects. IAM database authentication (rds-db:connect)
+	// names a resource id and a database user instead of an ARN and is not
+	// read yet — see docs/03-linker.md.
+	readsDBSecret = actionClass{kind: KindConnect, actions: []string{"secretsmanager:GetSecretValue"}, arns: masterSecret}
 )
 
 // actionClasses are the verbs Tier 3 reads, by target type. Metadata calls
@@ -81,12 +94,19 @@ var actionClasses = map[string][]actionClass{
 	spec.TypeLambdaFunction: {
 		{kind: KindInvoke, actions: []string{"lambda:InvokeFunction"}, arns: functionARNs},
 	},
+	// The Data API runs SQL over HTTPS against a cluster, by its ARN.
+	spec.TypeRDSCluster: {
+		{kind: KindConnect, actions: []string{"rds-data:ExecuteStatement", "rds-data:BatchExecuteStatement"}, arns: ownARN},
+		readsDBSecret,
+	},
+	spec.TypeRDSInstance: {readsDBSecret},
 }
 
 type iamTarget struct {
 	id, typ, arn string
 	indexARNs    []string
 	streamARN    string
+	secretARN    string // a database's managed master secret
 	// policy is the target's own resource policy (queue policy, function
 	// policy): it may grant a role what the role's policies do not.
 	policy json.RawMessage
@@ -185,6 +205,22 @@ func iamTargets(c *Context) []*iamTarget {
 				if tb.Stream != nil && tb.Stream.Enabled && tb.Stream.ARN != "" {
 					t.streamARN = tb.Stream.ARN
 				}
+			}
+		case spec.TypeRDSCluster:
+			if t.arn == "" {
+				t.arn = fmt.Sprintf("arn:aws:rds:%s:%s:cluster:%s", region, acct, r.Name)
+			}
+			var cl spec.RDSCluster
+			if json.Unmarshal(r.Spec, &cl) == nil {
+				t.secretARN = cl.MasterSecretARN
+			}
+		case spec.TypeRDSInstance:
+			if t.arn == "" {
+				t.arn = fmt.Sprintf("arn:aws:rds:%s:%s:db:%s", region, acct, r.Name)
+			}
+			var in spec.RDSInstance
+			if json.Unmarshal(r.Spec, &in) == nil {
+				t.secretARN = in.MasterSecretARN
 			}
 		case spec.TypeLambdaFunction:
 			if t.arn == "" {
@@ -312,7 +348,6 @@ func evaluate(c *Context, holder string, rv *roleView, targets []*iamTarget, map
 
 	broadVia := map[string]grant{}
 	for _, t := range targets {
-		svc := serviceOfType[t.typ]
 		type classResult struct {
 			cl       actionClass
 			specific []grant // grants that name this resource, or a pattern it is one of
@@ -352,6 +387,9 @@ func evaluate(c *Context, holder string, rv *roleView, targets []*iamTarget, map
 			var specific []grant
 			for _, g := range allowed {
 				if nameSegment(g.entry) == "*" {
+					// Named by the grant's service, not the target's: a
+					// GetSecretValue on * reaches every secret, not every database.
+					svc, _, _ := strings.Cut(strings.ToLower(g.granted), ":")
 					if _, seen := broadVia[svc]; !seen {
 						broadVia[svc] = g
 					}
@@ -481,7 +519,8 @@ func claim(c *Context, holder string, t *iamTarget, cl actionClass, grants []gra
 // or deleted. Grants on services without nodes (logs, X-Ray, KMS) are the
 // infrastructure every role carries, and are not reported.
 func reportOutside(c *Context, holder string, rv *roleView) {
-	typeOf := map[string]string{"sqs": spec.TypeSQSQueue, "dynamodb": spec.TypeDynamoDBTable, "lambda": spec.TypeLambdaFunction}
+	typeOf := map[string]string{"sqs": spec.TypeSQSQueue, "dynamodb": spec.TypeDynamoDBTable, "lambda": spec.TypeLambdaFunction,
+		"rds": spec.TypeRDSCluster}
 	for _, st := range rv.identity {
 		if !st.Allow {
 			continue
@@ -519,7 +558,7 @@ func matchCount(entry, typ string, targets []*iamTarget) int {
 		if t.typ != typ {
 			continue
 		}
-		arns := append([]string{t.arn, t.arn + ":$LATEST", t.streamARN}, t.indexARNs...)
+		arns := append([]string{t.arn, t.arn + ":$LATEST", t.streamARN, t.secretARN}, t.indexARNs...)
 		for _, a := range arns {
 			if a != "" && wildMatch(entry, a, false) {
 				n++

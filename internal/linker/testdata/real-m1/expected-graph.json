@@ -174,6 +174,18 @@
       ]
     },
     {
+      "id": "rds/ce-test-legacy-db",
+      "type": "rds.instance",
+      "name": "ce-test-legacy-db",
+      "flow": "sync"
+    },
+    {
+      "id": "rds/cluster/ce-test-db",
+      "type": "rds.cluster",
+      "name": "ce-test-db",
+      "flow": "sync"
+    },
+    {
       "id": "sqs/ce-test-inbox",
       "type": "sqs.queue",
       "name": "ce-test-inbox",
@@ -566,6 +578,19 @@
       ]
     },
     {
+      "from": "lambda/ce-test-authorizer-fn",
+      "to": "rds/ce-test-legacy-db",
+      "kind": "connect",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-apigw-fn-role tier3-rds",
+          "detail": "role ce-test-apigw-fn-role: Allow secretsmanager:GetSecretValue on arn:aws:secretsmanager:us-east-2:123456789012:secret:rds!db-fakesecret-0001 (inline policy tier3-rds)"
+        }
+      ]
+    },
+    {
       "from": "lambda/ce-test-order-processor",
       "to": "ddb/ce-test-orders",
       "kind": "read",
@@ -629,6 +654,24 @@
     },
     {
       "from": "lambda/ce-test-order-processor",
+      "to": "rds/cluster/ce-test-db",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-order-processor env DATABASE_URL",
+          "detail": "DATABASE_URL connects to rds/cluster/ce-test-db (its writer endpoint)"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-order-processor-role tier3-rds",
+          "detail": "role ce-test-order-processor-role: Allow rds-data:ExecuteStatement on arn:aws:rds:us-east-2:123456789012:cluster:ce-test-db (inline policy tier3-rds)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-order-processor",
       "to": "sqs/ce-test-orders",
       "kind": "references",
       "confidence": "low",
@@ -663,6 +706,50 @@
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions ce-test-orders-fn env AUDIT_TABLE_ARN",
           "detail": "AUDIT_TABLE_ARN holds the ARN of ddb/ce-test-orders-audit"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-orders-fn",
+      "to": "rds/ce-test-legacy-db",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-orders-fn env DB_SECRET_ARN",
+          "detail": "DB_SECRET_ARN holds the master secret of rds/ce-test-legacy-db"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-apigw-fn-role tier3-rds",
+          "detail": "role ce-test-apigw-fn-role: Allow secretsmanager:GetSecretValue on arn:aws:secretsmanager:us-east-2:123456789012:secret:rds!db-fakesecret-0001 (inline policy tier3-rds)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-orders-fn",
+      "to": "rds/cluster/ce-test-db",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-orders-fn env DB_READER_HOST",
+          "detail": "DB_READER_HOST connects to rds/cluster/ce-test-db (its reader endpoint)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-webhook-receiver",
+      "to": "rds/ce-test-legacy-db",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-webhook-receiver env LEGACY_DB_URL",
+          "detail": "LEGACY_DB_URL connects to rds/ce-test-legacy-db (its endpoint)"
         }
       ]
     },
@@ -975,14 +1062,14 @@
       "node": "ecs/ce-test-batch/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DB_HOST names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "unresolved",
       "node": "ecs/ce-test-batch/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DATABASE_URL names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "ambiguous",
@@ -1178,14 +1265,14 @@
       "node": "ecs/ce-test-main/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DATABASE_URL names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "unresolved",
       "node": "ecs/ce-test-main/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DB_HOST names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "ambiguous",
@@ -1214,13 +1301,6 @@
       "target": "iam/role/ce-test-legacy-report-role",
       "rule": "iam.policy-resource",
       "detail": "role not in the inventory: its permissions were not evaluated"
-    },
-    {
-      "kind": "unresolved",
-      "node": "lambda/ce-test-order-processor",
-      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
-      "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
     },
     {
       "kind": "ambiguous",

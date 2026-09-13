@@ -22,6 +22,8 @@ var nodeTypes = map[string]bool{
 	spec.TypeRESTAPI:        true,
 	spec.TypeHTTPAPI:        true,
 	spec.TypeWebSocketAPI:   true,
+	spec.TypeRDSInstance:    true,
+	spec.TypeRDSCluster:     true,
 }
 
 // Rule turns what an inventory declares into edges, triggers and findings.

@@ -25,6 +25,7 @@ func NewRegistry() *Registry {
 			&DynamoDB{},
 			&ECS{},
 			&Lambda{},
+			&RDS{},
 			&SQS{},
 		},
 		dependents: []DependentCollector{

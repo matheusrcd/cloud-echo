@@ -114,6 +114,30 @@
       "flow": "unreached"
     },
     {
+      "id": "rds/cluster/orders-db",
+      "type": "rds.cluster",
+      "name": "orders-db",
+      "flow": "sync"
+    },
+    {
+      "id": "rds/legacy-db",
+      "type": "rds.instance",
+      "name": "legacy-db",
+      "flow": "unreached"
+    },
+    {
+      "id": "rds/legacy-db-replica",
+      "type": "rds.instance",
+      "name": "legacy-db-replica",
+      "flow": "unreached"
+    },
+    {
+      "id": "rds/reports-db",
+      "type": "rds.instance",
+      "name": "reports-db",
+      "flow": "unreached"
+    },
+    {
       "id": "sqs/notifications",
       "type": "sqs.queue",
       "name": "notifications",
@@ -239,6 +263,24 @@
     },
     {
       "from": "ecs/batch/orders-api",
+      "to": "rds/cluster/orders-db",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env DATABASE_URL",
+          "detail": "DATABASE_URL connects to rds/cluster/orders-db (its writer endpoint)"
+        },
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env DB_HOST",
+          "detail": "DB_HOST connects to rds/cluster/orders-db (its writer endpoint)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/batch/orders-api",
       "to": "sqs/orders",
       "kind": "references",
       "confidence": "low",
@@ -332,6 +374,24 @@
           "rule": "config.value-scan",
           "source": "ecs:DescribeTaskDefinition orders-api:41 container app env PAYMENTS_URL",
           "detail": "PAYMENTS_URL calls https://api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/orders-api",
+      "to": "rds/cluster/orders-db",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env DATABASE_URL",
+          "detail": "DATABASE_URL connects to rds/cluster/orders-db (its writer endpoint)"
+        },
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env DB_HOST",
+          "detail": "DB_HOST connects to rds/cluster/orders-db (its writer endpoint)"
         }
       ]
     },
@@ -605,20 +665,6 @@
       "detail": "TABLE_NAME = \"orders\" names ddb/orders and sqs/orders; the key points at ddb/orders (medium); the others are low-confidence candidates"
     },
     {
-      "kind": "unresolved",
-      "node": "ecs/batch/orders-api",
-      "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
-      "rule": "config.value-scan",
-      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
-    },
-    {
-      "kind": "unresolved",
-      "node": "ecs/batch/orders-api",
-      "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
-      "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
-    },
-    {
       "kind": "unpermitted",
       "node": "ecs/batch/orders-api",
       "target": "sqs/orders",
@@ -645,20 +691,6 @@
       "target": "orders",
       "rule": "config.value-scan",
       "detail": "TABLE_NAME = \"orders\" names ddb/orders and sqs/orders; the key points at ddb/orders (medium); the others are low-confidence candidates"
-    },
-    {
-      "kind": "unresolved",
-      "node": "ecs/main/orders-api",
-      "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
-      "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
-    },
-    {
-      "kind": "unresolved",
-      "node": "ecs/main/orders-api",
-      "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
-      "rule": "config.value-scan",
-      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
     },
     {
       "kind": "unpermitted",

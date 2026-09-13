@@ -160,6 +160,17 @@ var services = []Service{
 		},
 	},
 	{
+		SDKID:     "RDS",
+		IAMPrefix: "rds",
+		// Instances embed their subnet group, and clusters list their custom
+		// endpoints, so DescribeDBSubnetGroups and DescribeDBClusterEndpoints
+		// are not needed. Tags arrive in both responses.
+		Ops: []string{
+			"DescribeDBClusters",
+			"DescribeDBInstances",
+		},
+	},
+	{
 		SDKID:     "SQS",
 		IAMPrefix: "sqs",
 		// GetQueueAttributes with AttributeNames=["All"] returns the ARN, the

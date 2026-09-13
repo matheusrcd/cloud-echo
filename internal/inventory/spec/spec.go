@@ -24,6 +24,8 @@ const (
 	TypeRESTAPI            = "apigateway.rest"
 	TypeHTTPAPI            = "apigateway.http"
 	TypeWebSocketAPI       = "apigateway.websocket"
+	TypeRDSInstance        = "rds.instance"
+	TypeRDSCluster         = "rds.cluster"
 )
 
 // Types lists every type a collector may emit. A test in discovery checks
@@ -32,7 +34,7 @@ const (
 var Types = []string{
 	TypeECSCluster, TypeECSService, TypeECSTaskDefinition, TypeSQSQueue, TypeDynamoDBTable,
 	TypeLambdaFunction, TypeEventSourceMapping, TypeIAMRole, TypeIAMPolicy,
-	TypeRESTAPI, TypeHTTPAPI, TypeWebSocketAPI,
+	TypeRESTAPI, TypeHTTPAPI, TypeWebSocketAPI, TypeRDSInstance, TypeRDSCluster,
 }
 
 type API struct {
@@ -433,4 +435,97 @@ type Redrive struct {
 	// linker can follow it without re-parsing.
 	TargetID   string `json:"deadLetterTargetId,omitempty"`
 	MaxReceive int    `json:"maxReceiveCount"`
+}
+
+// RDSInstance is a standalone database instance. An instance that belongs to an
+// Aurora or Multi-AZ DB cluster is not a resource of its own: applications
+// connect to the cluster's endpoints, so it is one of the cluster's Members.
+type RDSInstance struct {
+	Identifier    string `json:"identifier"`
+	Engine        string `json:"engine"`
+	EngineVersion string `json:"engineVersion"`
+	Class         string `json:"instanceClass"`
+	Status        string `json:"status"`
+
+	// Endpoint is the host applications connect to — the Tier-2 signal. It is
+	// empty while the instance is being created.
+	Endpoint string `json:"endpoint,omitempty"`
+	Port     int32  `json:"port,omitempty"`
+	DBName   string `json:"dbName,omitempty"`
+
+	MasterUsername string `json:"masterUsername,omitempty"`
+	// MasterSecretARN names the Secrets Manager secret RDS manages for the
+	// master password — never its value. A workload that reads it, or has it
+	// injected, connects to this database.
+	MasterSecretARN string `json:"masterSecretArn,omitempty"`
+	// ResourceID is the DbiResourceId, which IAM database authentication
+	// grants name instead of the identifier.
+	ResourceID string `json:"resourceId,omitempty"`
+	IAMAuth    bool   `json:"iamAuth,omitempty"`
+
+	MultiAZ            bool   `json:"multiAz,omitempty"`
+	StorageType        string `json:"storageType,omitempty"`
+	AllocatedGB        int32  `json:"allocatedGb,omitempty"`
+	Encrypted          bool   `json:"encrypted,omitempty"`
+	PubliclyAccessible bool   `json:"publiclyAccessible,omitempty"`
+	// ReplicaOf is the source instance of a read replica.
+	ReplicaOf string     `json:"replicaOf,omitempty"`
+	Network   *DBNetwork `json:"network,omitempty"`
+}
+
+// RDSCluster is an Aurora or Multi-AZ DB cluster.
+type RDSCluster struct {
+	Identifier    string `json:"identifier"`
+	Engine        string `json:"engine"`
+	EngineVersion string `json:"engineVersion"`
+	EngineMode    string `json:"engineMode,omitempty"`
+	Status        string `json:"status"`
+
+	// Endpoint is the writer; ReaderEndpoint balances across readers;
+	// CustomEndpoints are the user-defined ones. All three name this cluster,
+	// and so do its members' own endpoints.
+	Endpoint        string     `json:"endpoint,omitempty"`
+	ReaderEndpoint  string     `json:"readerEndpoint,omitempty"`
+	CustomEndpoints []string   `json:"customEndpoints,omitempty"`
+	Port            int32      `json:"port,omitempty"`
+	DBName          string     `json:"dbName,omitempty"`
+	Members         []DBMember `json:"members"`
+
+	MasterUsername  string `json:"masterUsername,omitempty"`
+	MasterSecretARN string `json:"masterSecretArn,omitempty"`
+	ResourceID      string `json:"resourceId,omitempty"` // DbClusterResourceId
+	IAMAuth         bool   `json:"iamAuth,omitempty"`
+	// DataAPI is whether rds-data:ExecuteStatement reaches the cluster over
+	// HTTPS — a way in that needs no network route and no password.
+	DataAPI bool `json:"dataApi,omitempty"`
+
+	Serverless *DBServerless `json:"serverless,omitempty"`
+	MultiAZ    bool          `json:"multiAz,omitempty"`
+	Encrypted  bool          `json:"encrypted,omitempty"`
+	// InternetAccessGateway is set for clusters outside any VPC (Aurora's
+	// express configuration), reached through an AWS-managed gateway: no
+	// subnets and no security groups apply.
+	InternetAccessGateway bool       `json:"internetAccessGateway,omitempty"`
+	Network               *DBNetwork `json:"network,omitempty"`
+}
+
+type DBMember struct {
+	Identifier string `json:"identifier"`
+	Class      string `json:"instanceClass,omitempty"`
+	Writer     bool   `json:"writer,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Endpoint   string `json:"endpoint,omitempty"`
+}
+
+type DBServerless struct {
+	MinACU        float64 `json:"minAcu"`
+	MaxACU        float64 `json:"maxAcu"`
+	AutoPauseSecs int32   `json:"autoPauseSecs,omitempty"`
+}
+
+type DBNetwork struct {
+	VpcID          string   `json:"vpcId,omitempty"`
+	SubnetGroup    string   `json:"subnetGroup,omitempty"`
+	Subnets        []string `json:"subnets,omitempty"`
+	SecurityGroups []string `json:"securityGroups,omitempty"`
 }
