@@ -1,0 +1,2091 @@
+{
+  "formatVersion": 1,
+  "scanId": "real-m1",
+  "generatedBy": "sanitized from a real scan",
+  "accountId": "123456789012",
+  "region": "us-east-2",
+  "scannedAt": "2026-09-13T00:00:00Z",
+  "partial": true,
+  "warnings": [
+    {
+      "service": "IAM",
+      "op": "GetRole",
+      "kind": "dangling-reference",
+      "message": "role ce-test-legacy-report-role is assumed by lambda/ce-test-legacy-report but does not exist"
+    }
+  ],
+  "resources": [
+    {
+      "id": "apigw/fakeapi0001",
+      "type": "apigateway.http",
+      "arn": "arn:aws:apigateway:us-east-2::/apis/fakeapi0001",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-http",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "apiId": "fakeapi0001",
+        "name": "ce-test-orders-http",
+        "protocol": "HTTP",
+        "endpointType": "REGIONAL",
+        "endpoint": "https://fakeapi0001.execute-api.us-east-2.amazonaws.com",
+        "routes": [
+          {
+            "routeKey": "$default",
+            "authorization": "NONE",
+            "integration": {
+              "id": "int0001",
+              "type": "HTTP_PROXY",
+              "uri": "https://api.payments.example.com",
+              "httpMethod": "ANY",
+              "connectionType": "INTERNET",
+              "service": "http",
+              "timeoutMs": 30000,
+              "payloadFormatVersion": "1.0"
+            }
+          },
+          {
+            "routeKey": "GET /orders/{id}",
+            "method": "GET",
+            "path": "/orders/{id}",
+            "authorization": "NONE",
+            "integration": {
+              "id": "int0002",
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+              "httpMethod": "POST",
+              "connectionType": "INTERNET",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+                "id": "lambda/ce-test-orders-fn"
+              },
+              "timeoutMs": 30000,
+              "payloadFormatVersion": "2.0"
+            }
+          },
+          {
+            "routeKey": "POST /events",
+            "method": "POST",
+            "path": "/events",
+            "authorization": "NONE",
+            "integration": {
+              "id": "int0003",
+              "type": "AWS_PROXY",
+              "subtype": "SQS-SendMessage",
+              "connectionType": "INTERNET",
+              "credentials": "arn:aws:iam::123456789012:role/ce-test-apigw-sqs-role",
+              "service": "sqs",
+              "action": "SendMessage",
+              "target": {
+                "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-inbox",
+                "id": "sqs/ce-test-inbox"
+              },
+              "requestParameters": {
+                "MessageBody": "$request.body",
+                "QueueUrl": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-inbox"
+              },
+              "timeoutMs": 30000,
+              "payloadFormatVersion": "1.0"
+            }
+          },
+          {
+            "routeKey": "POST /orders",
+            "method": "POST",
+            "path": "/orders",
+            "authorization": "JWT",
+            "authorizerId": "auth0001",
+            "integration": {
+              "id": "int0002",
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+              "httpMethod": "POST",
+              "connectionType": "INTERNET",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+                "id": "lambda/ce-test-orders-fn"
+              },
+              "timeoutMs": 30000,
+              "payloadFormatVersion": "2.0"
+            }
+          }
+        ],
+        "stages": [
+          {
+            "name": "$default",
+            "deploymentId": "dep0001",
+            "autoDeploy": true
+          },
+          {
+            "name": "prod",
+            "variables": {
+              "API_TOKEN": "<redacted:key-name>",
+              "backend": "ce-test-orders-fn"
+            }
+          }
+        ],
+        "authorizers": [
+          {
+            "id": "auth0001",
+            "name": "ce-test-jwt",
+            "type": "JWT",
+            "identitySource": [
+              "$request.header.Authorization"
+            ],
+            "jwtIssuer": "https://accounts.google.com",
+            "jwtAudience": [
+              "ce-test-client"
+            ]
+          }
+        ],
+        "redacted": [
+          "stage:prod:API_TOKEN"
+        ]
+      },
+      "source": {
+        "api": "apigatewayv2:GetApis",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "apigw/fakeapi0002",
+      "type": "apigateway.rest",
+      "arn": "arn:aws:apigateway:us-east-2::/restapis/fakeapi0002",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-rest",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "apiId": "fakeapi0002",
+        "name": "ce-test-orders-rest",
+        "protocol": "REST",
+        "endpointType": "REGIONAL",
+        "endpoint": "https://fakeapi0002.execute-api.us-east-2.amazonaws.com",
+        "routes": [
+          {
+            "routeKey": "GET /health",
+            "method": "GET",
+            "path": "/health",
+            "authorization": "NONE",
+            "integration": {
+              "type": "MOCK",
+              "service": "mock",
+              "templateContentTypes": [
+                "application/json"
+              ],
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "GET /legacy",
+            "method": "GET",
+            "path": "/legacy",
+            "authorization": "NONE",
+            "integration": {
+              "type": "HTTP_PROXY",
+              "uri": "https://api.payments.example.com/v1/legacy",
+              "httpMethod": "GET",
+              "connectionType": "INTERNET",
+              "service": "http",
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "GET /orders",
+            "method": "GET",
+            "path": "/orders",
+            "authorization": "CUSTOM",
+            "authorizerId": "auth0002",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn/invocations",
+              "httpMethod": "POST",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+                "id": "lambda/ce-test-orders-fn"
+              },
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "GET /orders/{id}",
+            "method": "GET",
+            "path": "/orders/{id}",
+            "authorization": "NONE",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn:live/invocations",
+              "httpMethod": "POST",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn:live",
+                "id": "lambda/ce-test-orders-fn"
+              },
+              "qualifier": "live",
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "POST /webhooks",
+            "method": "POST",
+            "path": "/webhooks",
+            "authorization": "NONE",
+            "apiKeyRequired": true,
+            "integration": {
+              "type": "AWS",
+              "uri": "arn:aws:apigateway:us-east-2:sqs:path/123456789012/ce-test-inbox",
+              "httpMethod": "POST",
+              "credentials": "arn:aws:iam::123456789012:role/ce-test-apigw-sqs-role",
+              "service": "sqs",
+              "target": {
+                "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-inbox",
+                "id": "sqs/ce-test-inbox"
+              },
+              "requestParameters": {
+                "integration.request.header.Content-Type": "'application/x-www-form-urlencoded'",
+                "integration.request.header.x-api-key": "<redacted:key-name>"
+              },
+              "templateContentTypes": [
+                "application/json"
+              ],
+              "timeoutMs": 29000
+            }
+          }
+        ],
+        "stages": [
+          {
+            "name": "prod",
+            "deploymentId": "dep0002",
+            "variables": {
+              "DB_PASSWORD": "<redacted:key-name>",
+              "backend": "ce-test-orders-fn"
+            }
+          }
+        ],
+        "authorizers": [
+          {
+            "id": "auth0002",
+            "name": "ce-test-token-auth",
+            "type": "TOKEN",
+            "function": {
+              "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-authorizer-fn",
+              "id": "lambda/ce-test-authorizer-fn"
+            },
+            "identitySource": [
+              "method.request.header.Authorization"
+            ]
+          }
+        ],
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "arn:aws:execute-api:us-east-2:123456789012:fakeapi0002/*"
+            }
+          ]
+        },
+        "redacted": [
+          "route:POST /webhooks:integration.request.header.x-api-key",
+          "stage:prod:DB_PASSWORD"
+        ]
+      },
+      "source": {
+        "api": "apigateway:GetRestApis",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/ce-test-orders",
+      "type": "dynamodb.table",
+      "arn": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "tableName": "ce-test-orders",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          },
+          {
+            "name": "sk",
+            "type": "S",
+            "role": "RANGE"
+          }
+        ],
+        "billingMode": "PAY_PER_REQUEST",
+        "globalSecondaryIndexes": [
+          {
+            "name": "gsi1",
+            "keySchema": [
+              {
+                "name": "gsi1pk",
+                "type": "S",
+                "role": "HASH"
+              },
+              {
+                "name": "createdAt",
+                "type": "N",
+                "role": "RANGE"
+              }
+            ],
+            "projection": "INCLUDE",
+            "nonKeyAttributes": [
+              "total",
+              "status"
+            ]
+          }
+        ],
+        "stream": {
+          "enabled": true,
+          "viewType": "NEW_AND_OLD_IMAGES",
+          "arn": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders/stream/2026-09-13T05:38:59.103"
+        },
+        "ttl": {
+          "enabled": true,
+          "attribute": "expiresAt"
+        }
+      },
+      "source": {
+        "api": "dynamodb:DescribeTable",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/ce-test-orders-audit",
+      "type": "dynamodb.table",
+      "arn": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders-audit",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-audit",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "tableName": "ce-test-orders-audit",
+        "keySchema": [
+          {
+            "name": "id",
+            "type": "S",
+            "role": "HASH"
+          }
+        ],
+        "billingMode": "PROVISIONED",
+        "provisionedThroughput": {
+          "read": 1,
+          "write": 1
+        }
+      },
+      "source": {
+        "api": "dynamodb:DescribeTable",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-batch/ce-test-orders-api",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-batch/ce-test-orders-api",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-api",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-batch",
+        "serviceName": "ce-test-orders-api",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-orders-api:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-orders-api:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-01",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-01",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-01",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-01",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-02",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-02",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-02",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-02",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-03",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-03",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-03",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-03",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-04",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-04",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-04",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-04",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-05",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-05",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-05",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-05",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-06",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-06",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-06",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-06",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-07",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-07",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-07",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-07",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-08",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-08",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-08",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-08",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-09",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-09",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-09",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-09",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-10",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-10",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-10",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-10",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-11",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-filler-11",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-filler-11",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-filler-11",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-notifications",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-notifications",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-notifications",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-notifications",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-notifications:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-orders-api",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-main/ce-test-orders-api",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-api",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-main",
+        "serviceName": "ce-test-orders-api",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-orders-api:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-orders-api:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/cluster/ce-test-batch",
+      "type": "ecs.cluster",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:cluster/ce-test-batch",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-batch",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "name": "ce-test-batch",
+        "status": "ACTIVE",
+        "activeServices": 1,
+        "runningTasks": 0
+      },
+      "source": {
+        "api": "ecs:DescribeClusters",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/cluster/ce-test-main",
+      "type": "ecs.cluster",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:cluster/ce-test-main",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-main",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "name": "ce-test-main",
+        "status": "ACTIVE",
+        "activeServices": 13,
+        "runningTasks": 0
+      },
+      "source": {
+        "api": "ecs:DescribeClusters",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/ce-test-notifications:3",
+      "type": "ecs.taskdefinition",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-notifications:3",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-notifications:3",
+      "spec": {
+        "family": "ce-test-notifications",
+        "revision": 3,
+        "networkMode": "awsvpc",
+        "cpu": "256",
+        "memory": "512",
+        "taskRoleArn": "arn:aws:iam::123456789012:role/ce-test-notifications-task",
+        "taskRoleId": "iam/role/ce-test-notifications-task",
+        "requiresCompatibilities": [
+          "FARGATE"
+        ],
+        "containers": [
+          {
+            "name": "worker",
+            "image": "public.ecr.aws/docker/library/node:20-alpine",
+            "essential": true,
+            "command": [
+              "node",
+              "worker.js",
+              "--smtp-password=<redacted:key-name>"
+            ],
+            "env": {
+              "CACHE_HOST": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
+              "QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-notifications.fifo"
+            },
+            "redacted": [
+              "command[2]"
+            ]
+          }
+        ]
+      },
+      "source": {
+        "api": "ecs:DescribeTaskDefinition",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/ce-test-orders-api:3",
+      "type": "ecs.taskdefinition",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-orders-api:3",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-api:3",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "family": "ce-test-orders-api",
+        "revision": 3,
+        "networkMode": "awsvpc",
+        "cpu": "256",
+        "memory": "512",
+        "taskRoleArn": "arn:aws:iam::123456789012:role/ce-test/ce-test-orders-api-task",
+        "taskRoleId": "iam/role/ce-test-orders-api-task",
+        "executionRoleArn": "arn:aws:iam::123456789012:role/ce-test-ecs-exec-role",
+        "requiresCompatibilities": [
+          "FARGATE"
+        ],
+        "containers": [
+          {
+            "name": "app",
+            "image": "public.ecr.aws/nginx/nginx:1.27",
+            "essential": true,
+            "env": {
+              "DATABASE_URL": "postgres://orders_app:<redacted:url-credentials>@ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com:5432/orders",
+              "DB_HOST": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
+              "LOG_LEVEL": "info",
+              "PAYMENTS_API_KEY": "<redacted:key-name>",
+              "PAYMENTS_URL": "https://api.payments.example.com",
+              "QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders-events",
+              "TABLE_NAME": "ce-test-orders"
+            },
+            "secrets": {
+              "DB_PASSWORD": "arn:aws:secretsmanager:us-east-2:123456789012:secret:ce-test/orders/db-AbCdEf"
+            },
+            "portMappings": [
+              {
+                "containerPort": 8080,
+                "hostPort": 8080,
+                "protocol": "tcp",
+                "name": "http"
+              }
+            ],
+            "dependsOn": [
+              {
+                "container": "otel",
+                "condition": "START"
+              }
+            ],
+            "logGroup": "/ecs/ce-test-orders-api",
+            "log": {
+              "driver": "awslogs",
+              "options": {
+                "awslogs-group": "/ecs/ce-test-orders-api",
+                "awslogs-region": "us-east-2",
+                "awslogs-stream-prefix": "ecs"
+              }
+            },
+            "redacted": [
+              "env:DATABASE_URL",
+              "env:PAYMENTS_API_KEY"
+            ]
+          },
+          {
+            "name": "otel",
+            "image": "public.ecr.aws/aws-observability/aws-otel-collector:v0.41.0",
+            "essential": false
+          }
+        ]
+      },
+      "source": {
+        "api": "ecs:DescribeTaskDefinition",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/aws-policy/AWSLambdaBasicExecutionRole",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "AWSLambdaBasicExecutionRole",
+      "spec": {
+        "policyName": "AWSLambdaBasicExecutionRole",
+        "path": "/service-role/",
+        "awsManaged": true,
+        "defaultVersion": "v1",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "iam:GetPolicyVersion",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/aws-policy/AmazonSQSFullAccess",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::aws:policy/AmazonSQSFullAccess",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "AmazonSQSFullAccess",
+      "spec": {
+        "policyName": "AmazonSQSFullAccess",
+        "path": "/",
+        "awsManaged": true,
+        "defaultVersion": "v1",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Action": [
+                "sqs:*"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "iam:GetPolicyVersion",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/policy/ce-test-boundary",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::123456789012:policy/ce-test-boundary",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "ce-test-boundary",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "policyName": "ce-test-boundary",
+        "path": "/",
+        "awsManaged": false,
+        "defaultVersion": "v1",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "dynamodb:*",
+                "sqs:*",
+                "logs:*",
+                "xray:*",
+                "cloudwatch:PutMetricData"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "iam:GetPolicyVersion",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/policy/ce-test-observability",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::123456789012:policy/ce-test-observability",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "ce-test-observability",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "policyName": "ce-test-observability",
+        "path": "/",
+        "awsManaged": false,
+        "defaultVersion": "v1",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": "xray:PutTraceSegments",
+              "Resource": "*",
+              "Condition": {
+                "StringLike": {
+                  "aws:PrincipalTag/team": "orders+payments team"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "iam:GetPolicyVersion",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/ce-test-apigw-fn-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/ce-test-apigw-fn-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "ce-test-apigw-fn-role",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "roleName": "ce-test-apigw-fn-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/ce-test-authorizer-fn",
+          "lambda/ce-test-orders-fn"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "id": "iam/aws-policy/AWSLambdaBasicExecutionRole"
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/ce-test-apigw-sqs-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/ce-test-apigw-sqs-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "ce-test-apigw-sqs-role",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "roleName": "ce-test-apigw-sqs-role",
+        "path": "/",
+        "assumedBy": [
+          "apigw/fakeapi0001",
+          "apigw/fakeapi0002"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "send",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-2:123456789012:ce-test-inbox"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/ce-test-audit-writer-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/ce-test-audit-writer-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "ce-test-audit-writer-role",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "roleName": "ce-test-audit-writer-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/ce-test-audit-writer"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "audit",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:GetRecords",
+                    "dynamodb:GetShardIterator",
+                    "dynamodb:DescribeStream",
+                    "dynamodb:ListStreams"
+                  ],
+                  "Resource": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders/stream/*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:PutItem",
+                  "Resource": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders-audit"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq"
+                }
+              ]
+            }
+          }
+        ],
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "id": "iam/aws-policy/AWSLambdaBasicExecutionRole"
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/ce-test-notifications-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/ce-test-notifications-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "ce-test-notifications-task",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "roleName": "ce-test-notifications-task",
+        "path": "/",
+        "assumedBy": [
+          "ecs/taskdef/ce-test-notifications:3"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/AmazonSQSFullAccess",
+            "id": "iam/aws-policy/AmazonSQSFullAccess"
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/ce-test-order-processor-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/ce-test-order-processor-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "ce-test-order-processor-role",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "roleName": "ce-test-order-processor-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/ce-test-order-processor"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "process",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes"
+                  ],
+                  "Resource": [
+                    "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events",
+                    "arn:aws:sqs:us-east-2:123456789012:ce-test-orders"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:UpdateItem",
+                  "Resource": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders"
+                }
+              ]
+            }
+          }
+        ],
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "id": "iam/aws-policy/AWSLambdaBasicExecutionRole"
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/ce-test-orders-api-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/ce-test/ce-test-orders-api-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-api-task",
+      "tags": {
+        "cloud-echo-test": "m1",
+        "team": "orders"
+      },
+      "spec": {
+        "roleName": "ce-test-orders-api-task",
+        "path": "/ce-test/",
+        "assumedBy": [
+          "ecs/taskdef/ce-test-orders-api:3"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "orders-data",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:Query"
+                  ],
+                  "Resource": [
+                    "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders",
+                    "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders/index/*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "cloudwatch:PutMetricData",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ],
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::123456789012:policy/ce-test-observability",
+            "id": "iam/policy/ce-test-observability"
+          }
+        ],
+        "permissionsBoundary": {
+          "arn": "arn:aws:iam::123456789012:policy/ce-test-boundary",
+          "id": "iam/policy/ce-test-boundary"
+        }
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/ce-test-webhook-receiver-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/ce-test-webhook-receiver-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "ce-test-webhook-receiver-role",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "roleName": "ce-test-webhook-receiver-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/ce-test-webhook-receiver"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "enqueue",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": [
+                    "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events",
+                    "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq"
+                  ]
+                },
+                {
+                  "Effect": "Deny",
+                  "Action": "dynamodb:*",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ],
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "id": "iam/aws-policy/AWSLambdaBasicExecutionRole"
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/ce-test-audit-writer",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-audit-writer",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-audit-writer",
+      "spec": {
+        "functionName": "ce-test-audit-writer",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "packageType": "Zip",
+        "architectures": [
+          "arm64"
+        ],
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/ce-test-audit-writer-role",
+        "roleId": "iam/role/ce-test-audit-writer-role",
+        "env": {
+          "AUDIT_TABLE": "ce-test-orders-audit"
+        },
+        "logGroup": "/aws/lambda/ce-test-audit-writer"
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/ce-test-authorizer-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-authorizer-fn",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-authorizer-fn",
+      "spec": {
+        "functionName": "ce-test-authorizer-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "packageType": "Zip",
+        "architectures": [
+          "x86_64"
+        ],
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/ce-test-apigw-fn-role",
+        "roleId": "iam/role/ce-test-apigw-fn-role",
+        "logGroup": "/aws/lambda/ce-test-authorizer-fn",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Id": "default",
+          "Statement": [
+            {
+              "Sid": "apigw-rest-fakeapi0002",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-authorizer-fn",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:execute-api:us-east-2:123456789012:fakeapi0002/*"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/ce-test-legacy-report",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-legacy-report",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-legacy-report",
+      "spec": {
+        "functionName": "ce-test-legacy-report",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "packageType": "Zip",
+        "architectures": [
+          "x86_64"
+        ],
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/service-role/ce-test-legacy-report-role",
+        "roleId": "iam/role/ce-test-legacy-report-role",
+        "logGroup": "/aws/lambda/ce-test-legacy-report"
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/ce-test-order-processor",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-order-processor",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-order-processor",
+      "spec": {
+        "functionName": "ce-test-order-processor",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "packageType": "Zip",
+        "architectures": [
+          "x86_64"
+        ],
+        "memoryMb": 256,
+        "timeoutSec": 30,
+        "roleArn": "arn:aws:iam::123456789012:role/ce-test-order-processor-role",
+        "roleId": "iam/role/ce-test-order-processor-role",
+        "env": {
+          "DATABASE_URL": "postgres://app:<redacted:url-credentials>@ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com:5432/orders",
+          "PAYMENTS_TOKEN": "<redacted:key-name>",
+          "SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/T-FAKE/B-FAKE/<redacted:url-path>",
+          "TABLE_NAME": "ce-test-orders"
+        },
+        "redacted": [
+          "env:DATABASE_URL",
+          "env:PAYMENTS_TOKEN",
+          "env:SLACK_WEBHOOK_URL"
+        ],
+        "logGroup": "/aws/lambda/ce-test-order-processor"
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/ce-test-orders-fn",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-fn",
+      "spec": {
+        "functionName": "ce-test-orders-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "packageType": "Zip",
+        "architectures": [
+          "x86_64"
+        ],
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/ce-test-apigw-fn-role",
+        "roleId": "iam/role/ce-test-apigw-fn-role",
+        "logGroup": "/aws/lambda/ce-test-orders-fn",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Id": "default",
+          "Statement": [
+            {
+              "Sid": "apigw-rest-fakeapi0002",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:execute-api:us-east-2:123456789012:fakeapi0002/*"
+                }
+              }
+            },
+            {
+              "Sid": "apigw-http-fakeapi0001",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:execute-api:us-east-2:123456789012:fakeapi0001/*"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/ce-test-webhook-receiver",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-webhook-receiver",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-webhook-receiver",
+      "spec": {
+        "functionName": "ce-test-webhook-receiver",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "packageType": "Zip",
+        "architectures": [
+          "x86_64"
+        ],
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/ce-test-webhook-receiver-role",
+        "roleId": "iam/role/ce-test-webhook-receiver-role",
+        "env": {
+          "ORDERS_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders-events"
+        },
+        "deadLetter": {
+          "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq",
+          "id": "sqs/ce-test-orders-events-dlq"
+        },
+        "logGroup": "/aws/lambda/ce-test-webhook-receiver",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Id": "default",
+          "Statement": [
+            {
+              "Sid": "apigw-invoke",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-webhook-receiver",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:execute-api:us-east-2:123456789012:abcdef1234/*/POST/webhooks/pay"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/00000000-0000-4000-8000-000000000001",
+      "type": "lambda.event-source-mapping",
+      "arn": "arn:aws:lambda:us-east-2:123456789012:event-source-mapping:00000000-0000-4000-8000-000000000001",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "00000000-0000-4000-8000-000000000001",
+      "spec": {
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "state": "Disabled",
+        "enabled": false,
+        "batchSize": 10,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders",
+          "id": "sqs/ce-test-orders"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-order-processor",
+        "functionId": "lambda/ce-test-order-processor"
+      },
+      "source": {
+        "api": "lambda:ListEventSourceMappings",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/00000000-0000-4000-8000-000000000002",
+      "type": "lambda.event-source-mapping",
+      "arn": "arn:aws:lambda:us-east-2:123456789012:event-source-mapping:00000000-0000-4000-8000-000000000002",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "00000000-0000-4000-8000-000000000002",
+      "spec": {
+        "uuid": "00000000-0000-4000-8000-000000000002",
+        "state": "Enabled",
+        "enabled": true,
+        "batchSize": 100,
+        "source": {
+          "arn": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders/stream/2026-09-13T05:38:59.103",
+          "id": "ddb/ce-test-orders"
+        },
+        "sourceType": "dynamodb-stream",
+        "functionArn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-audit-writer",
+        "functionId": "lambda/ce-test-audit-writer",
+        "startingPosition": "LATEST",
+        "onFailure": {
+          "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq",
+          "id": "sqs/ce-test-orders-events-dlq"
+        }
+      },
+      "source": {
+        "api": "lambda:ListEventSourceMappings",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/00000000-0000-4000-8000-000000000003",
+      "type": "lambda.event-source-mapping",
+      "arn": "arn:aws:lambda:us-east-2:123456789012:event-source-mapping:00000000-0000-4000-8000-000000000003",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "00000000-0000-4000-8000-000000000003",
+      "spec": {
+        "uuid": "00000000-0000-4000-8000-000000000003",
+        "state": "Enabled",
+        "enabled": true,
+        "batchSize": 10,
+        "maxBatchingWindowSec": 5,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events",
+          "id": "sqs/ce-test-orders-events"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-order-processor:live",
+        "functionId": "lambda/ce-test-order-processor",
+        "qualifier": "live",
+        "filters": [
+          "{\"body\":{\"type\":[\"order.created\"]}}"
+        ]
+      },
+      "source": {
+        "api": "lambda:ListEventSourceMappings",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/ce-test-inbox",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-inbox",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-inbox",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "queueName": "ce-test-inbox",
+        "url": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-inbox",
+        "visibilityTimeout": 30,
+        "messageRetentionPeriod": 345600,
+        "maximumMessageSize": 1048576
+      },
+      "source": {
+        "api": "sqs:GetQueueAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/ce-test-notifications.fifo",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-notifications.fifo",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "queueName": "ce-test-notifications.fifo",
+        "url": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-notifications.fifo",
+        "visibilityTimeout": 60,
+        "messageRetentionPeriod": 345600,
+        "maximumMessageSize": 1048576,
+        "fifo": true,
+        "contentBasedDeduplication": true
+      },
+      "source": {
+        "api": "sqs:GetQueueAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/ce-test-orders",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "queueName": "ce-test-orders",
+        "url": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders",
+        "visibilityTimeout": 30,
+        "messageRetentionPeriod": 345600,
+        "maximumMessageSize": 1048576
+      },
+      "source": {
+        "api": "sqs:GetQueueAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/ce-test-orders-events",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-events",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "queueName": "ce-test-orders-events",
+        "url": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders-events",
+        "visibilityTimeout": 30,
+        "messageRetentionPeriod": 345600,
+        "maximumMessageSize": 1048576,
+        "redrive": {
+          "deadLetterTargetArn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq",
+          "deadLetterTargetId": "sqs/ce-test-orders-events-dlq",
+          "maxReceiveCount": 5
+        },
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::123456789012:role/ce-test/ce-test-orders-api-task"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "sqs:GetQueueAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/ce-test-orders-events-dlq",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-orders-events-dlq",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "queueName": "ce-test-orders-events-dlq",
+        "url": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders-events-dlq",
+        "visibilityTimeout": 30,
+        "messageRetentionPeriod": 1209600,
+        "maximumMessageSize": 1048576
+      },
+      "source": {
+        "api": "sqs:GetQueueAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    }
+  ]
+}

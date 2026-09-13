@@ -28,6 +28,7 @@ type command struct {
 func commands() []command {
 	return []command{
 		{"scan", "Read an AWS account into .cloud-echo/inventory.json", runScan},
+		{"graph", "Infer what talks to what from the inventory (offline)", runGraph},
 		{"version", "Print the build identifier", runVersion},
 	}
 }

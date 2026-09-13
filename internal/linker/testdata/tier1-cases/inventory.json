@@ -1,0 +1,798 @@
+{
+  "formatVersion": 1,
+  "scanId": "tier1-cases",
+  "generatedBy": "hand-written",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "scannedAt": "2026-09-13T00:00:00Z",
+  "resources": [
+    {
+      "id": "apigw/api0000001",
+      "type": "apigateway.rest",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "public-rest",
+      "spec": {
+        "apiId": "api0000001",
+        "name": "public-rest",
+        "protocol": "REST",
+        "endpointType": "REGIONAL",
+        "endpoint": "https://api0000001.execute-api.us-east-1.amazonaws.com",
+        "routes": [
+          {
+            "routeKey": "GET /items",
+            "method": "GET",
+            "path": "/items",
+            "authorization": "CUSTOM",
+            "authorizerId": "auth-used",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:items-fn/invocations",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:items-fn",
+                "id": "lambda/items-fn"
+              }
+            }
+          },
+          {
+            "routeKey": "GET /shared",
+            "method": "GET",
+            "path": "/shared",
+            "authorization": "NONE",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:shared-fn/invocations",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:shared-fn",
+                "id": "lambda/shared-fn"
+              }
+            }
+          },
+          {
+            "routeKey": "GET /mock",
+            "method": "GET",
+            "path": "/mock",
+            "authorization": "NONE",
+            "integration": {
+              "type": "MOCK",
+              "service": "mock"
+            }
+          },
+          {
+            "routeKey": "POST /events",
+            "method": "POST",
+            "path": "/events",
+            "authorization": "NONE",
+            "integration": {
+              "type": "AWS",
+              "uri": "arn:aws:apigateway:us-east-1:sqs:path/123456789012/events",
+              "service": "sqs",
+              "target": {
+                "arn": "arn:aws:sqs:us-east-1:123456789012:events",
+                "id": "sqs/events"
+              }
+            }
+          },
+          {
+            "routeKey": "GET /partner",
+            "method": "GET",
+            "path": "/partner",
+            "authorization": "NONE",
+            "integration": {
+              "type": "HTTP_PROXY",
+              "uri": "https://partner.example.com/v1/quote",
+              "connectionType": "INTERNET",
+              "service": "http"
+            }
+          },
+          {
+            "routeKey": "GET /internal",
+            "method": "GET",
+            "path": "/internal",
+            "authorization": "NONE",
+            "integration": {
+              "type": "HTTP_PROXY",
+              "uri": "http://internal-nlb.example.internal/api",
+              "connectionType": "VPC_LINK",
+              "connectionId": "vpclink1",
+              "service": "http"
+            }
+          },
+          {
+            "routeKey": "GET /far",
+            "method": "GET",
+            "path": "/far",
+            "authorization": "NONE",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:123456789012:function:items-fn/invocations",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-west-2:123456789012:function:items-fn",
+                "id": "lambda/items-fn"
+              }
+            }
+          },
+          {
+            "routeKey": "ANY /dyn",
+            "method": "ANY",
+            "path": "/dyn",
+            "authorization": "NONE",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}/invocations",
+              "templated": true
+            }
+          },
+          {
+            "routeKey": "GET /nostage",
+            "method": "GET",
+            "path": "/nostage",
+            "authorization": "NONE",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.missing}/invocations",
+              "templated": true
+            }
+          },
+          {
+            "routeKey": "GET /reports",
+            "method": "GET",
+            "path": "/reports",
+            "authorization": "NONE",
+            "integration": {
+              "type": "AWS",
+              "uri": "arn:aws:apigateway:us-east-1:dynamodb:action/Query",
+              "service": "dynamodb",
+              "action": "Query"
+            }
+          }
+        ],
+        "stages": [
+          {
+            "name": "dev",
+            "variables": {}
+          },
+          {
+            "name": "prod",
+            "variables": {
+              "fn": "worker-fn"
+            }
+          }
+        ],
+        "authorizers": [
+          {
+            "id": "auth-used",
+            "name": "token",
+            "type": "TOKEN",
+            "function": {
+              "arn": "arn:aws:lambda:us-east-1:123456789012:function:auth-fn",
+              "id": "lambda/auth-fn"
+            }
+          },
+          {
+            "id": "auth-unused",
+            "name": "leftover",
+            "type": "REQUEST",
+            "function": {
+              "arn": "arn:aws:lambda:us-east-1:123456789012:function:unused-auth-fn",
+              "id": "lambda/unused-auth-fn"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "apigw/api0000002",
+      "type": "apigateway.http",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "mock-only",
+      "spec": {
+        "apiId": "api0000002",
+        "name": "mock-only",
+        "protocol": "HTTP",
+        "endpointType": "REGIONAL",
+        "routes": [
+          {
+            "routeKey": "$default",
+            "integration": {
+              "id": "i1",
+              "type": "MOCK",
+              "service": "mock"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/unused",
+      "type": "dynamodb.table",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "unused",
+      "spec": {
+        "tableName": "unused",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/web",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "web",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "web",
+        "desiredCount": 2,
+        "runningCount": 2,
+        "taskDefinition": "web:1",
+        "taskDefinitionId": "ecs/taskdef/web:1",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/web/abc",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/auth-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "auth-fn",
+      "spec": {
+        "functionName": "auth-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/auth-fn-role",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "s1",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:execute-api:us-east-1:123456789012:api0000001/*/*/*"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/disabled-consumer",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "disabled-consumer",
+      "spec": {
+        "functionName": "disabled-consumer",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/disabled-consumer-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/m-disabled",
+      "type": "lambda.event-source-mapping",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "m-disabled",
+      "spec": {
+        "uuid": "m-disabled",
+        "state": "Disabled",
+        "enabled": false,
+        "batchSize": 10,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:events",
+          "id": "sqs/events"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:disabled-consumer",
+        "functionId": "lambda/disabled-consumer"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/m-events",
+      "type": "lambda.event-source-mapping",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "m-events",
+      "spec": {
+        "uuid": "m-events",
+        "state": "Enabled",
+        "enabled": true,
+        "batchSize": 10,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:events",
+          "id": "sqs/events"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:events-consumer",
+        "functionId": "lambda/events-consumer"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/m-kinesis",
+      "type": "lambda.event-source-mapping",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "m-kinesis",
+      "spec": {
+        "uuid": "m-kinesis",
+        "state": "Enabled",
+        "enabled": true,
+        "batchSize": 10,
+        "source": {
+          "arn": "arn:aws:kinesis:us-east-1:123456789012:stream/clicks",
+          "id": ""
+        },
+        "sourceType": "kinesis",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:kinesis-fn",
+        "functionId": "lambda/kinesis-fn"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/m-shared",
+      "type": "lambda.event-source-mapping",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "m-shared",
+      "spec": {
+        "uuid": "m-shared",
+        "state": "Enabled",
+        "enabled": true,
+        "batchSize": 10,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:events",
+          "id": "sqs/events"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:shared-fn",
+        "functionId": "lambda/shared-fn"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/m-unsettled",
+      "type": "lambda.event-source-mapping",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "m-unsettled",
+      "spec": {
+        "uuid": "m-unsettled",
+        "state": "Updating",
+        "enabled": null,
+        "batchSize": 10,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:events",
+          "id": "sqs/events"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:unsettled-consumer",
+        "functionId": "lambda/unsettled-consumer"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/events-consumer",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "events-consumer",
+      "spec": {
+        "functionName": "events-consumer",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/events-consumer-role",
+        "deadLetter": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:consumer-dlq",
+          "id": "sqs/consumer-dlq"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/items-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "items-fn",
+      "spec": {
+        "functionName": "items-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/items-fn-role",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "s1",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:execute-api:us-east-1:123456789012:api0000001/*/*/*"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/kinesis-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "kinesis-fn",
+      "spec": {
+        "functionName": "kinesis-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/kinesis-fn-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/s3-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "s3-fn",
+      "spec": {
+        "functionName": "s3-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/s3-fn-role",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "s1",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "s3.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/shared-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "shared-fn",
+      "spec": {
+        "functionName": "shared-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/shared-fn-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/stale-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "stale-fn",
+      "spec": {
+        "functionName": "stale-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/stale-fn-role",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "s1",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:execute-api:us-east-1:123456789012:api0000001/*/*/*"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/unsettled-consumer",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "unsettled-consumer",
+      "spec": {
+        "functionName": "unsettled-consumer",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/unsettled-consumer-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/unused-auth-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "unused-auth-fn",
+      "spec": {
+        "functionName": "unused-auth-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/unused-auth-fn-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/worker-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "worker-fn",
+      "spec": {
+        "functionName": "worker-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/worker-fn-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/consumer-dlq",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "consumer-dlq",
+      "spec": {
+        "queueName": "consumer-dlq",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/consumer-dlq",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/events",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "events",
+      "spec": {
+        "queueName": "events",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/events",
+        "visibilityTimeout": 30,
+        "redrive": {
+          "deadLetterTargetArn": "arn:aws:sqs:us-east-1:123456789012:events-dlq",
+          "deadLetterTargetId": "sqs/events-dlq",
+          "maxReceiveCount": 3
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/events-dlq",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "events-dlq",
+      "spec": {
+        "queueName": "events-dlq",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/events-dlq",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/idle",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "idle",
+      "spec": {
+        "queueName": "idle",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/idle",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/jobs",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "jobs",
+      "spec": {
+        "queueName": "jobs",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/jobs",
+        "visibilityTimeout": 30,
+        "redrive": {
+          "deadLetterTargetArn": "arn:aws:sqs:us-east-1:999999999999:orders-dlq",
+          "deadLetterTargetId": "sqs/orders-dlq",
+          "maxReceiveCount": 5
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/orders-dlq",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-dlq",
+      "spec": {
+        "queueName": "orders-dlq",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-dlq",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    }
+  ]
+}

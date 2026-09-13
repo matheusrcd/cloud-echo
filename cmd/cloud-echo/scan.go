@@ -71,19 +71,26 @@ func runScan(ctx context.Context, args []string) error {
 // writeInventory writes atomically: a scan interrupted mid-write must not leave
 // a truncated inventory that the next command reads as authoritative.
 func writeInventory(path string, inv *inventory.Inventory) error {
+	return writeAtomic(path, inv.Write)
+}
+
+// writeAtomic stages the output in a temp file in the target's directory and
+// renames it into place, so a reader sees the old file or the new one, never
+// half of either. Every artifact the pipeline persists goes through it.
+func writeAtomic(path string, write func(io.Writer) error) error {
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("creating %s: %w", dir, err)
 		}
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".inventory-*.json")
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".cloud-echo-*.tmp")
 	if err != nil {
 		return fmt.Errorf("creating temp file: %w", err)
 	}
 	defer os.Remove(tmp.Name())
 
-	if err := inv.Write(tmp); err != nil {
+	if err := write(tmp); err != nil {
 		tmp.Close()
 		return err
 	}
