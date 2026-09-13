@@ -1,9 +1,13 @@
 [
   {
     "op": "ListTables",
-    "response": { "TableNames": ["orders", "orders-audit"] }
+    "response": {
+      "TableNames": [
+        "orders",
+        "orders-audit"
+      ]
+    }
   },
-
   {
     "op": "DescribeTable",
     "match": "\"orders\"",
@@ -13,29 +17,69 @@
         "TableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/orders",
         "TableStatus": "ACTIVE",
         "ItemCount": 184203,
-        "BillingModeSummary": { "BillingMode": "PAY_PER_REQUEST" },
+        "BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST"
+        },
         "AttributeDefinitions": [
-          { "AttributeName": "pk", "AttributeType": "S" },
-          { "AttributeName": "sk", "AttributeType": "S" },
-          { "AttributeName": "gsi1pk", "AttributeType": "S" },
-          { "AttributeName": "createdAt", "AttributeType": "N" }
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "sk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "gsi1pk",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "createdAt",
+            "AttributeType": "N"
+          }
         ],
         "KeySchema": [
-          { "AttributeName": "pk", "KeyType": "HASH" },
-          { "AttributeName": "sk", "KeyType": "RANGE" }
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "sk",
+            "KeyType": "RANGE"
+          }
         ],
         "GlobalSecondaryIndexes": [
           {
             "IndexName": "gsi1",
             "KeySchema": [
-              { "AttributeName": "gsi1pk", "KeyType": "HASH" },
-              { "AttributeName": "createdAt", "KeyType": "RANGE" }
+              {
+                "AttributeName": "gsi1pk",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "createdAt",
+                "KeyType": "RANGE"
+              }
             ],
-            "Projection": { "ProjectionType": "INCLUDE", "NonKeyAttributes": ["status", "total"] }
+            "Projection": {
+              "ProjectionType": "INCLUDE",
+              "NonKeyAttributes": [
+                "status",
+                "total"
+              ]
+            }
           }
         ],
-        "StreamSpecification": { "StreamEnabled": true, "StreamViewType": "NEW_AND_OLD_IMAGES" },
-        "LatestStreamArn": "arn:aws:dynamodb:us-east-1:123456789012:table/orders/stream/2026-08-01T00:00:00.000"
+        "StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        },
+        "LatestStreamArn": "arn:aws:dynamodb:us-east-1:123456789012:table/orders/stream/2026-08-01T00:00:00.000",
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0,
+          "NumberOfDecreasesToday": 0
+        }
       }
     }
   },
@@ -43,15 +87,24 @@
     "op": "DescribeTimeToLive",
     "match": "\"orders\"",
     "response": {
-      "TimeToLiveDescription": { "TimeToLiveStatus": "ENABLED", "AttributeName": "expiresAt" }
+      "TimeToLiveDescription": {
+        "TimeToLiveStatus": "ENABLED",
+        "AttributeName": "expiresAt"
+      }
     }
   },
   {
     "op": "ListTagsOfResource",
     "match": "table/orders\"",
-    "response": { "Tags": [{ "Key": "team", "Value": "orders" }] }
+    "response": {
+      "Tags": [
+        {
+          "Key": "team",
+          "Value": "orders"
+        }
+      ]
+    }
   },
-
   {
     "op": "DescribeTable",
     "match": "orders-audit",
@@ -61,20 +114,39 @@
         "TableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/orders-audit",
         "TableStatus": "ACTIVE",
         "ItemCount": 9,
-        "AttributeDefinitions": [{ "AttributeName": "id", "AttributeType": "S" }],
-        "KeySchema": [{ "AttributeName": "id", "KeyType": "HASH" }],
-        "ProvisionedThroughput": { "ReadCapacityUnits": 5, "WriteCapacityUnits": 5 }
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "id",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "id",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 5,
+          "WriteCapacityUnits": 5
+        }
       }
     }
   },
   {
     "op": "DescribeTimeToLive",
     "match": "orders-audit",
-    "response": { "TimeToLiveDescription": { "TimeToLiveStatus": "DISABLED" } }
+    "response": {
+      "TimeToLiveDescription": {
+        "TimeToLiveStatus": "DISABLED"
+      }
+    }
   },
   {
     "op": "ListTagsOfResource",
     "match": "orders-audit",
-    "response": { "Tags": [] }
+    "response": {
+      "Tags": []
+    }
   }
 ]

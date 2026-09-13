@@ -200,7 +200,7 @@ func TestECSUsesExactlyTheAllowListedOperations(t *testing.T) {
 func TestECSSecretsNeverReachTheInventory(t *testing.T) {
 	out, _ := collectECS(t)
 
-	secrets := []string{"not-a-real-payments-key-7f3a9c", "hunter2", "correcthorsebattery"}
+	secrets := []string{"not-a-real-payments-key-7f3a9c", "hunter2", "correcthorsebattery", "not-a-real-splunk-token-00"}
 	for _, r := range out.resources {
 		blob, err := json.Marshal(r)
 		if err != nil {
@@ -240,7 +240,39 @@ func TestECSRedactionKeepsWhatTheLinkerNeeds(t *testing.T) {
 	notif, _ := out.byID("ecs/taskdef/notifications:7")
 	var nspec taskDefinitionSpec
 	specOf(t, notif, &nspec)
-	if got := nspec.Containers[0].Redacted; !reflect.DeepEqual(got, []string{"command[2]"}) {
+	if got := nspec.Containers[0].Redacted; !reflect.DeepEqual(got, []string{"command[2]", "log:splunk-token"}) {
 		t.Errorf("command redaction not recorded: %q", got)
+	}
+}
+
+// TestECSKeepsWhatARebuildNeeds covers two fields a round trip through Floci had
+// to recover from Raw: the dependsOn condition and the full log configuration.
+// Log options are redacted like env vars — the splunk driver takes a token there.
+func TestECSKeepsWhatARebuildNeeds(t *testing.T) {
+	out, _ := collectECS(t)
+
+	td, _ := out.byID("ecs/taskdef/orders-api:41")
+	var spec taskDefinitionSpec
+	specOf(t, td, &spec)
+	app := spec.Containers[0]
+	if want := []dependency{{Container: "otel", Condition: "START"}}; !reflect.DeepEqual(app.DependsOn, want) {
+		t.Errorf("dependsOn: got %+v want %+v", app.DependsOn, want)
+	}
+	if app.Log == nil || app.Log.Driver != "awslogs" || app.Log.Options["awslogs-stream-prefix"] != "ecs" {
+		t.Errorf("log configuration incomplete: %+v", app.Log)
+	}
+
+	nt, _ := out.byID("ecs/taskdef/notifications:7")
+	var nspec taskDefinitionSpec
+	specOf(t, nt, &nspec)
+	lg := nspec.Containers[0].Log
+	if lg == nil || lg.Driver != "splunk" {
+		t.Fatalf("splunk log driver not recorded: %+v", lg)
+	}
+	if lg.Options["splunk-token"] != "<redacted:key-name>" || lg.Options["splunk-url"] != "https://splunk.example.com:8088" {
+		t.Errorf("log options: token must be redacted and url kept, got %+v", lg.Options)
+	}
+	if lg.SecretOptions["splunk-token-v2"] != "arn:aws:ssm:us-east-1:123456789012:parameter/splunk/token" {
+		t.Errorf("secretOptions should keep the ARN: %+v", lg.SecretOptions)
 	}
 }

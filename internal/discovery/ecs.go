@@ -313,14 +313,38 @@ type containerSpec struct {
 	Secrets map[string]string `json:"secrets,omitempty"`
 
 	PortMappings []portMapping `json:"portMappings,omitempty"`
-	DependsOn    []string      `json:"dependsOn,omitempty"`
-	LogGroup     string        `json:"logGroup,omitempty"`
+
+	// DependsOn keeps the condition as well as the container: START, COMPLETE,
+	// SUCCESS and HEALTHY order a task differently, and a round trip that knew
+	// only the names had to guess.
+	DependsOn []dependency `json:"dependsOn,omitempty"`
+
+	// LogGroup is the awslogs group, kept as a convenience for mapping
+	// workloads to their logs. Log is the full configuration, needed to
+	// recreate the container faithfully.
+	LogGroup string   `json:"logGroup,omitempty"`
+	Log      *logSpec `json:"log,omitempty"`
 
 	// Redacted lists what cloud-echo refused to copy out of AWS, e.g.
 	// "env:DB_PASSWORD" or "command[2]". The planner uses it to generate a local
 	// placeholder instead of an empty value, and it is how a user can tell a
 	// redaction from a variable that was genuinely empty.
 	Redacted []string `json:"redacted,omitempty"`
+}
+
+type dependency struct {
+	Container string `json:"container"`
+	Condition string `json:"condition"`
+}
+
+type logSpec struct {
+	Driver string `json:"driver"`
+	// Options are redacted like env vars: drivers such as splunk, datadog and
+	// firelens outputs take credentials here (splunk-token, apikey).
+	Options map[string]string `json:"options,omitempty"`
+	// SecretOptions maps option name to a Secrets Manager or SSM ARN, never a
+	// value — the same treatment as secrets[].
+	SecretOptions map[string]string `json:"secretOptions,omitempty"`
 }
 
 type portMapping struct {
@@ -345,6 +369,22 @@ func redactContainerDefinitions(defs []ecstypes.ContainerDefinition) map[string]
 			if v, red := redactValue(aws.ToString(kv.Name), aws.ToString(kv.Value)); red {
 				kv.Value = aws.String(v)
 				out[name] = append(out[name], "env:"+aws.ToString(kv.Name))
+			}
+		}
+		if lc := d.LogConfiguration; lc != nil {
+			for k, v := range lc.Options {
+				if r, red := redactValue(k, v); red {
+					lc.Options[k] = r
+					out[name] = append(out[name], "log:"+k)
+				}
+			}
+		}
+		if fc := d.FirelensConfiguration; fc != nil {
+			for k, v := range fc.Options {
+				if r, red := redactValue(k, v); red {
+					fc.Options[k] = r
+					out[name] = append(out[name], "firelens:"+k)
+				}
 			}
 		}
 		var hit []int
@@ -396,10 +436,23 @@ func containerSpecs(defs []ecstypes.ContainerDefinition, redacted map[string][]s
 			})
 		}
 		for _, dep := range d.DependsOn {
-			cs.DependsOn = append(cs.DependsOn, aws.ToString(dep.ContainerName))
+			cs.DependsOn = append(cs.DependsOn, dependency{
+				Container: aws.ToString(dep.ContainerName),
+				Condition: string(dep.Condition),
+			})
 		}
-		if d.LogConfiguration != nil {
-			cs.LogGroup = d.LogConfiguration.Options["awslogs-group"]
+		if lc := d.LogConfiguration; lc != nil {
+			cs.LogGroup = lc.Options["awslogs-group"]
+			cs.Log = &logSpec{Driver: string(lc.LogDriver)}
+			if len(lc.Options) > 0 {
+				cs.Log.Options = lc.Options
+			}
+			for _, so := range lc.SecretOptions {
+				if cs.Log.SecretOptions == nil {
+					cs.Log.SecretOptions = map[string]string{}
+				}
+				cs.Log.SecretOptions[aws.ToString(so.Name)] = aws.ToString(so.ValueFrom)
+			}
 		}
 
 		out = append(out, cs)

@@ -137,3 +137,24 @@ func TestDynamoDBUsesExactlyTheAllowListedOperations(t *testing.T) {
 	_, tr := collectDDB(t)
 	assertOpsMatchAllowList(t, "DynamoDB", tr)
 }
+
+// TestDynamoDBRecordsProvisionedThroughput: a provisioned table cannot be
+// recreated without its capacity, and the M1 round trip had to read it from Raw.
+// On-demand tables return a zeroed block that must not read as capacity.
+func TestDynamoDBRecordsProvisionedThroughput(t *testing.T) {
+	out, _ := collectDDB(t)
+
+	audit, _ := out.byID("ddb/orders-audit")
+	var a tableSpec
+	specOf(t, audit, &a)
+	if a.Throughput == nil || a.Throughput.Read != 5 || a.Throughput.Write != 5 {
+		t.Errorf("provisioned throughput: %+v", a.Throughput)
+	}
+
+	orders, _ := out.byID("ddb/orders")
+	var o tableSpec
+	specOf(t, orders, &o)
+	if o.Throughput != nil {
+		t.Errorf("on-demand table reported capacity: %+v", o.Throughput)
+	}
+}
