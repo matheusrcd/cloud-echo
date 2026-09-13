@@ -277,3 +277,28 @@ func (failingDependent) Service() string { return "Failing" }
 func (failingDependent) CollectFrom(context.Context, *awsx.Session, []inventory.Resource, Emitter) error {
 	return errors.New("denied")
 }
+
+// TestInventoryIsGrepFriendly: the way a user audits what a scan redacted is
+// grep '<redacted' inventory.json. Found against a real account — json.Marshal
+// escaped every marker to \u003credacted…\u003e and the grep came back empty.
+func TestInventoryIsGrepFriendly(t *testing.T) {
+	tr := loadFixtures(t, "orders", "ecs", "lambda")
+	reg := &Registry{collectors: []Collector{&ECS{}, &Lambda{}}}
+	inv, err := reg.Scan(context.Background(), fixtureSession(tr), Options{})
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := inv.Write(&buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "<redacted:") {
+		t.Error("redaction markers are not greppable as written")
+	}
+	for _, esc := range []string{`\u003c`, `\u003e`, `\u0026`} {
+		if strings.Contains(out, esc) {
+			t.Errorf("inventory contains HTML escape %s", esc)
+		}
+	}
+}

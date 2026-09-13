@@ -37,6 +37,15 @@ func marker(reason string) string {
 	return strings.Replace(redactedMarker, "%s", reason, 1)
 }
 
+// isMarker reports whether a value is already a redaction marker. Redaction must
+// be idempotent: scanning an environment seeded from a redacted inventory — a
+// local Floci, in the M1 round trip — re-redacted two of three markers and
+// counted them as new redactions, so the "redacted" list stopped meaning "what
+// cloud-echo refused to copy out of AWS".
+func isMarker(v string) bool {
+	return strings.HasPrefix(v, "<redacted:") && strings.HasSuffix(v, ">") && !strings.ContainsAny(v[1:len(v)-1], "<>")
+}
+
 var (
 	arnPattern = regexp.MustCompile(`^arn:aws[a-z-]*:`)
 
@@ -75,7 +84,7 @@ var (
 // redactValue decides whether an env var value can leave AWS, returning the value
 // to store and whether anything was removed.
 func redactValue(key, value string) (string, bool) {
-	if value == "" || arnPattern.MatchString(value) {
+	if value == "" || arnPattern.MatchString(value) || isMarker(value) {
 		return value, false
 	}
 	// URLs are sanitized component by component rather than all-or-nothing:
@@ -114,7 +123,7 @@ func redactArgs(args []string) ([]string, []int) {
 			continue
 		}
 		if i > 0 && strings.HasPrefix(args[i-1], "-") && !strings.Contains(args[i-1], "=") &&
-			secretKeyName(strings.TrimLeft(args[i-1], "-")) && !strings.HasPrefix(a, "-") {
+			secretKeyName(strings.TrimLeft(args[i-1], "-")) && !strings.HasPrefix(a, "-") && !isMarker(a) {
 			if !arnPattern.MatchString(a) && !looksLikeURL(a) {
 				out[i] = marker("key-name")
 				hit = append(hit, i)
@@ -196,7 +205,7 @@ func sanitizeURL(v string) (string, bool) {
 	// net/url splits userinfo on the last '@', so a raw '@' in a password does
 	// not turn half of it into the host. Match that.
 	if at := strings.LastIndex(authority, "@"); at >= 0 {
-		if user, pass, ok := strings.Cut(authority[:at], ":"); ok && pass != "" {
+		if user, pass, ok := strings.Cut(authority[:at], ":"); ok && pass != "" && !isMarker(pass) {
 			authority = user + ":" + marker("url-credentials") + authority[at:]
 			changed = true
 		}
@@ -224,7 +233,7 @@ func sanitizeURL(v string) (string, bool) {
 		params := strings.Split(query, "&")
 		for k, p := range params {
 			key, val, ok := strings.Cut(p, "=")
-			if !ok || val == "" {
+			if !ok || val == "" || isMarker(val) {
 				continue
 			}
 			if secretKeyName(key) || signatureParams[strings.ToLower(key)] ||

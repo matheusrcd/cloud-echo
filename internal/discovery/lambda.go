@@ -156,7 +156,6 @@ func (c *Lambda) collectMappings(ctx context.Context, api *lambda.Client, s *aws
 			spec := mappingSpec{
 				UUID:        uuid,
 				State:       aws.ToString(m.State),
-				Enabled:     aws.ToString(m.State) == "Enabled" || aws.ToString(m.State) == "Enabling",
 				BatchSize:   aws.ToInt32(m.BatchSize),
 				BatchWindow: aws.ToInt32(m.MaximumBatchingWindowInSeconds),
 				Source:      targetRef{ARN: srcARN, ID: resourceIDFromARN(srcARN)},
@@ -165,6 +164,7 @@ func (c *Lambda) collectMappings(ctx context.Context, api *lambda.Client, s *aws
 				Qualifier:   qualifier,
 				StartingPos: string(m.StartingPosition),
 			}
+			spec.Enabled, spec.Transitional = mappingEnabled(spec.State)
 			if fnName != "" {
 				spec.FunctionID = "lambda/" + fnName
 			}
@@ -222,11 +222,20 @@ type functionSpec struct {
 }
 
 type mappingSpec struct {
-	UUID        string `json:"uuid"`
-	State       string `json:"state"`
-	Enabled     bool   `json:"enabled"`
-	BatchSize   int32  `json:"batchSize,omitempty"`
-	BatchWindow int32  `json:"maxBatchingWindowSec,omitempty"`
+	UUID  string `json:"uuid"`
+	State string `json:"state"`
+
+	// Enabled is whether the mapping delivers events, and is null when the
+	// state cannot say: a mapping caught mid-update or mid-creation reports
+	// "Updating" or "Creating" whether it is enabled or not. Scanned against a
+	// real account, a live mapping whose batch size was being changed read as
+	// disabled under a two-state rule — and the linker would have dropped a real
+	// edge. Null tells it to keep the edge and say it is unsettled.
+	Enabled      *bool `json:"enabled"`
+	Transitional bool  `json:"transitional,omitempty"`
+
+	BatchSize   int32 `json:"batchSize,omitempty"`
+	BatchWindow int32 `json:"maxBatchingWindowSec,omitempty"`
 
 	Source     targetRef `json:"source"`
 	SourceType string    `json:"sourceType"` // sqs | dynamodb-stream | kinesis | kafka | mq | unknown
@@ -240,6 +249,26 @@ type mappingSpec struct {
 	StartingPos string     `json:"startingPosition,omitempty"`
 	Filters     []string   `json:"filters,omitempty"`
 	OnFailure   *targetRef `json:"onFailure,omitempty"`
+}
+
+// mappingEnabled maps an event source mapping state to whether it delivers
+// events, and whether that state is still settling. Creating and Updating say
+// nothing about the outcome, so they return nil rather than a guess.
+func mappingEnabled(state string) (*bool, bool) {
+	yes, no := true, false
+	switch state {
+	case "Enabled":
+		return &yes, false
+	case "Disabled":
+		return &no, false
+	case "Enabling":
+		return &yes, true
+	case "Disabling", "Deleting":
+		return &no, true
+	case "Creating", "Updating":
+		return nil, true
+	}
+	return nil, false
 }
 
 // targetRef is an ARN plus the inventory id it maps to, when cloud-echo has a

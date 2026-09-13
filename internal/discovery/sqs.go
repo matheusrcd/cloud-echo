@@ -26,8 +26,12 @@ func (*SQS) Service() string { return "SQS" }
 func (c *SQS) Collect(ctx context.Context, s *awsx.Session, out Emitter) error {
 	api := sqs.NewFromConfig(s.Config())
 
+	// MaxResults is not optional in practice. Without it ListQueues returns at
+	// most 1000 queues and no NextToken, so a larger account is truncated with
+	// no signal that anything is missing. Confirmed against the real API: the
+	// same call returns NextToken only once MaxResults is set.
 	var urls []string
-	p := sqs.NewListQueuesPaginator(api, &sqs.ListQueuesInput{})
+	p := sqs.NewListQueuesPaginator(api, &sqs.ListQueuesInput{MaxResults: aws.Int32(1000)})
 	for p.HasMorePages() {
 		page, err := p.NextPage(ctx)
 		if err != nil {

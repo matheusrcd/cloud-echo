@@ -168,3 +168,24 @@ func TestRedactedMarkerIsNotItselfSecretShaped(t *testing.T) {
 		}
 	}
 }
+
+// TestRedactionIsIdempotent: a value that is already a marker is not a secret,
+// and must not be counted as a new redaction. Found in the M1 round trip, where
+// re-scanning a Floci seeded from a redacted inventory reported 2 redactions
+// against the original's 3 — the key-name and URL rules re-fired on markers.
+func TestRedactionIsIdempotent(t *testing.T) {
+	for key, v := range map[string]string{
+		"PAYMENTS_TOKEN":    "<redacted:key-name>",
+		"DATABASE_URL":      "postgres://app:<redacted:url-credentials>@db.internal:5432/orders",
+		"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/T-FAKE/B-FAKE/<redacted:url-path>",
+		"API_URL":           "https://api.example.com/v1?api_key=<redacted:url-query>&x=1",
+	} {
+		if got, red := redactValue(key, v); red || got != v {
+			t.Errorf("%s=%q re-redacted to %q", key, v, got)
+		}
+	}
+	in := []string{"run", "--token", "<redacted:key-name>", "--db-password=<redacted:key-name>"}
+	if out, hit := redactArgs(in); len(hit) != 0 || !reflect.DeepEqual(out, in) {
+		t.Errorf("args re-redacted: %q (positions %v)", out, hit)
+	}
+}

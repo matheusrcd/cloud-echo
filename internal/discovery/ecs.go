@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -536,15 +537,24 @@ func newResource(s *awsx.Session, a resourceArgs) inventory.Resource {
 // mustJSON marshals a value that is known to be marshalable. A failure here is a
 // programming error in a spec struct, not a runtime condition, so it is recorded
 // inline rather than silently dropped.
+//
+// HTML escaping is off. json.Marshal would store "<redacted:key-name>" as
+// "\u003credacted:key-name\u003e" and every '&' in a URL as "\u0026" — still
+// valid JSON, but it breaks the obvious way to audit a scan, grep '<redacted'
+// inventory.json, and it makes a file meant to be read and diffed harder to read.
+// The outer inventory encoder already disables escaping; that does not undo
+// escaping already baked into these raw messages.
 func mustJSON(v any) json.RawMessage {
 	if v == nil {
 		return nil
 	}
-	b, err := json.Marshal(v)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
 		return json.RawMessage(fmt.Sprintf("{%q:%q}", "marshalError", err.Error()))
 	}
-	return b
+	return bytes.TrimRight(buf.Bytes(), "\n")
 }
 
 func chunk[T any](in []T, size int) [][]T {

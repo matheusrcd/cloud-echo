@@ -136,3 +136,18 @@ func TestSQSUsesExactlyTheAllowListedOperations(t *testing.T) {
 	_, tr := collectSQS(t)
 	assertOpsMatchAllowList(t, "SQS", tr)
 }
+
+// TestSQSRequestsPagination pins a silent-truncation bug found while validating
+// against a real account: ListQueues returns NextToken only when MaxResults is
+// set, so without it an account with more than 1000 queues is cut off with no
+// sign anything is missing. The fixture's first page only matches a request that
+// carries MaxResults, and the queues are split across two pages.
+func TestSQSRequestsPagination(t *testing.T) {
+	out, tr := collectSQS(t)
+	if n := tr.count("SQS", "ListQueues"); n != 2 {
+		t.Errorf("ListQueues called %d times, want 2 (one per page)", n)
+	}
+	if len(out.resources) != 4 {
+		t.Errorf("want 4 queues across two pages, got %d", len(out.resources))
+	}
+}

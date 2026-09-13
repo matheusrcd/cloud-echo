@@ -182,7 +182,7 @@ func TestLambdaMappingsResolveBothEnds(t *testing.T) {
 		if spec.FunctionID != tc.function || spec.Qualifier != tc.qualifier {
 			t.Errorf("%s function: got %q:%q want %q:%q", tc.id, spec.FunctionID, spec.Qualifier, tc.function, tc.qualifier)
 		}
-		if spec.Enabled != tc.enabled {
+		if spec.Enabled == nil || *spec.Enabled != tc.enabled {
 			t.Errorf("%s enabled: got %v want %v", tc.id, spec.Enabled, tc.enabled)
 		}
 		if r.Source.API != "lambda:ListEventSourceMappings" {
@@ -219,4 +219,31 @@ func TestResourceIDFromARNNeverInventsIDs(t *testing.T) {
 func TestLambdaUsesExactlyTheAllowListedOperations(t *testing.T) {
 	_, tr := collectLambda(t)
 	assertOpsMatchAllowList(t, "Lambda", tr)
+}
+
+// TestMappingEnabledNeverGuesses pins the fix for a failure seen against a real
+// account: a live mapping scanned while its batch size was being changed reported
+// "Updating", and a two-state rule recorded it as disabled.
+func TestMappingEnabledNeverGuesses(t *testing.T) {
+	for state, want := range map[string]struct {
+		enabled      string // "true" | "false" | "unknown"
+		transitional bool
+	}{
+		"Enabled":   {"true", false},
+		"Disabled":  {"false", false},
+		"Enabling":  {"true", true},
+		"Disabling": {"false", true},
+		"Deleting":  {"false", true},
+		"Creating":  {"unknown", true},
+		"Updating":  {"unknown", true},
+	} {
+		e, tr := mappingEnabled(state)
+		got := "unknown"
+		if e != nil {
+			got = map[bool]string{true: "true", false: "false"}[*e]
+		}
+		if got != want.enabled || tr != want.transitional {
+			t.Errorf("%s: got enabled=%s transitional=%v, want %s/%v", state, got, tr, want.enabled, want.transitional)
+		}
+	}
 }

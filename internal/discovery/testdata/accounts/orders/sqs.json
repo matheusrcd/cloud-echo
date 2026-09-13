@@ -1,16 +1,25 @@
 [
   {
     "op": "ListQueues",
+    "match": "\"NextToken\":\"page-2\"",
     "response": {
       "QueueUrls": [
-        "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events",
-        "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events-dlq",
         "https://sqs.us-east-1.amazonaws.com/123456789012/notifications",
         "https://sqs.us-east-1.amazonaws.com/123456789012/orders"
       ]
     }
   },
-
+  {
+    "op": "ListQueues",
+    "match": "\"MaxResults\":1000",
+    "response": {
+      "QueueUrls": [
+        "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events",
+        "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events-dlq"
+      ],
+      "NextToken": "page-2"
+    }
+  },
   {
     "op": "GetQueueAttributes",
     "match": "orders-events\"",
@@ -26,8 +35,15 @@
       }
     }
   },
-  { "op": "ListQueueTags", "match": "orders-events\"", "response": { "Tags": { "team": "orders" } } },
-
+  {
+    "op": "ListQueueTags",
+    "match": "orders-events\"",
+    "response": {
+      "Tags": {
+        "team": "orders"
+      }
+    }
+  },
   {
     "op": "GetQueueAttributes",
     "match": "orders-events-dlq",
@@ -39,8 +55,13 @@
       }
     }
   },
-  { "op": "ListQueueTags", "match": "orders-events-dlq", "response": { "Tags": {} } },
-
+  {
+    "op": "ListQueueTags",
+    "match": "orders-events-dlq",
+    "response": {
+      "Tags": {}
+    }
+  },
   {
     "op": "GetQueueAttributes",
     "match": "notifications",
@@ -53,8 +74,13 @@
       }
     }
   },
-  { "op": "ListQueueTags", "match": "notifications", "response": { "Tags": {} } },
-
+  {
+    "op": "ListQueueTags",
+    "match": "notifications",
+    "response": {
+      "Tags": {}
+    }
+  },
   {
     "op": "GetQueueAttributes",
     "match": "/orders\"",
@@ -65,5 +91,11 @@
       }
     }
   },
-  { "op": "ListQueueTags", "match": "/orders\"", "response": { "Tags": {} } }
+  {
+    "op": "ListQueueTags",
+    "match": "/orders\"",
+    "response": {
+      "Tags": {}
+    }
+  }
 ]
