@@ -20,7 +20,7 @@ locally — with every outgoing integration visible and mockable in real time.
 
 ```bash
 cloud-echo scan                                    # ◐ read-only discovery (6 services so far)
-cloud-echo graph --explain ecs/orders-api          # ◐ what does it talk to, and why? (Tier 1)
+cloud-echo graph --explain ecs/orders-api          # ◐ what does it talk to, and why? (Tiers 1–2)
 cloud-echo plan --seed ecs/orders-api --depth 2    # ⬚ → cloud-echo.yaml
 cloud-echo up                                      # ⬚ Floci + your containers, running
 cloud-echo ui                                      # ⬚ graph + live traffic + edit mocks
@@ -29,10 +29,11 @@ cloud-echo ui                                      # ⬚ graph + live traffic + 
 What works today: `cloud-echo scan --dry-run` prints the exact API surface a scan
 would touch, and `cloud-echo scan` reads ECS, SQS, DynamoDB, Lambda, IAM and API
 Gateway into a normalized inventory, validated against a real account.
-`cloud-echo graph` links it — declared relationships so far (event source
-mappings, redrive, API integrations, authorizers) — classifies every node as
-entrypoint, sync, async or unreached, and explains any edge with
-`--explain <from> <to>`. `--format mermaid` draws it.
+`cloud-echo graph` links it — declared relationships (event source mappings,
+redrive, API integrations, authorizers) and what configuration names (queue URLs,
+ARNs, table names, third-party URLs in env vars, command lines and stage
+variables) — classifies every node as entrypoint, sync, async or unreached, and
+explains any edge with `--explain <from> <to>`. `--format mermaid` draws it.
 
 Your ECS service runs the exact image from ECR with the exact task definition.
 Its DynamoDB tables, SQS queues, Postgres, and Valkey are real and local. The

@@ -100,37 +100,97 @@ covers more than half.
 
 ---
 
-### Tier 2 — Configuration value scanning → `high` / `medium`
+### Tier 2 — Configuration value scanning → `high` / `medium` / `low` ✅
 
-Scan every string the account exposes as configuration: ECS container env vars and
-`command`/`entrypoint`, Lambda env vars, non-secure SSM parameter values, API GW
-stage variables.
+One rule, `config.value-scan`. It reads every string the account exposes as
+configuration: ECS container env vars and `command`/`entryPoint` (through the
+service's task definition), Lambda env vars, and API Gateway stage variables. SSM
+parameter values join when the SSM collector exists.
 
-Match against these patterns, in order:
+Each value is matched against these patterns, strongest first:
 
-| Pattern | Confidence | Note |
+| Pattern | Produces | Confidence |
 | --- | --- | --- |
-| Full ARN `arn:aws:...` matching an inventory resource | `high` | strongest Tier-2 signal |
-| SQS queue URL `https://sqs.<region>.amazonaws.com/<acct>/<name>` | `high` | |
-| RDS endpoint `*.rds.amazonaws.com` matching an instance endpoint | `high` | |
-| ElastiCache endpoint `*.cache.amazonaws.com` | `high` | |
-| API GW invoke URL `https://<id>.execute-api.<region>.amazonaws.com` | `high` | |
-| Cloud Map / internal DNS matching a registered service | `high` | |
-| Bare string exactly equal to a **unique** table/queue/topic name | `medium` | e.g. `TABLE_NAME=orders`. Downgrade to `low` if the name is short, generic, or ambiguous across types |
-| Any other absolute `http(s)://` URL | `high` (as `ext/*`) | **this is how third-party integrations are discovered** |
+| An ARN, anywhere in the value, of a node in this account and region | `references` | `high` |
+| An SQS queue URL — `sqs.<r>.amazonaws.com`, or the legacy `<r>.queue.amazonaws.com` / `queue.amazonaws.com` | `references` | `high` |
+| An API invoke URL `https://<id>.execute-api.<r>.amazonaws.com` | `http` to the API | `high` |
+| Any other `http(s)://` URL whose host is not AWS, not loopback, and has a domain | `http` to `ext/<host>` | `high` |
+| The whole value equal to a table, queue or function name | `references` | `medium` or `low` — below |
+| An RDS, ElastiCache or load-balancer endpoint, a Function URL, an S3 bucket, another AWS endpoint, a non-HTTP URL outside AWS, a host with no domain | an `unresolved` finding | — |
+
+A command line is read with its flags: `--table orders` and `--table=orders`
+carry `table` as their key, and a positional argument yields only what names
+itself (a URL, an ARN). A stage variable an integration URI already uses was
+interpreted by `apigw.integration` and is not read again; the rest are attributed
+to the API, which hands them to its backends.
 
 Two things this tier does that no other tier does:
 
 - **It finds external dependencies.** A URL in an env var that matches nothing in
   the account is a third-party integration, and it becomes a mockable node in the
-  blueprint automatically. This is the direct feed into the Echo Gateway.
-- **It tells you the env var name**, which is exactly what the materializer needs
-  in order to rewrite the value to a local address.
+  blueprint automatically. This is the direct feed into the Echo Gateway. A URL
+  whose path was redacted (`hooks.slack.com/services/…/<redacted>`) keeps its
+  host, which is all this needs.
+- **It tells you the env var name** — every piece of evidence names the variable,
+  flag or stage variable it came from — which is exactly what the materializer
+  needs in order to rewrite the value to a local address.
+
+**Corrected before implementation** (each pinned by a named test in
+`tier2_test.go` and a mutation it kills):
+
+1. **A reference says nothing about intent.** The draft gave confidence per
+   pattern and never said what *kind* of edge a pattern produces. `QUEUE_URL` in a
+   worker is how it polls as often as how it sends; `TABLE_NAME` is read and write
+   alike. Drawing `publish` or `write` would silently pick a winner — the thing the
+   guard below forbids. So AWS resources get `references`, which points from the
+   holder to the target and claims no more. For flow it is decided by its target:
+   a reference to a queue is an async boundary (whatever the workload does with
+   the queue, the queue decouples it), anything else is synchronous.
+2. **A reference folds into the edge that states its intent.** When Tier 1 (or,
+   later, Tier 3) draws a typed edge between the same pair, a `references` edge of
+   `medium` or better becomes evidence on it and raises its confidence to the
+   higher of the two: a Lambda's `DLQ_URL` is evidence for its dead-letter `publish`
+   edge, not a second edge beside it. Only the same direction absorbs — a consumer
+   holding its own queue's URL still references it — and a `low` candidate never
+   does, or an ambiguous name would read as corroboration.
+3. **AWS endpoints are never third parties.** "Any other absolute URL" would have
+   made `ext/` nodes of `sqs.us-east-1.amazonaws.com`, an RDS endpoint, and
+   `http://localhost:2773` (the secrets-cache extension) — mocks of AWS itself and
+   of the workload's own sidecar. Hosts under `amazonaws.com`, `on.aws` and
+   `api.aws` are resolved to a node or reported; loopback and link-local hosts are
+   ignored; a host with no domain (`http://search:9200`) is an internal name —
+   Service Connect, Cloud Map, a container link — and is reported, because made
+   external it would have the gateway mock the user's own service.
+4. **The key name breaks a tie, and says so.** `TABLE_NAME=orders` in an account
+   with a table *and* a queue called `orders` — an ordinary account, and exactly
+   what the real validation account holds — means the table. The candidate whose
+   type the key names gets `medium` with the reason stated; the others stay `low`
+   candidates, and an `ambiguous` finding records the choice. Without a hint every
+   candidate is `low`. A key naming a type no candidate has (`QUEUE_NAME=x` where
+   only a table is called `x`) lowers them all: the queue it means may simply be
+   outside the scan. A bare name is never more than `medium`.
+5. **"Generic" is defined.** A name without a separator or a digit (`orders`,
+   `info`, `jobs`) or shorter than four characters matches by coincidence as easily
+   as by design: alone and unhinted it is `low`.
+6. **The namesake trap applies here too.** ARNs and queue URLs pass the same
+   account and region check as Tier 1 — a queue URL in another account whose name
+   matches a local queue is reported, never linked. The real account carries
+   exactly that case.
+7. **Blind spots are findings.** A service whose task definition is not in the
+   inventory, or a function whose environment could not be decrypted, is an
+   `unscanned` finding — so no references is never mistaken for "names nothing".
+   Log driver options are not scanned: they configure the agent, not the code.
 
 Guard: an env var value scanner will produce false positives on generic names.
 Ambiguity must *downgrade* confidence, never silently pick a winner. When a bare
 name matches more than one resource, emit `low`-confidence candidates for all of
 them and let the user choose.
+
+**Known gaps.** A custom domain in front of one of the account's own APIs or load
+balancers (`https://api.company.com`) is indistinguishable from a third party
+until domain mappings are collected ([Q15](09-open-questions.md)). An internal
+hostname with a domain (`inventory.internal.corp`) is treated as a third party,
+as [06-echo-gateway.md](06-echo-gateway.md) intends for hosts that match nothing.
 
 ---
 
@@ -147,7 +207,10 @@ Resource ARNs  → inventory match   (arn:...:table/orders → ddb/orders)
 
 This tier is uniquely valuable because it gives **direction and intent** — Tier 2
 tells you a service knows a table's name, Tier 3 tells you it writes to it. That
-distinction drives `data.mode` defaults and the sync/async classification.
+distinction drives `data.mode` defaults and the sync/async classification. Its
+typed edges absorb the Tier-2 `references` between the same pair; what it does
+with a reference that points the other way — a worker that only receives from the
+queue it names — is [Q17](09-open-questions.md).
 
 Handling of the messy parts:
 
@@ -216,11 +279,16 @@ table written by the request path and by a worker would flip between runs.
 **Unreached, not orphan.** cloud-echo cannot tell dead infrastructure from a
 relationship it failed to infer. At Tier 1 a queue whose producer writes through
 the SDK — the common case — has no inbound edge, so its whole pipeline is
-unreached; on the real validation account that was 22 of 30 nodes, all alive.
-"Orphan" would assert they are dead.
+unreached; on the real validation account that was 23 of 31 nodes, all alive.
+"Orphan" would assert they are dead. Tier 2 brought it to 18, each one explained
+(services with no load balancer, a queue only low candidates reach) — see the
+[findings](spikes/m1-real-account-findings.md#linker-round-tier-2).
 
 Disabled edges (a disabled mapping) are recorded and not followed. Unsettled
-edges (a mapping caught mid-update) are followed and flagged.
+edges (a mapping caught mid-update) are followed and flagged. **Low-confidence
+edges are not followed either**: `low` is a suggestion the user has not accepted,
+and a flow resting on one would put a queue on the request path because
+`LOG_LEVEL=info` happens to be its name.
 
 Each node gets `flow: entrypoint | sync | async | scheduled | unreached`. This
 drives:
@@ -243,19 +311,27 @@ type Rule interface {
 }
 ```
 
-`Context` is the only way a rule touches the graph: `Each` (typed specs),
-`Edge` (drops to a finding when either end is not a node), `Local` (the
-account/region check), `External`, `Trigger`, `Corroborate`, `Unresolved`. Rules
-read **specs only, never Raw** — the golden fixtures carry no Raw, so a rule that
-reached for it would find nothing.
+`Context` is the only way a rule touches the graph: `Each` (typed specs) and
+`lookup` (one resource by id), `Edge` (drops to a finding when either end is not
+a node), `Local` (the account/region check), `External`, `Trigger`,
+`Corroborate`, `Unresolved` and `Finding`. Rules read **specs only, never Raw** —
+the golden fixtures carry no Raw, so a rule that reached for it would find
+nothing.
 
-Every rule ships with a golden case **and a negative case**. Three golden
+Findings have four kinds: `unresolved` (a reference to something outside the
+inventory or without a node), `stale-permission`, `ambiguous` (a name that fits
+several resources), `unscanned` (configuration that could not be read). The text
+output groups identical findings, so twelve services sharing one task definition
+report one ElastiCache endpoint once; `graph.json` keeps every one.
+
+Every rule ships with a golden case **and a negative case**. Four golden
 accounts in `internal/linker/testdata`:
 
 | Account | What it is |
 | --- | --- |
 | `orders` | exactly what discovery produces from its own fixtures; a test in discovery fails if it drifts |
-| `tier1-cases` | hand-written, one scenario per rule and per trap |
+| `tier1-cases` | hand-written, one scenario per Tier-1 rule and per trap |
+| `tier2-cases` | hand-written, one scenario per Tier-2 pattern and per trap; `tier2_test.go` names each |
 | `real-m1` | a real account's inventory, sanitized by `spikes/m1/sanitize-inventory.py` |
 
 Goldens pin the output; named tests in `rules_test.go` say why each behaviour

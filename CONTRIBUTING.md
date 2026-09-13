@@ -206,9 +206,14 @@ optional:
   `internal/inventory/spec`. The golden fixtures carry no Raw.
 - **Resolve targets through `Local`**, which refuses ids derived from ARNs in
   another account or region. Names repeat; ids come from names.
-- **Ship a negative case** in `testdata/tier1-cases` (or a new account), a named
-  test in `rules_test.go` saying why the case matters, and regenerated goldens:
+- **Ship a negative case** in the hand-written account for its tier
+  (`testdata/tier1-cases`, `testdata/tier2-cases`), a named test saying why the
+  case matters (`rules_test.go`, `tier2_test.go`), and regenerated goldens:
   `go test ./internal/linker -update`, then read the diff.
+- **Never draw more intent than the source states.** Configuration names a
+  resource without saying what is done with it: that is `references`, not
+  `publish` or `write`. Ambiguity lowers confidence and becomes a finding; it is
+  never settled silently.
 
 ## Tests
 

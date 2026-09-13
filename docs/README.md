@@ -33,10 +33,11 @@ anything reaches disk. It has been validated against a real account — with onl
 the shipped policy, and through a round trip into Floci:
 [m1-real-account-findings.md](spikes/m1-real-account-findings.md).
 
-**The linker has started**: Tier 1 (relationships the account declares) and flow
-classification, validated against a real account. Next are Tier 2 (config values)
-and Tier 3 (IAM), which is where inference — and the risk of a graph nobody
-believes — really begins. See [08-roadmap.md](08-roadmap.md).
+**The linker reads two tiers**: Tier 1 (relationships the account declares) and
+Tier 2 (what configuration names — where inference, and the risk of a graph
+nobody believes, begins), plus flow classification, each validated against a real
+account. Next is Tier 3 (IAM), the only tier that knows *what* a workload does
+with what it names. See [08-roadmap.md](08-roadmap.md).
 
 ## Conventions
 
