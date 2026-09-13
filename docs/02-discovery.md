@@ -127,6 +127,7 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | **API Gateway v2** ✅ | `GetApis`, `GetRoutes`, `GetIntegrations`, `GetStages`, `GetAuthorizers` | integration `uri`/subtype + `QueueUrl`; JWT issuer; authorizer function |
 | **ElastiCache** ✅ | `DescribeReplicationGroups` (Valkey/Redis), `DescribeCacheClusters` (memcached, and the groups' members), `DescribeServerlessCaches`, `ListTagsForResource` | every endpoint (primary, reader, configuration, nodes'), port, engine and version, TLS, AUTH required, serverless caps, subnet group and security groups |
 | **ELBv2** ✅ | `DescribeLoadBalancers`, `DescribeListeners`, `DescribeRules`, `DescribeTargetGroups`, `DescribeTargetHealth` (Lambda and ALB target groups only), `DescribeTags` | scheme, type, DNS name, listeners (ARN, port, protocol, certificate ARNs) and their rules in the order they apply — conditions, forwards with weights, redirects, fixed-response status; target groups' type, port, load balancers, Lambda and ALB targets |
+| **SNS** ✅ | `ListTopics`, `GetTopicAttributes`, `ListSubscriptionsByTopic`, `GetSubscriptionAttributes` (each confirmed subscription), `ListTagsForResource` | FIFO and deduplication, KMS key, the topic policy, delivery policy; per subscription protocol, endpoint (sanitized, or withheld for a person), owner, pending, raw delivery, filter policy and scope, dead-letter queue, firehose role |
 
 > **Tags come from `Include`, not a second call.** Every ECS `Describe*` accepts
 > an `Include: [TAGS]` parameter, so `ListTagsForResource` is not needed and is
@@ -280,13 +281,36 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 >   scope; Classic Load Balancers are another API (`elasticloadbalancing` v1) and
 >   are not collected.
 
+> **SNS: a subscription is configuration, and not yet a delivery.** The design
+> listed three calls and SNS as a supporting service; a topic is where messages
+> fan out, and a node. From real payloads, before the collector was written:
+>
+> - **Five calls, not three.** `ListSubscriptionsByTopic` returns protocol and
+>   endpoint only — the filter policy, raw delivery and dead-letter queue need
+>   `GetSubscriptionAttributes`, one per subscription — and no response carries
+>   tags. A pending subscription has no ARN (`"PendingConfirmation"`) and cannot
+>   be asked.
+> - **Endpoints carry people and secrets.** SNS masks a basic-auth password
+>   itself (`****`) but returns a query token in full, and refuses inline
+>   credentials over plain `http` altogether. URLs are sanitized like env vars;
+>   an email address or a phone number is withheld entirely
+>   (`<redacted:personal-data>`), the protocol kept. Both responses that carry
+>   an endpoint are sanitized, Raw included.
+> - **Every topic's policy has a default statement** — Principal `*`,
+>   conditioned on `AWS:SourceOwner` — kept raw for the linker to read right.
+> - SNS says `AuthorizationError` where others say `AccessDenied`, and
+>   `NotFound` for a topic deleted between `ListTopics` and the next call: the
+>   first degrades, the second skips the topic.
+> - A refused Lambda `GetPolicy` is now recorded (`policyUnread`): with the
+>   policy empty either way, "no policy" and "not allowed to read it" looked
+>   the same, and the linker judges deliveries by that policy.
+
 ### Supporting services
 
 | Service | Calls | Why |
 | --- | --- | --- |
 | **IAM** ✅ | `GetRole`, `ListRolePolicies`, `GetRolePolicy`, `ListAttachedRolePolicies`, `GetPolicy`, `GetPolicyVersion` | Tier-3 permission-based edge inference — the highest-value heuristic |
 | **ECR** | `DescribeRepositories`, `DescribeImages` | resolve image tag → digest so the local env is pinned |
-| **SNS** | `ListTopics`, `GetTopicAttributes`, `ListSubscriptionsByTopic` | fan-out edges |
 | **Secrets Manager** | `ListSecrets`, `DescribeSecret` | **never `GetSecretValue`** by default |
 | **SSM** | `DescribeParameters`, `GetParameters` (String/StringList only) | config values are a rich linking signal; SecureString is skipped |
 | **EC2** | `DescribeVpcs`, `DescribeSubnets`, `DescribeSecurityGroups` | Tier-4 reachability corroboration |

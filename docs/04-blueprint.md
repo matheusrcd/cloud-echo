@@ -58,6 +58,9 @@ because their values differ per environment by construction (measured in
   on a port of its own (7001, 7003… in the RDS round), not the engine's 5432.
 - `${ref:rds/x.masterSecretArn}` — a managed master secret is re-created per
   environment, with a new ARN.
+- Not `${ref:sns/x.arn}`: a topic's ARN is built from its name, so with the
+  account id as Floci's access key it is the scanned one locally — as are the
+  queue and function policies naming it (SNS round).
 - `${ref:elb/x.dnsName}` — a load balancer's DNS name is minted locally and has
   another shape (`<name>-<hex>.elb.localhost.floci.io`); so are its ARN and its
   listeners' and target groups', which is why references to them are resolved,

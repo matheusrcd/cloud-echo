@@ -69,7 +69,8 @@ exist yet.
 | `apigw.entrypoint` ✅ | every API | the API is an entrypoint (trigger) |
 | `ecs.load-balancer` ✅ | service `loadBalancers[]` | only what `elbv2.listener` cannot say: a target group outside the inventory makes the service an entrypoint (trigger); one no load balancer forwards to is an `unresolved` finding |
 | `elbv2.listener` ✅ | listener rules → target group | load balancer → the ECS services registering in the target group (`http` from an ALB, `connect` from an NLB), its Lambda targets (`invoke`), its ALB targets (`http`); an internet-facing load balancer is an entrypoint (trigger) |
-| `sns.subscription` | `ListSubscriptionsByTopic` | SNS → SQS/Lambda/HTTP (`publish`) |
+| `sns.subscription` ✅ | `ListSubscriptionsByTopic` + `GetSubscriptionAttributes`, topic `Policy` | topic → SQS / Lambda / HTTP endpoint / its dead-letter queue (`publish`; `disabled` while pending) — or a `blocked` finding when the receiver's policy refuses the topic; a service or another account allowed to publish makes the topic an entrypoint |
+| `sqs.resource-policy` ✅ | queue `Policy` | **corroborates only**, like `lambda.resource-policy`: a topic in the inventory (or its permission is `stale-permission`); a sender outside the graph — a topic elsewhere, S3, EventBridge, another account — makes the queue an entrypoint |
 | `apigw.integration` ✅ | route `integration` (v1 `GetResources` embedded, v2 `GetIntegrations`) | API GW → Lambda (`invoke`) / SQS direct (`publish`) / HTTP (`http`) / VPC link → load balancer (`http`: v2 names a listener, v1 an NLB's DNS name) |
 | `apigw.authorizer` ✅ | route `authorizerId` → authorizer `function` | API GW → authorizer Lambda (`invoke`, synchronous — it is in the request path) |
 | `apigw.credentials` ✅ | integration `credentials` | the role API GW assumes to call the target — read by Tier 3, where it corroborates the integration |
@@ -92,7 +93,8 @@ entrypoint when the caller is outside the inventory (S3, SNS, EventBridge, an AP
 in another region), with the reason. A permission for
 `elasticloadbalancing.amazonaws.com` names a target group: it corroborates the
 edge from each load balancer forwarding to it, and is `stale-permission` when the
-function is not registered there.
+function is not registered there. One for `sns.amazonaws.com` names a topic, and
+does the same for the topic's delivery.
 
 An authorizer that guards no route produces no edge: it runs for nothing. An HTTP
 integration through a VPC link targets an internal load balancer, not a third
@@ -118,7 +120,7 @@ Each value is matched against these patterns, strongest first:
 | An SQS queue URL — `sqs.<r>.amazonaws.com`, or the legacy `<r>.queue.amazonaws.com` / `queue.amazonaws.com` | `references` | `high` |
 | An API invoke URL `https://<id>.execute-api.<r>.amazonaws.com` | `http` to the API | `high` |
 | Any other `http(s)://` URL whose host is not AWS, not loopback, and has a domain | `http` to `ext/<host>` | `high` |
-| The whole value equal to a table, queue or function name | `references` | `medium` or `low` — below |
+| The whole value equal to a table, queue, function or topic name | `references` | `medium` or `low` — below |
 | An RDS endpoint — writer, reader, custom, or a member's own — matching a database exactly | `connect` to the database | `high` |
 | The ARN of a database's managed master secret (in env, or injected through ECS `secrets[]`) | `connect` to the database | `high` |
 | An ElastiCache endpoint — primary, reader, configuration, serverless, or a node's — matching a cache exactly | `connect` to the cache | `high` |
@@ -151,8 +153,8 @@ Two things this tier does that no other tier does:
    alike. Drawing `publish` or `write` would silently pick a winner — the thing the
    guard below forbids. So AWS resources get `references`, which points from the
    holder to the target and claims no more. For flow it is decided by its target:
-   a reference to a queue is an async boundary (whatever the workload does with
-   the queue, the queue decouples it), anything else is synchronous.
+   a reference to a queue or a topic is an async boundary (whatever the workload
+   does with it, it decouples the workload), anything else is synchronous.
 2. **A reference folds into the edge that states its intent.** When Tier 1 (or,
    later, Tier 3) draws a typed edge between the same pair, a `references` edge of
    `medium` or better becomes evidence on it and raises its confidence to the
@@ -287,8 +289,9 @@ Also: only ECS task roles and Lambda execution roles feed this tier (ECS executi
 roles describe the agent and are not collected); a grant naming one exact queue,
 table or function outside the scan — another account, the namesake trap again,
 or deleted — is `unresolved`; grants on services without nodes (logs, X-Ray, KMS,
-S3, SNS, Secrets Manager) are the infrastructure every role carries and are not
-reported until each service's collector exists.
+S3, Secrets Manager) are the infrastructure every role carries and are not
+reported until each service's collector exists. `sns:Publish` on a topic is
+`publish`.
 
 #### Databases (RDS)
 
@@ -350,7 +353,9 @@ by `elb_test.go` and a mutation each:
 - **Exact or not at all.** A DNS name matches one load balancer exactly (a
   Route 53 `dualstack.` alias unwrapped); a name that is this scan's balancer
   with another hash is a namesake — recreated, or another account's — and is
-  reported. Never by name alone: a balancer's id drops its ARN's hash.
+  reported. Never by name alone: a balancer's id drops its ARN's hash. An exact
+  match holds whatever the name's shape — an emulator's
+  (`…elb.localhost.floci.io`) became a third party until the SNS round trip.
 - **An ALB is `http`, an NLB is `connect`**, both from its callers and to its
   targets: an NLB passes connections, whatever they carry.
 - **A VPC link reaches a load balancer, not a third party.** An HTTP API's names a
@@ -361,6 +366,38 @@ by `elb_test.go` and a mutation each:
   target group nothing forwards to.
 - Gateway Load Balancers route packets to appliances, not requests, and are
   reported out of scope; Classic Load Balancers are another API, not collected.
+
+#### Topics (SNS)
+
+*Corrected from the design*, which listed SNS among the supporting services and
+`sns.subscription` as "SNS → SQS/Lambda/HTTP". A topic is a **node**: it is where
+a request fans out, and the async boundary a publisher hands off to. Pinned by
+`sns_test.go` and a mutation each:
+
+- **Every delivery is `publish`**, whatever the endpoint — a queue, a function, a
+  URL, a load balancer. SNS delivers asynchronously, so a topic an entrypoint
+  publishes to (CloudWatch alarms, say) still does not put its subscribers on a
+  request path. A reference to a topic is async for the same reason.
+- **A subscription is not a delivery.** SNS may send to a queue only if the
+  queue's policy lets it, and invoke a function only if the function's policy
+  does. Without that every message is dropped, silently — on the real account
+  the topic reported `NumberOfNotificationsFailed` and the queue stayed empty —
+  so it is a `blocked` finding and no edge, as for a Deny; a dead-letter queue
+  is checked the same way. Generous on purpose: an unreadable policy, a
+  `NotAction`, a condition not read, all count as allowing — a refusal is
+  claimed only when nothing could allow.
+- **Pending is not delivering.** A subscription waiting for its endpoint to
+  confirm is a `disabled` edge, kept so the dependency stays visible.
+- **The default statement is not "anyone".** Every topic's policy carries
+  Principal `*` conditioned on `AWS:SourceOwner`: the account's own services.
+  It makes no topic an entrypoint, and — conditioned only on source keys — grants
+  no role, so it does not hold back `unpermitted`.
+- **The receiver's side says what it expects.** A queue or function policy naming
+  a topic that delivers nothing there is `stale-permission`; naming a topic
+  outside the inventory — another account's namesake included — or none makes the
+  receiver an entrypoint.
+- **A person is not a node.** Email and SMS subscriptions draw nothing; their
+  addresses are withheld at collection.
 
 **Known gaps.** Service control policies and session policies are not collected;
 a DynamoDB resource policy is not collected (so `unpermitted` names it as a
@@ -401,7 +438,8 @@ structurally, not heuristically:
 
 1. **Entrypoints** = nodes with an external trigger: API Gateway APIs,
    internet-facing load balancers (a service behind one only when its target
-   group is outside the inventory), functions a caller outside the inventory may invoke,
+   group is outside the inventory), topics and queues a service or another
+   account may publish to, functions a caller outside the inventory may invoke,
    Function URLs (later: EventBridge schedules, Cognito triggers). *Corrected
    from "no inbound edges and an external trigger": a service behind an ALB that
    another service also calls is still reachable from outside.*
@@ -470,7 +508,7 @@ on). The text
 output groups identical findings, so twelve services sharing one task definition
 report one ElastiCache endpoint once; `graph.json` keeps every one.
 
-Every rule ships with a golden case **and a negative case**. Eight golden
+Every rule ships with a golden case **and a negative case**. Nine golden
 accounts in `internal/linker/testdata`:
 
 | Account | What it is |
@@ -482,6 +520,7 @@ accounts in `internal/linker/testdata`:
 | `rds-cases` | hand-written, one scenario per database-linking decision and trap; `rds_test.go` names each |
 | `cache-cases` | hand-written, one scenario per cache endpoint shape and trap; `cache_test.go` names each |
 | `elb-cases` | hand-written, one scenario per load-balancer decision and trap; `elb_test.go` names each |
+| `sns-cases` | hand-written, one scenario per topic decision and trap; `sns_test.go` names each |
 | `real-m1` | a real account's inventory, sanitized by `spikes/m1/sanitize-inventory.py` |
 
 Goldens pin the output; named tests in `rules_test.go` say why each behaviour

@@ -58,9 +58,12 @@ Floci        →  AWS API surface, service semantics, container lifecycle
 Primary: **ECS**, **SQS**, **Lambda**, **DynamoDB**, **RDS**, **API Gateway**,
 **ElastiCache**.
 
-Supporting (scanned because they are needed to link the primaries, not
-materialized as user-facing nodes): IAM, ECR, SNS, Secrets Manager, SSM Parameter
-Store, EC2 (VPC/subnet/security group), ELBv2, CloudWatch Logs.
+Supporting (scanned because they are needed to link the primaries): IAM, ECR,
+SNS, Secrets Manager, SSM Parameter Store, EC2 (VPC/subnet/security group),
+ELBv2, CloudWatch Logs. *Corrected in M1:* "not materialized as user-facing
+nodes" held for none of the two that carry traffic. A load balancer is where
+requests enter and a topic where messages fan out — both are graph nodes, and
+both are seeded ([03-linker.md](03-linker.md)).
 
 ## Primary user (v1)
 

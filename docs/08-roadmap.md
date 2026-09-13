@@ -60,7 +60,10 @@ default and we scope a metadata shim.
 - [x] **ELBv2** — Application and Network Load Balancers as nodes, their rules as
       the link, validated against a real account
       ([findings](spikes/m1-real-account-findings.md#elbv2-round)).
-- [ ] Remaining collectors: supporting ECR, SNS, EC2, Secrets Manager, SSM.
+- [x] **SNS** — topics as nodes, subscriptions as their deliveries (checked
+      against the receiver's policy), validated against a real account
+      ([findings](spikes/m1-real-account-findings.md#sns-round)).
+- [ ] Remaining collectors: supporting ECR, EC2, Secrets Manager, SSM.
 - [x] Secret-shaped value redaction at collection time (Guarantee 2).
 - [x] Validated against a real account, including a scan with only the shipped
       policy and a round trip through Floci —
@@ -77,7 +80,7 @@ default and we scope a metadata shim.
       Tier 4 (network reachability) waits for the EC2 collector.
 - [x] `graph --format=text|json|mermaid`, `graph --explain <from> <to>`. (`dot`
       deferred: Mermaid renders on GitHub, which covers the need.)
-- [x] Golden-test harness with eight fixture accounts, including negative cases.
+- [x] Golden-test harness with nine fixture accounts, including negative cases.
 
 **Sequencing note.** Lambda and IAM are prioritised over the remaining primary
 services because they are what the linker needs, not because they are next
