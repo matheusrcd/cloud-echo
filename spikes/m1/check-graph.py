@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Asserts the Tier-1 graph of the combined M1 + API Gateway topology.
+"""Asserts the Tier-1 and Tier-2 graph of the combined M1 + API Gateway topology.
 
 Written from what 10-aws-create.sh and 12-aws-apigw-create.sh build, before the
-linker's output was looked at. Usage: check-graph.py <graph.json>
+linker's output was looked at — the Tier-1 checks in the Tier-1 round, the
+Tier-2 checks in the Tier-2 round. Usage: check-graph.py <graph.json>
 """
 import json, sys
 g = json.load(open(sys.argv[1]))
@@ -22,7 +23,9 @@ check("both APIs are nodes", REST and HTTP, str(api))
 L, Q, D, X = "lambda/", "sqs/", "ddb/", "ext/api.payments.example.com"
 # --- API Gateway: declared targets
 check("REST → orders-fn (invoke)", has(REST, L+P+"-orders-fn", "invoke"))
-check("…corroborated by the function's resource policy", rules(REST, L+P+"-orders-fn", "invoke") == ["apigw.integration", "lambda.resource-policy"], str(rules(REST, L+P+"-orders-fn", "invoke")))
+# Tier 2 adds the REST stage variable backend=ce-test-orders-fn, which no
+# integration URI uses: a reference absorbed as evidence into this invoke edge.
+check("…corroborated by the resource policy and the stage variable", rules(REST, L+P+"-orders-fn", "invoke") == ["apigw.integration", "config.value-scan", "lambda.resource-policy"], str(rules(REST, L+P+"-orders-fn", "invoke")))
 check("REST → authorizer-fn (invoke, authorizer)", "apigw.authorizer" in rules(REST, L+P+"-authorizer-fn", "invoke"))
 check("REST → inbox (publish, direct SQS)", has(REST, Q+P+"-inbox", "publish"))
 check("REST → payments (http, external)", has(REST, X, "http") and nodes.get(X, {}).get("external"))
@@ -43,8 +46,50 @@ check("inbox is async (behind a direct SQS integration)", flow(Q+P+"-inbox") == 
 wr = nodes.get(L+P+"-webhook-receiver", {})
 check("webhook-receiver is an entrypoint: its API is not in the inventory", wr.get("flow") == "entrypoint" and any("not in the inventory" in t for t in wr.get("triggers", [])), str(wr.get("triggers")))
 check("orders-events-dlq is async (via webhook-receiver's DLQ)", flow(Q+P+"-orders-events-dlq") == "async", flow(Q+P+"-orders-events-dlq"))
-check("the ESM pipeline is unreached at Tier 1 (its producer writes through the SDK)", flow(Q+P+"-orders-events") == "unreached" and flow(L+P+"-order-processor") == "unreached")
 check("ECS services without load balancers are unreached", all(n["flow"] == "unreached" for n in g["nodes"] if n["type"] == "ecs.service"))
+
+# --- Tier 2: configuration values
+def conf(f, t, k="references"): return edges.get((f, t, k), {}).get("confidence")
+def findings(kind, part): return [f for f in g.get("findings", []) if f["kind"] == kind and part in f["target"] + f["detail"]]
+SVC = [n["id"] for n in g["nodes"] if n["type"] == "ecs.service"]
+API_SVC = [i for i in SVC if i.endswith("/" + P + "-orders-api")]
+NOTIF = [i for i in SVC if i.endswith(P + "-notifications") or "-filler-" in i]
+check("setup: orders-api runs in two clusters, notifications' task def in 12 services", len(API_SVC) == 2 and len(NOTIF) == 12, f"{API_SVC} {len(NOTIF)}")
+# The pipeline the Tier-1 round left unreached, connected by the entrypoint that names its queue.
+check("webhook-receiver → orders-events (ORDERS_QUEUE_URL, high)", conf(L+P+"-webhook-receiver", Q+P+"-orders-events") == "high")
+check("the ESM pipeline is now async: orders-events, order-processor", flow(Q+P+"-orders-events") == "async" and flow(L+P+"-order-processor") == "async",
+      f"{flow(Q+P+'-orders-events')} {flow(L+P+'-order-processor')}")
+check("a queue URL is a reference, never a publish", not any(has(f, Q+P+"-orders-events", "publish") for f in [L+P+"-webhook-receiver"] + API_SVC))
+check("both orders-api services → orders-events (QUEUE_URL, high)", all(conf(s, Q+P+"-orders-events") == "high" for s in API_SVC))
+check("both orders-api services → payments (PAYMENTS_URL, http high)", all(conf(s, X, "http") == "high" for s in API_SVC))
+check("12 services → notifications.fifo (QUEUE_URL, high)", all(conf(s, Q+P+"-notifications.fifo") == "high" for s in NOTIF))
+# The planted ambiguity: a table and a queue named ce-test-orders.
+holders = API_SVC + [L+P+"-order-processor"]
+check("TABLE_NAME=ce-test-orders → the table, medium (the key names a table)", all(conf(h, D+P+"-orders") == "medium" for h in holders),
+      str([conf(h, D+P+"-orders") for h in holders]))
+check("…and the queue only as a low candidate", all(conf(h, Q+P+"-orders") == "low" for h in holders), str([conf(h, Q+P+"-orders") for h in holders]))
+check("…with the ambiguity reported for each holder", sorted(f["node"] for f in findings("ambiguous", P + "-orders")) == sorted(holders))
+check("a low candidate drives no flow: the queue ce-test-orders stays unreached", flow(Q+P+"-orders") == "unreached", flow(Q+P+"-orders"))
+check("audit-writer → orders-audit (AUDIT_TABLE, medium)", conf(L+P+"-audit-writer", D+P+"-orders-audit") == "medium")
+# The Tier-2 inputs 12-aws-apigw-create.sh sets on orders-fn, which is on the request path.
+check("orders-fn → orders-audit (AUDIT_TABLE_ARN, high)", conf(L+P+"-orders-fn", D+P+"-orders-audit") == "high")
+check("…so orders-audit is sync (sync takes precedence over the stream path)", flow(D+P+"-orders-audit") == "sync", flow(D+P+"-orders-audit"))
+check("orders-fn → HTTP API (PUBLIC_API_URL, http high)", conf(L+P+"-orders-fn", HTTP, "http") == "high")
+check("PARTNER_QUEUE_URL: a namesake queue in another account is reported…", findings("unresolved", ":999999999999:" + P + "-orders-events"))
+check("…and not linked to the local queue", not any(f == L+P+"-orders-fn" and t == Q+P+"-orders-events" for f, t, _ in edges))
+# Third parties, and what must not become one.
+S = "ext/hooks.slack.com"
+check("order-processor → hooks.slack.com (webhook path withheld, host kept)", conf(L+P+"-order-processor", S, "http") == "high")
+check("…async: it is called beside the request path", flow(S) == "async", flow(S))
+ext = sorted(n["id"] for n in g["nodes"] if n.get("external"))
+check("exactly two third parties; no AWS host became one", ext == [X, S], str(ext))
+check("RDS endpoints reported for both orders-api services and order-processor",
+      sorted({f["node"] for f in findings("unresolved", ".rds.amazonaws.com")}) == sorted(holders))
+check("the ElastiCache endpoint reported for all 12 services", len({f["node"] for f in findings("unresolved", ".cache.amazonaws.com")}) == 12)
+check("no blind spots: every environment was readable", not findings("unscanned", ""), str(findings("unscanned", "")))
+refs = [e for e in g["edges"] if any(ev["rule"] == "config.value-scan" for ev in e["evidence"])]
+check("every config edge names the variable it came from", refs and all(
+    any(ev["rule"] == "config.value-scan" and (" env " in ev["source"] or " variable " in ev["source"]) for ev in e["evidence"]) for e in refs))
 # --- hygiene
 check("every edge has evidence", all(e["evidence"] for e in g["edges"]))
 check("no edge touches a non-node", all(e["from"] in nodes and e["to"] in nodes for e in g["edges"]))

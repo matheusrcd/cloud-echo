@@ -136,5 +136,15 @@ else
   echo "  (exists) $P-orders-http"
 fi
 
+# ------------------------------------------------------------------ Tier-2 inputs
+# Configuration values on the function behind both APIs, so each changes a flow
+# on the request path: an ARN (the audit table becomes sync), an API invoke URL,
+# and a queue URL in ANOTHER account whose queue shares its name with a local
+# one — the namesake trap, in configuration. Re-running sets the same values.
+log "Tier-2 configuration on $P-orders-fn"
+must aws lambda update-function-configuration --function-name $P-orders-fn --environment \
+  "Variables={AUDIT_TABLE_ARN=arn:aws:dynamodb:$R:$ACCT:table/$P-orders-audit,PUBLIC_API_URL=https://$HTTP.execute-api.$R.amazonaws.com/prod,PARTNER_QUEUE_URL=https://sqs.$R.amazonaws.com/999999999999/$P-orders-events}" >/dev/null
+aws lambda wait function-updated-v2 --function-name $P-orders-fn && echo "  set AUDIT_TABLE_ARN, PUBLIC_API_URL, PARTNER_QUEUE_URL"
+
 echo "$REST" > "$WORK/rest-api-id"; echo "$HTTP" > "$WORK/http-api-id"
 log "done in $(( $(date +%s) - T0 ))s"
