@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Asserts the Tier-1 and Tier-2 graph of the combined M1 + API Gateway topology.
+"""Asserts the Tier 1–3 graph of the combined M1 + API Gateway topology.
 
-Written from what 10-aws-create.sh and 12-aws-apigw-create.sh build, before the
-linker's output was looked at — the Tier-1 checks in the Tier-1 round, the
-Tier-2 checks in the Tier-2 round. Usage: check-graph.py <graph.json>
+Written from what 10-aws-create.sh, 12-aws-apigw-create.sh and
+13-aws-iam-tier3.sh build, before the linker's output was looked at — each
+tier's checks in that tier's round. Usage: check-graph.py <graph.json>
 """
 import json, sys
 g = json.load(open(sys.argv[1]))
@@ -49,28 +49,32 @@ check("orders-events-dlq is async (via webhook-receiver's DLQ)", flow(Q+P+"-orde
 check("ECS services without load balancers are unreached", all(n["flow"] == "unreached" for n in g["nodes"] if n["type"] == "ecs.service"))
 
 # --- Tier 2: configuration values
+# Written as evidence claims: Tier 3 folds a reference into the edge that states
+# its intent, so "the configuration named it" is checked on whichever edge
+# between the pair carries it, in either direction.
 def conf(f, t, k="references"): return edges.get((f, t, k), {}).get("confidence")
 def findings(kind, part): return [f for f in g.get("findings", []) if f["kind"] == kind and part in f["target"] + f["detail"]]
+def between(a, b): return [e for (f, t, _), e in edges.items() if {f, t} == {a, b}]
+def named(f, t, var): return any(ev["rule"] == "config.value-scan" and ev["source"].endswith(" " + var)
+                                 for e in between(f, t) for ev in e["evidence"])
 SVC = [n["id"] for n in g["nodes"] if n["type"] == "ecs.service"]
 API_SVC = [i for i in SVC if i.endswith("/" + P + "-orders-api")]
 NOTIF = [i for i in SVC if i.endswith(P + "-notifications") or "-filler-" in i]
 check("setup: orders-api runs in two clusters, notifications' task def in 12 services", len(API_SVC) == 2 and len(NOTIF) == 12, f"{API_SVC} {len(NOTIF)}")
 # The pipeline the Tier-1 round left unreached, connected by the entrypoint that names its queue.
-check("webhook-receiver → orders-events (ORDERS_QUEUE_URL, high)", conf(L+P+"-webhook-receiver", Q+P+"-orders-events") == "high")
+check("webhook-receiver names orders-events (ORDERS_QUEUE_URL)", named(L+P+"-webhook-receiver", Q+P+"-orders-events", "ORDERS_QUEUE_URL"))
 check("the ESM pipeline is now async: orders-events, order-processor", flow(Q+P+"-orders-events") == "async" and flow(L+P+"-order-processor") == "async",
       f"{flow(Q+P+'-orders-events')} {flow(L+P+'-order-processor')}")
-check("a queue URL is a reference, never a publish", not any(has(f, Q+P+"-orders-events", "publish") for f in [L+P+"-webhook-receiver"] + API_SVC))
-check("both orders-api services → orders-events (QUEUE_URL, high)", all(conf(s, Q+P+"-orders-events") == "high" for s in API_SVC))
+check("both orders-api services name orders-events (QUEUE_URL)", all(named(s, Q+P+"-orders-events", "QUEUE_URL") for s in API_SVC))
 check("both orders-api services → payments (PAYMENTS_URL, http high)", all(conf(s, X, "http") == "high" for s in API_SVC))
-check("12 services → notifications.fifo (QUEUE_URL, high)", all(conf(s, Q+P+"-notifications.fifo") == "high" for s in NOTIF))
+check("12 services name notifications.fifo (QUEUE_URL)", all(named(s, Q+P+"-notifications.fifo", "QUEUE_URL") for s in NOTIF))
 # The planted ambiguity: a table and a queue named ce-test-orders.
 holders = API_SVC + [L+P+"-order-processor"]
-check("TABLE_NAME=ce-test-orders → the table, medium (the key names a table)", all(conf(h, D+P+"-orders") == "medium" for h in holders),
-      str([conf(h, D+P+"-orders") for h in holders]))
+check("TABLE_NAME=ce-test-orders is read as the table (the key names a table)", all(named(h, D+P+"-orders", "TABLE_NAME") for h in holders))
 check("…and the queue only as a low candidate", all(conf(h, Q+P+"-orders") == "low" for h in holders), str([conf(h, Q+P+"-orders") for h in holders]))
 check("…with the ambiguity reported for each holder", sorted(f["node"] for f in findings("ambiguous", P + "-orders")) == sorted(holders))
 check("a low candidate drives no flow: the queue ce-test-orders stays unreached", flow(Q+P+"-orders") == "unreached", flow(Q+P+"-orders"))
-check("audit-writer → orders-audit (AUDIT_TABLE, medium)", conf(L+P+"-audit-writer", D+P+"-orders-audit") == "medium")
+check("audit-writer names orders-audit (AUDIT_TABLE)", named(L+P+"-audit-writer", D+P+"-orders-audit", "AUDIT_TABLE"))
 # The Tier-2 inputs 12-aws-apigw-create.sh sets on orders-fn, which is on the request path.
 check("orders-fn → orders-audit (AUDIT_TABLE_ARN, high)", conf(L+P+"-orders-fn", D+P+"-orders-audit") == "high")
 check("…so orders-audit is sync (sync takes precedence over the stream path)", flow(D+P+"-orders-audit") == "sync", flow(D+P+"-orders-audit"))
@@ -86,10 +90,60 @@ check("exactly two third parties; no AWS host became one", ext == [X, S], str(ex
 check("RDS endpoints reported for both orders-api services and order-processor",
       sorted({f["node"] for f in findings("unresolved", ".rds.amazonaws.com")}) == sorted(holders))
 check("the ElastiCache endpoint reported for all 12 services", len({f["node"] for f in findings("unresolved", ".cache.amazonaws.com")}) == 12)
-check("no blind spots: every environment was readable", not findings("unscanned", ""), str(findings("unscanned", "")))
+check("every environment was readable", not [f for f in g.get("findings", []) if f["kind"] == "unscanned" and f["rule"] == "config.value-scan"])
 refs = [e for e in g["edges"] if any(ev["rule"] == "config.value-scan" for ev in e["evidence"])]
 check("every config edge names the variable it came from", refs and all(
     any(ev["rule"] == "config.value-scan" and (" env " in ev["source"] or " variable " in ev["source"]) for ev in e["evidence"]) for e in refs))
+check("no edge's intent rests on configuration alone", all(e["kind"] in ("references", "http") or
+    any(ev["rule"] != "config.value-scan" for ev in e["evidence"]) for e in refs))
+
+# --- Tier 3: what roles permit (10-aws-create.sh roles, 13-aws-iam-tier3.sh additions)
+IAM = "iam.policy-resource"
+def iam(f, t, k): return IAM in rules(f, t, k)
+check("orders-api reads and writes the orders table, high: config and role agree",
+      all(conf(s, D+P+"-orders", k) == "high" and iam(s, D+P+"-orders", k) for s in API_SVC for k in ("read", "write")),
+      str([(conf(s, D+P+"-orders", "read"), conf(s, D+P+"-orders", "write")) for s in API_SVC]))
+check("orders-api publishes to orders-events, high (QUEUE_URL + SendMessage)",
+      all(conf(s, Q+P+"-orders-events", "publish") == "high" and iam(s, Q+P+"-orders-events", "publish") for s in API_SVC))
+check("the ambiguity is settled: orders-api's role cannot touch the queue ce-test-orders",
+      sorted(f["node"] for f in findings("unpermitted", Q+P+"-orders") if f["node"] in API_SVC) == sorted(API_SVC))
+check("the boundary cancels orders-api's InvokeFunction: no edge, a blocked finding each",
+      not any(has(s, L+P+"-orders-fn", "invoke") for s in API_SVC)
+      and sorted(f["node"] for f in findings("blocked", "boundary") if f["target"] == L+P+"-orders-fn") == sorted(API_SVC))
+check("webhook-receiver publishes to orders-events, high (ORDERS_QUEUE_URL + SendMessage)",
+      conf(L+P+"-webhook-receiver", Q+P+"-orders-events", "publish") == "high")
+check("the explicit Deny cancels webhook-receiver's PutItem: no edge, a blocked finding",
+      not has(L+P+"-webhook-receiver", D+P+"-orders", "write")
+      and any(f["node"] == L+P+"-webhook-receiver" for f in findings("blocked", "explicit Deny")))
+check("Q17: 12 workers poll notifications.fifo — consume, high, and no reference left pointing the other way",
+      all(conf(Q+P+"-notifications.fifo", s, "consume") == "high" and conf(s, Q+P+"-notifications.fifo") is None for s in NOTIF))
+check("…and AmazonSQSFullAccess is reported as broad for all 12, drawing nothing",
+      sorted(f["node"] for f in findings("broad-access", "AmazonSQSFullAccess")) == sorted(NOTIF))
+check("order-processor writes the orders table, high (TABLE_NAME + UpdateItem)", conf(L+P+"-order-processor", D+P+"-orders", "write") == "high")
+# The pattern alone gives both reads low; TABLE_NAME names one of its matches,
+# and a reference folds into every same-direction edge — so the table the
+# configuration picks is medium, and the one it does not stays a candidate.
+check("table/ce-test-orders* matches two tables: the one TABLE_NAME names is medium, the other low",
+      conf(L+P+"-order-processor", D+P+"-orders", "read") == "medium" and conf(L+P+"-order-processor", D+P+"-orders-audit", "read") == "low")
+check("the disabled mapping stays disabled, though the role may still receive",
+      has(Q+P+"-orders", L+P+"-order-processor", "consume", "disabled") and iam(Q+P+"-orders", L+P+"-order-processor", "consume"))
+check("the Tier-1 consumers are corroborated by their roles (mapping, stream, on-failure)",
+      iam(Q+P+"-orders-events", L+P+"-order-processor", "consume") and iam(D+P+"-orders", L+P+"-audit-writer", "consume")
+      and iam(L+P+"-audit-writer", Q+P+"-orders-events-dlq", "publish"))
+check("audit-writer writes orders-audit, high (AUDIT_TABLE + PutItem)", conf(L+P+"-audit-writer", D+P+"-orders-audit", "write") == "high")
+check("orders-fn names orders-audit but its role cannot touch it: unpermitted",
+      any(f["node"] == L+P+"-orders-fn" for f in findings("unpermitted", D+P+"-orders-audit")))
+check("both APIs' SQS integrations are corroborated by the role they assume",
+      iam(REST, Q+P+"-inbox", "publish") and iam(HTTP, Q+P+"-inbox", "publish"))
+check("an API gains nothing from its role alone", not any(e["from"] in (REST, HTTP) and e["evidence"] and
+      all(ev["rule"] == IAM for ev in e["evidence"]) for e in g["edges"]))
+check("the workload whose role was deleted is reported, not silently unevaluated",
+      any(f["node"] == L+P+"-legacy-report" for f in findings("unscanned", "role not in the inventory")))
+check("a role alone never makes an edge more than medium", all(e["confidence"] in ("medium", "low") for e in g["edges"]
+      if e["evidence"] and all(ev["rule"] == IAM for ev in e["evidence"])))
+check("no edge from a broad grant: nothing IAM-only leaves the 12 notification services",
+      not any(e["from"] in NOTIF and all(ev["rule"] == IAM for ev in e["evidence"]) for e in g["edges"]))
+
 # --- hygiene
 check("every edge has evidence", all(e["evidence"] for e in g["edges"]))
 check("no edge touches a non-node", all(e["from"] in nodes and e["to"] in nodes for e in g["edges"]))

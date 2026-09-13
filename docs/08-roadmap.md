@@ -66,10 +66,12 @@ default and we scope a metadata shim.
       against a real account ([findings](spikes/m1-real-account-findings.md#linker-round-tier-1)).
 - [x] Linker **Tier 2** (config values) — validated against a real account
       ([findings](spikes/m1-real-account-findings.md#linker-round-tier-2)).
-- [ ] Linker Tier 3 (IAM).
+- [x] Linker **Tier 3** (IAM) — validated against a real account
+      ([findings](spikes/m1-real-account-findings.md#linker-round-tier-3)).
+      Tier 4 (network reachability) waits for the EC2 collector.
 - [x] `graph --format=text|json|mermaid`, `graph --explain <from> <to>`. (`dot`
       deferred: Mermaid renders on GitHub, which covers the need.)
-- [x] Golden-test harness with four fixture accounts, including negative cases.
+- [x] Golden-test harness with five fixture accounts, including negative cases.
 
 **Sequencing note.** Lambda and IAM are prioritised over the remaining primary
 services because they are what the linker needs, not because they are next

@@ -8,7 +8,7 @@ Scans your AWS account and rebuilds it as a containerized local environment usin
 > **Status: early. Not usable yet.** The architecture is designed and validated
 > ([M0 spike](docs/spikes/m0-findings.md)), and discovery is built and validated
 > against a real account — read-only guard, inventory model, collectors for six
-> services — and the linker has its first tier. Everything
+> services — and the linker reads its first three tiers. Everything
 > below marked ⬚ does not exist. Feedback on the design is still the most useful
 > contribution.
 
@@ -20,7 +20,7 @@ locally — with every outgoing integration visible and mockable in real time.
 
 ```bash
 cloud-echo scan                                    # ◐ read-only discovery (6 services so far)
-cloud-echo graph --explain ecs/orders-api          # ◐ what does it talk to, and why? (Tiers 1–2)
+cloud-echo graph --explain ecs/orders-api          # ◐ what does it talk to, and why? (Tiers 1–3)
 cloud-echo plan --seed ecs/orders-api --depth 2    # ⬚ → cloud-echo.yaml
 cloud-echo up                                      # ⬚ Floci + your containers, running
 cloud-echo ui                                      # ⬚ graph + live traffic + edit mocks
@@ -30,10 +30,12 @@ What works today: `cloud-echo scan --dry-run` prints the exact API surface a sca
 would touch, and `cloud-echo scan` reads ECS, SQS, DynamoDB, Lambda, IAM and API
 Gateway into a normalized inventory, validated against a real account.
 `cloud-echo graph` links it — declared relationships (event source mappings,
-redrive, API integrations, authorizers) and what configuration names (queue URLs,
+redrive, API integrations, authorizers), what configuration names (queue URLs,
 ARNs, table names, third-party URLs in env vars, command lines and stage
-variables) — classifies every node as entrypoint, sync, async or unreached, and
-explains any edge with `--explain <from> <to>`. `--format mermaid` draws it.
+variables) and what each workload's IAM role lets it do with them (publish,
+consume, read, write) — classifies every node as entrypoint, sync, async or
+unreached, and explains any edge with `--explain <from> <to>`. `--format mermaid`
+draws it.
 
 Your ECS service runs the exact image from ECR with the exact task definition.
 Its DynamoDB tables, SQS queues, Postgres, and Valkey are real and local. The

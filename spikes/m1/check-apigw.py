@@ -57,8 +57,10 @@ role = next((r for r in res if r["id"] == f"iam/role/{P}-apigw-sqs-role"), None)
 check("IAM collected the role API Gateway assumes", role is not None)
 if role:
     check("…assumed by both APIs, once each", sorted(role["spec"]["assumedBy"]) == sorted([rest["id"], http["id"]]), str(role["spec"]["assumedBy"]))
-kinds = [w["kind"] for w in inv.get("warnings", [])]
-check("no warnings", not kinds, str(kinds))
+# Only this topology's warnings: with the M1 topology up too, its planted
+# dangling role is reported as well, and is not an API Gateway problem.
+kinds = [w["kind"] for w in inv.get("warnings", []) if w.get("service") in ("API Gateway", "ApiGatewayV2") or "apigw" in w.get("message", "")]
+check("no API Gateway warnings", not kinds, str(kinds))
 
 width = max(len(n) for _, n, _ in results); fails = 0
 for ok, n, d in results:

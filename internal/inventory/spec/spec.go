@@ -311,6 +311,13 @@ type IAMRole struct {
 	// a boundary that allows only SQS cannot touch DynamoDB, and an edge inferred
 	// from the policy alone would be wrong.
 	PermissionsBoundary *TargetRef `json:"permissionsBoundary,omitempty"`
+
+	// Unread lists the parts of the role the collector could not read: "inline
+	// policies" (the list was refused), "inline policy <name>", "attached
+	// policies". Without it a partly read role is indistinguishable from one
+	// that grants nothing, and "this workload cannot touch that queue" would be
+	// claimed from a blind spot.
+	Unread []string `json:"unread,omitempty"`
 }
 
 type InlinePolicy struct {

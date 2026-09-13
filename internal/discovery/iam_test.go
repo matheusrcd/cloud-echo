@@ -182,6 +182,42 @@ func TestIAMReportsDanglingRoles(t *testing.T) {
 // TestIAMSkipsCrossAccountRoles: GetRole takes a name, not an ARN. Looking up a
 // foreign account's role by name would silently return a *different* role if one
 // with the same name existed here.
+// TestIAMRecordsWhatItCouldNotRead: a denied read must be visible on the role
+// itself, not only as a scan warning. Tier 3 reports a workload that names a
+// queue its role cannot touch; with the policy unread, the role would look like
+// it grants nothing, and that claim would come from a blind spot.
+func TestIAMRecordsWhatItCouldNotRead(t *testing.T) {
+	tr := loadFixtures(t, "orders", "ecs", "lambda", "iam")
+	denied := exchange{Op: "GetRolePolicy", Match: "RoleName=orders-api-task&", Status: 403, service: "iam",
+		Body: `<ErrorResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><Error><Type>Sender</Type>` +
+			`<Code>AccessDenied</Code><Message>not authorized to perform: iam:GetRolePolicy</Message></Error></ErrorResponse>`}
+	// The transport answers with the first match, so this shadows the recorded one.
+	tr.exchanges = append([]exchange{denied}, tr.exchanges...)
+	sess := fixtureSession(tr)
+
+	phase1 := &captureEmitter{}
+	for _, c := range []Collector{&ECS{}, &Lambda{}} {
+		if err := c.Collect(context.Background(), sess, phase1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out := &captureEmitter{}
+	if err := (&IAM{}).CollectFrom(context.Background(), sess, phase1.resources, out); err != nil {
+		t.Fatalf("a denied GetRolePolicy aborted IAM: %v", err)
+	}
+	var got, other roleSpec
+	r, _ := out.byID("iam/role/orders-api-task")
+	_ = json.Unmarshal(r.Spec, &got)
+	if len(got.InlinePolicies) != 0 || len(got.Unread) != 1 || !strings.HasPrefix(got.Unread[0], "inline policy ") {
+		t.Errorf("the unread inline policy is not recorded on the role: inline=%d unread=%q", len(got.InlinePolicies), got.Unread)
+	}
+	r, _ = out.byID("iam/role/order-processor-role")
+	_ = json.Unmarshal(r.Spec, &other)
+	if len(other.Unread) != 0 {
+		t.Errorf("a fully read role reports unread parts: %q", other.Unread)
+	}
+}
+
 func TestIAMSkipsCrossAccountRoles(t *testing.T) {
 	spec, _ := json.Marshal(functionSpec{RoleARN: "arn:aws:iam::999999999999:role/shared-reader"})
 	prior := []inventory.Resource{{ID: "lambda/cross", Type: "lambda.function", Spec: spec}}

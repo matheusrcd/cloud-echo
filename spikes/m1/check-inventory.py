@@ -36,14 +36,17 @@ check("ListServices paginated: 13 services in ce-test-main (page size 10)", len(
 a, b = f"ecs/{P}-main/{P}-orders-api", f"ecs/{P}-batch/{P}-orders-api"
 check("same-named services in two clusters stay distinct", a in by_id and b in by_id)
 tds = sorted(i for i in by_id if i.startswith("ecs/taskdef/"))
-check("task definitions: one per distinct revision in use", tds == [f"ecs/taskdef/{P}-notifications:1", f"ecs/taskdef/{P}-notifications:2", f"ecs/taskdef/{P}-orders-api:2"], str(tds))
-td = spec(f"ecs/taskdef/{P}-orders-api:2")
+# Revisions are derived, not written down: AWS never reuses a revision number,
+# so a torn-down and recreated topology runs :3 where the first one ran :2.
+in_use = sorted({r["spec"]["taskDefinitionId"] for r in by_id.values() if r["type"] == "ecs.service"})
+check("task definitions: exactly one per distinct revision in use", tds == in_use, f"{tds} vs {in_use}")
+td = spec(spec(a)["taskDefinitionId"])
 check("task role id drops the IAM path", td.get("taskRoleId") == f"iam/role/{P}-orders-api-task", td.get("taskRoleId", ""))
 app = td["containers"][0]
 check("redacted list names what was removed", app.get("redacted") == ["env:DATABASE_URL", "env:PAYMENTS_API_KEY"], str(app.get("redacted")))
 check("secrets[] recorded as ARN, not value", app.get("secrets", {}).get("DB_PASSWORD", "").startswith("arn:aws:secretsmanager:"))
 check("sidecar non-essential", td["containers"][1]["essential"] is False)
-nt = spec(f"ecs/taskdef/{P}-notifications:2")["containers"][0]
+nt = spec(spec(f"ecs/{P}-main/{P}-notifications")["taskDefinitionId"])["containers"][0]
 check("command-line secret redacted", nt.get("redacted") == ["command[2]"], str(nt.get("redacted")))
 
 check("dependsOn keeps its condition", app.get("dependsOn") == [{"container": "otel", "condition": "START"}], str(app.get("dependsOn")))
@@ -88,11 +91,14 @@ check("disabled ESM reads as not enabled (state " + str(e3.get("state")) + ")", 
 
 # --- IAM
 roles = sorted(i for i in by_id if i.startswith("iam/role/"))
-check("only workload roles collected (no execution role)", f"iam/role/{P}-ecs-exec-role" not in by_id and len(roles) == 5, str(roles))
+# Every role is there because a workload or an API integration assumes it; the
+# count is not written down, since each round's topology adds its own.
+check("only assumed roles collected (no execution role)", f"iam/role/{P}-ecs-exec-role" not in by_id
+      and roles and all(spec(i).get("assumedBy") for i in roles), str(roles))
 r = spec(f"iam/role/{P}-orders-api-task")
 check("role path recorded, not in id", r.get("path") == "/ce-test/")
 check("permissions boundary recorded", (r.get("permissionsBoundary") or {}).get("id") == f"iam/policy/{P}-boundary")
-check("assumedBy links back to the task definition", r.get("assumedBy") == [f"ecs/taskdef/{P}-orders-api:2"], str(r.get("assumedBy")))
+check("assumedBy links back to the task definition", r.get("assumedBy") == [spec(a)["taskDefinitionId"]], str(r.get("assumedBy")))
 obs = spec(f"iam/policy/{P}-observability")
 check("policy document URL-decoded ('+' and space)", '"orders+payments team"' in json.dumps(obs["document"]))
 check("AWS-managed policy id namespace", "iam/aws-policy/AWSLambdaBasicExecutionRole" in by_id)

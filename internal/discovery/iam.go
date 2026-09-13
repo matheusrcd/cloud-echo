@@ -192,6 +192,7 @@ func (c *IAM) collectRole(
 			if err := warnOrFail(out, "IAM", "ListRolePolicies", err); err != nil {
 				return err
 			}
+			spec.Unread = append(spec.Unread, "inline policies")
 			break
 		}
 		inlineNames = append(inlineNames, page.PolicyNames...)
@@ -203,12 +204,15 @@ func (c *IAM) collectRole(
 			if err := warnOrFail(out, "IAM", "GetRolePolicy", err); err != nil {
 				return err
 			}
+			spec.Unread = append(spec.Unread, "inline policy "+pn)
 			continue
 		}
-		spec.InlinePolicies = append(spec.InlinePolicies, inlinePolicy{
-			Name:     pn,
-			Document: c.document(out, "GetRolePolicy", name+"/"+pn, doc.PolicyDocument),
-		})
+		d := c.document(out, "GetRolePolicy", name+"/"+pn, doc.PolicyDocument)
+		if d == nil {
+			spec.Unread = append(spec.Unread, "inline policy "+pn)
+			continue
+		}
+		spec.InlinePolicies = append(spec.InlinePolicies, inlinePolicy{Name: pn, Document: d})
 	}
 
 	attached := iam.NewListAttachedRolePoliciesPaginator(api, &iam.ListAttachedRolePoliciesInput{RoleName: aws.String(name)})
@@ -218,6 +222,7 @@ func (c *IAM) collectRole(
 			if err := warnOrFail(out, "IAM", "ListAttachedRolePolicies", err); err != nil {
 				return err
 			}
+			spec.Unread = append(spec.Unread, "attached policies")
 			break
 		}
 		for _, ap := range page.AttachedPolicies {

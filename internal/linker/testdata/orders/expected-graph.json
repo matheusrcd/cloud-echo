@@ -172,6 +172,11 @@
       "confidence": "certain",
       "evidence": [
         {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy audit-writer-role audit",
+          "detail": "role audit-writer-role: Allow dynamodb:GetRecords on arn:aws:dynamodb:us-east-1:123456789012:table/orders/stream/* (inline policy audit)"
+        },
+        {
           "rule": "lambda.event-source-mapping",
           "source": "lambda:ListEventSourceMappings 0b6f2a3c-2222-4d2e-9f00-000000000002",
           "detail": "dynamodb-stream 00.000 → audit-writer, state Enabled, batch 100"
@@ -181,13 +186,41 @@
     {
       "from": "ecs/batch/orders-api",
       "to": "ddb/orders",
-      "kind": "references",
-      "confidence": "medium",
+      "kind": "read",
+      "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "ecs:DescribeTaskDefinition orders-api:41 container app env TABLE_NAME",
           "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy orders-api-task orders-data",
+          "detail": "role orders-api-task: Allow dynamodb:GetItem, dynamodb:Query on arn:aws:dynamodb:us-east-1:123456789012:table/orders (inline policy orders-data)"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy orders-api-task orders-data",
+          "detail": "role orders-api-task: Allow dynamodb:Query on arn:aws:dynamodb:us-east-1:123456789012:table/orders/index/* (inline policy orders-data)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/batch/orders-api",
+      "to": "ddb/orders",
+      "kind": "write",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy orders-api-task orders-data",
+          "detail": "role orders-api-task: Allow dynamodb:PutItem, dynamodb:UpdateItem on arn:aws:dynamodb:us-east-1:123456789012:table/orders (inline policy orders-data)"
         }
       ]
     },
@@ -220,13 +253,18 @@
     {
       "from": "ecs/batch/orders-api",
       "to": "sqs/orders-events",
-      "kind": "references",
+      "kind": "publish",
       "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "ecs:DescribeTaskDefinition orders-api:41 container app env QUEUE_URL",
           "detail": "QUEUE_URL holds the URL of sqs/orders-events"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy orders-api-task orders-data",
+          "detail": "role orders-api-task: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:orders-events (inline policy orders-data)"
         }
       ]
     },
@@ -246,13 +284,41 @@
     {
       "from": "ecs/main/orders-api",
       "to": "ddb/orders",
-      "kind": "references",
-      "confidence": "medium",
+      "kind": "read",
+      "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "ecs:DescribeTaskDefinition orders-api:41 container app env TABLE_NAME",
           "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy orders-api-task orders-data",
+          "detail": "role orders-api-task: Allow dynamodb:GetItem, dynamodb:Query on arn:aws:dynamodb:us-east-1:123456789012:table/orders (inline policy orders-data)"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy orders-api-task orders-data",
+          "detail": "role orders-api-task: Allow dynamodb:Query on arn:aws:dynamodb:us-east-1:123456789012:table/orders/index/* (inline policy orders-data)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/orders-api",
+      "to": "ddb/orders",
+      "kind": "write",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition orders-api:41 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy orders-api-task orders-data",
+          "detail": "role orders-api-task: Allow dynamodb:PutItem, dynamodb:UpdateItem on arn:aws:dynamodb:us-east-1:123456789012:table/orders (inline policy orders-data)"
         }
       ]
     },
@@ -285,26 +351,36 @@
     {
       "from": "ecs/main/orders-api",
       "to": "sqs/orders-events",
-      "kind": "references",
+      "kind": "publish",
       "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "ecs:DescribeTaskDefinition orders-api:41 container app env QUEUE_URL",
           "detail": "QUEUE_URL holds the URL of sqs/orders-events"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy orders-api-task orders-data",
+          "detail": "role orders-api-task: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:orders-events (inline policy orders-data)"
         }
       ]
     },
     {
       "from": "lambda/audit-writer",
       "to": "ddb/orders-audit",
-      "kind": "references",
-      "confidence": "medium",
+      "kind": "write",
+      "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions audit-writer env AUDIT_TABLE",
           "detail": "AUDIT_TABLE = \"orders-audit\", the name of ddb/orders-audit — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy audit-writer-role audit",
+          "detail": "role audit-writer-role: Allow dynamodb:PutItem on arn:aws:dynamodb:us-east-1:123456789012:table/orders-audit (inline policy audit)"
         }
       ]
     },
@@ -324,13 +400,18 @@
     {
       "from": "lambda/order-processor",
       "to": "ddb/orders",
-      "kind": "references",
-      "confidence": "medium",
+      "kind": "write",
+      "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions order-processor env TABLE_NAME",
           "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy order-processor-role process",
+          "detail": "role order-processor-role: Allow dynamodb:UpdateItem on arn:aws:dynamodb:us-east-1:123456789012:table/orders (inline policy process)"
         }
       ]
     },
@@ -363,13 +444,18 @@
     {
       "from": "lambda/webhook-receiver",
       "to": "sqs/orders-events",
-      "kind": "references",
+      "kind": "publish",
       "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions webhook-receiver env ORDERS_QUEUE_URL",
           "detail": "ORDERS_QUEUE_URL holds the URL of sqs/orders-events"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy webhook-receiver-role enqueue",
+          "detail": "role webhook-receiver-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:orders-events (inline policy enqueue)"
         }
       ]
     },
@@ -393,6 +479,11 @@
       "kind": "consume",
       "confidence": "certain",
       "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy order-processor-role process",
+          "detail": "role order-processor-role: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-1:123456789012:orders-events (inline policy process)"
+        },
         {
           "rule": "lambda.event-source-mapping",
           "source": "lambda:ListEventSourceMappings 0b6f2a3c-1111-4d2e-9f00-000000000001",
@@ -476,13 +567,6 @@
       "node": "apigw/h1t2t3p4a5",
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
-      "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
-    },
-    {
-      "kind": "unresolved",
-      "node": "apigw/h1t2t3p4a5",
-      "target": "lambda/orders-fn",
-      "rule": "apigw.integration",
       "detail": "AWS_PROXY GET /orders/{id} → orders-fn (target is not in the inventory)"
     },
     {
@@ -491,6 +575,13 @@
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
       "detail": "AWS_PROXY POST /orders → orders-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
     },
     {
       "kind": "unresolved",
@@ -518,14 +609,21 @@
       "node": "ecs/batch/orders-api",
       "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
     },
     {
       "kind": "unresolved",
       "node": "ecs/batch/orders-api",
       "target": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "ecs/batch/orders-api",
+      "target": "sqs/orders",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sqs/orders, but its role orders-api-task grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
     },
     {
       "kind": "unresolved",
@@ -535,6 +633,13 @@
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
     },
     {
+      "kind": "broad-access",
+      "node": "ecs/main/notifications",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
+    },
+    {
       "kind": "ambiguous",
       "node": "ecs/main/orders-api",
       "target": "orders",
@@ -556,6 +661,13 @@
       "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
     },
     {
+      "kind": "unpermitted",
+      "node": "ecs/main/orders-api",
+      "target": "sqs/orders",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sqs/orders, but its role orders-api-task grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
       "kind": "unscanned",
       "node": "lambda/legacy-report",
       "target": "environment",
@@ -563,11 +675,25 @@
       "detail": "environment variables could not be read (KMSAccessDeniedException): references in them were not scanned"
     },
     {
+      "kind": "unscanned",
+      "node": "lambda/legacy-report",
+      "target": "iam/role/legacy-report-role",
+      "rule": "iam.policy-resource",
+      "detail": "role not in the inventory: its permissions were not evaluated"
+    },
+    {
       "kind": "ambiguous",
       "node": "lambda/order-processor",
       "target": "orders",
       "rule": "config.value-scan",
       "detail": "TABLE_NAME = \"orders\" names ddb/orders and sqs/orders; the key points at ddb/orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "lambda/order-processor",
+      "target": "sqs/orders",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sqs/orders, but its role order-processor-role grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
     },
     {
       "kind": "stale-permission",

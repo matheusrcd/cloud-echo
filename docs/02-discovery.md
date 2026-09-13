@@ -235,7 +235,10 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 > start); and roles in **another account**, which are reported and never looked
 > up, since `GetRole` takes a name and would silently return a different,
 > same-named local role. Every policy document IAM returns is URL-encoded; the SDK
-> does not decode it, the collector does.
+> does not decode it, the collector does. And what it could not read — a refused
+> `ListRolePolicies`, one inline policy, an unparseable document — is recorded on
+> the role as `unread`, not only as a scan warning: otherwise a partly read role
+> looks like one that grants nothing, and Tier 3 would conclude from a blind spot.
 
 ## Scan scope and cost
 

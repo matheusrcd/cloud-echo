@@ -53,9 +53,15 @@ func Tier2() []Rule {
 	return []Rule{configValueRule{}}
 }
 
+// Tier3 rules read what workloads' roles permit: the only tier that says what
+// a workload does with what it names.
+func Tier3() []Rule {
+	return []Rule{iamPolicyRule{}}
+}
+
 // Rules is every implemented rule, in tier order.
 func Rules() []Rule {
-	return append(Tier1(), Tier2()...)
+	return append(append(Tier1(), Tier2()...), Tier3()...)
 }
 
 // Options configures a link run.
@@ -82,7 +88,9 @@ func Link(inv *inventory.Inventory, opts Options) *Graph {
 		r.Apply(c)
 	}
 	b.resolveCorroborations()
+	b.resolvePermissions()
 	b.absorbReferences()
+	b.checkUnpermitted()
 
 	g := b.graph()
 	classify(g)
@@ -181,6 +189,19 @@ func (c *Context) Corroborate(from, to string, kind Kind, source, detail string,
 	}
 	c.b.corroborations = append(c.b.corroborations, corroboration{
 		key: edgeKey{from, to, kind}, ev: Evidence{Rule: c.rule, Source: source, Detail: detail}, orElse: orElse,
+	})
+}
+
+// Permit records what a workload's role allows: an edge when no rule drew one,
+// and otherwise evidence and confidence for the edge that exists — never its
+// status. Both ends must be nodes.
+func (c *Context) Permit(from, to string, kind Kind, conf Confidence, source, detail string) {
+	if !c.HasNode(from) || !c.HasNode(to) {
+		c.Unresolved(from, to, detail+" (not a node)")
+		return
+	}
+	c.b.permissions = append(c.b.permissions, permission{
+		key: edgeKey{from, to, kind}, conf: conf, ev: Evidence{Rule: c.rule, Source: source, Detail: detail},
 	})
 }
 

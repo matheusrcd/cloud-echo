@@ -226,6 +226,82 @@ type builder struct {
 	warnings []string
 	// corroborations add evidence to an edge only if another rule created it.
 	corroborations []corroboration
+	// permissions are Tier-3 claims: they create an edge when none exists, and
+	// otherwise add evidence to it without touching its status.
+	permissions []permission
+	// evals records, per workload, what Tier 3 learned about its role — the
+	// input to the unpermitted check, which runs after every rule.
+	evals map[string]*iamEval
+}
+
+type permission struct {
+	key  edgeKey
+	conf Confidence
+	ev   Evidence
+}
+
+// iamEval is what one workload's role permits, as far as Tier 3 can tell.
+type iamEval struct {
+	role string
+	// complete is false when any part of the role, its attached policies or its
+	// boundary could not be read; nothing is concluded from an absence then.
+	complete bool
+	// permitted holds the nodes some action is allowed on — through a grant
+	// broad enough to reach everything, too — or may be, by their resource
+	// policy.
+	permitted map[string]bool
+}
+
+// agree is the confidence of an edge two independent sources claim. Each
+// already enters a plan at medium; that they agree is what high means — the
+// configuration names the table, and the role may write it.
+func agree(a, b Confidence) Confidence {
+	c := a
+	if confidenceRank[b] > confidenceRank[c] {
+		c = b
+	}
+	if confidenceRank[a] >= confidenceRank[Medium] && confidenceRank[b] >= confidenceRank[Medium] &&
+		confidenceRank[c] < confidenceRank[High] {
+		c = High
+	}
+	return c
+}
+
+// resolvePermissions applies Tier-3 claims. Several statements of one role
+// claiming the same edge are one source, not several: they are grouped before
+// they meet an edge another tier drew. A permission says nothing about whether
+// an edge carries traffic now — the role of a disabled mapping can still
+// receive — so an existing edge keeps its status.
+func (b *builder) resolvePermissions() {
+	grouped := map[edgeKey]*permission{}
+	var order []edgeKey
+	for _, p := range b.permissions {
+		g, ok := grouped[p.key]
+		if !ok {
+			cp := p
+			grouped[p.key] = &cp
+			order = append(order, p.key)
+			continue
+		}
+		if confidenceRank[p.conf] > confidenceRank[g.conf] {
+			g.conf = p.conf
+		}
+	}
+	for _, k := range order {
+		g := grouped[k]
+		e, ok := b.edges[k]
+		if !ok {
+			e = &Edge{From: k.from, To: k.to, Kind: k.kind, Confidence: g.conf, Status: Active}
+			b.edges[k] = e
+		} else {
+			e.Confidence = agree(e.Confidence, g.conf)
+		}
+		for _, p := range b.permissions {
+			if p.key == k {
+				e.Evidence = append(e.Evidence, p.ev)
+			}
+		}
+	}
 }
 
 type corroboration struct {
@@ -235,7 +311,7 @@ type corroboration struct {
 }
 
 func newBuilder() *builder {
-	return &builder{nodes: map[string]*Node{}, edges: map[edgeKey]*Edge{}}
+	return &builder{nodes: map[string]*Node{}, edges: map[edgeKey]*Edge{}, evals: map[string]*iamEval{}}
 }
 
 func (b *builder) addEdge(from, to string, kind Kind, conf Confidence, status Status, ev Evidence) {
@@ -273,10 +349,13 @@ func (b *builder) resolveCorroborations() {
 // evidence for the Lambda → DLQ publish edge the dead-letter rule drew, not a
 // second, vaguer edge beside it.
 //
-// Only same-direction edges absorb: a consumer holding its own queue's URL
-// still references it, and folding that into queue → consumer would claim the
-// configuration explains the consumption. Disabled edges do not absorb either,
-// or a live reference would vanish into an edge that carries nothing.
+// Same-direction edges absorb. The one reverse case is a consume edge IAM
+// backs: a worker whose role may receive from the queue it names, and send
+// nothing to it (or a publish edge would have absorbed the reference first),
+// names it to poll it (docs/09-open-questions.md, Q17). A consumer whose
+// consume edge only Tier 1 draws keeps its reference: holding its own queue's
+// URL does not explain the mapping. Disabled edges do not absorb, or a live
+// reference would vanish into an edge that carries nothing.
 //
 // A low-confidence reference is a candidate from an ambiguous name, not
 // evidence: attached to an edge it would read as corroboration. When a typed
@@ -295,17 +374,57 @@ func (b *builder) absorbReferences() {
 		}
 		typed := typedBetween[pair{k.from, k.to}]
 		if len(typed) == 0 {
-			continue
+			c, ok := b.edges[edgeKey{k.to, k.from, KindConsume}]
+			if !ok || c.Status == Disabled || !hasRule(c, ruleIAM) {
+				continue
+			}
+			typed = []*Edge{c}
 		}
 		if ref.Confidence != Low {
 			for _, e := range typed {
-				if confidenceRank[ref.Confidence] > confidenceRank[e.Confidence] {
-					e.Confidence = ref.Confidence
-				}
+				e.Confidence = agree(e.Confidence, ref.Confidence)
 				e.Evidence = append(e.Evidence, ref.Evidence...)
 			}
 		}
 		delete(b.edges, k)
+	}
+}
+
+func hasRule(e *Edge, rule string) bool {
+	for _, ev := range e.Evidence {
+		if ev.Rule == rule {
+			return true
+		}
+	}
+	return false
+}
+
+// checkUnpermitted reports a reference its holder's role cannot act on. It is
+// negative evidence, so it only ever becomes a finding: the role was read in
+// full, grants nothing on the target — not even through a grant broad enough
+// to reach everything, which draws no edge but permits — and no resource
+// policy on the target names it. What
+// is left is dead configuration, or access cloud-echo does not see (a DynamoDB
+// resource policy, static credentials). It settles the ambiguity Tier 2 leaves
+// behind: TABLE_NAME names a table and a queue, and the role writes the table
+// and cannot touch the queue.
+func (b *builder) checkUnpermitted() {
+	for k := range b.edges {
+		if k.kind != KindReferences {
+			continue
+		}
+		ev := b.evals[k.from]
+		n := b.nodes[k.to]
+		if ev == nil || !ev.complete || n == nil {
+			continue
+		}
+		svc := serviceOfType[n.Type]
+		if svc == "" || ev.permitted[k.to] {
+			continue
+		}
+		b.findings = append(b.findings, Finding{Kind: "unpermitted", Node: k.from, Target: k.to, Rule: ruleIAM,
+			Detail: fmt.Sprintf("its configuration names %s, but its role %s grants no %s action on it, and no resource policy names the role: "+
+				"dead configuration, or access granted where cloud-echo does not look", k.to, ev.role, svc)})
 	}
 }
 

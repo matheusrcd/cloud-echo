@@ -9,7 +9,7 @@ This is the component the project lives or dies by. Emulation is a solved proble
 type Edge struct {
     From       string      // resource id
     To         string      // resource id, or "ext/<host>" for something outside the account
-    Kind       EdgeKind    // invoke | publish | consume | read | write | connect | http
+    Kind       EdgeKind    // invoke | publish | consume | read | write | connect | http | references
     Confidence Confidence  // certain | high | medium | low
     Status     Status      // "" (active) | unsettled | disabled
     Evidence   []Evidence  // never empty
@@ -71,7 +71,7 @@ exist yet.
 | `sns.subscription` | `ListSubscriptionsByTopic` | SNS → SQS/Lambda/HTTP (`publish`) |
 | `apigw.integration` ✅ | route `integration` (v1 `GetResources` embedded, v2 `GetIntegrations`) | API GW → Lambda (`invoke`) / SQS direct (`publish`) / HTTP (`http`) / VPC Link → ALB |
 | `apigw.authorizer` ✅ | route `authorizerId` → authorizer `function` | API GW → authorizer Lambda (`invoke`, synchronous — it is in the request path) |
-| `apigw.credentials` | integration `credentials` | API GW assumes a role to call the target; feeds Tier 3 |
+| `apigw.credentials` ✅ | integration `credentials` | the role API GW assumes to call the target — read by Tier 3, where it corroborates the integration |
 | `sqs.redrive` ✅ | `RedrivePolicy` | queue → DLQ (`publish`) |
 | `elbv2.target-group` | ECS service `loadBalancers[]` | ALB → ECS service (`http`) |
 | `ecs.image` | task def `containers[].image` | ECS service → ECR repo |
@@ -194,41 +194,101 @@ as [06-echo-gateway.md](06-echo-gateway.md) intends for hosts that match nothing
 
 ---
 
-### Tier 3 — IAM policy analysis → `high` / `medium`
+### Tier 3 — IAM policy analysis → `medium` / `low`, `high` when Tier 2 agrees ✅
 
-Resolve the ECS task role or Lambda execution role, expand attached managed
-policies and inline policies, and for each `Allow` statement:
+One rule, `iam.policy-resource`. For every role in the inventory it finds the
+workloads running as it — Lambda execution roles, ECS **task** roles (through the
+task definition, to every service running it), and the roles API Gateway
+integrations assume — reads its inline policies, attached policies and permissions
+boundary, and evaluates what it allows on every queue, table and function in the
+inventory, the way IAM does: an `Allow` in the role's policies, no unconditional
+`Deny`, and an `Allow` in the boundary if there is one. `Action`/`NotAction`,
+`Resource`/`NotResource`, `*` and `?` are all honoured.
 
 ```
-action prefix  → service           (dynamodb:PutItem → dynamodb)
-action verb    → intent            (Put/Update/Delete/Batch* → write, Get/Query/Scan → read)
-Resource ARNs  → inventory match   (arn:...:table/orders → ddb/orders)
+sqs:SendMessage                                 → publish   workload → queue
+sqs:ReceiveMessage                              → consume   queue → workload
+dynamodb:GetItem, BatchGetItem, Query, Scan, …  → read      workload → table   (Query/Scan also on its indexes)
+dynamodb:PutItem, UpdateItem, DeleteItem, …     → write     workload → table
+dynamodb:GetRecords on the stream               → consume   table → workload
+lambda:InvokeFunction                           → invoke    workload → function
 ```
 
 This tier is uniquely valuable because it gives **direction and intent** — Tier 2
 tells you a service knows a table's name, Tier 3 tells you it writes to it. That
 distinction drives `data.mode` defaults and the sync/async classification. Its
-typed edges absorb the Tier-2 `references` between the same pair; what it does
-with a reference that points the other way — a worker that only receives from the
-queue it names — is [Q17](09-open-questions.md).
+typed edges absorb the Tier-2 `references` between the same pair, and the one
+reverse case — a worker whose role only receives from the queue it names — folds
+into the consume edge ([Q17](09-open-questions.md), closed).
 
-Handling of the messy parts:
+**Corrected before implementation** (each pinned by a named test in
+`tier3_test.go` and a mutation it kills):
 
-- `Resource: "*"` → do **not** emit concrete edges. Emit one `low`-confidence
-  "has broad access to `<service>`" annotation on the node. Otherwise a single
-  over-permissive role links everything to everything and the graph is worthless.
-- Wildcard ARNs (`arn:aws:dynamodb:*:*:table/orders-*`) → expand against the
-  inventory, `medium` confidence.
-- Explicit `Deny` statements → suppress the edge.
-- **Permissions boundary** → intersect. Effective permission is what the role's
-  policies allow *and* the boundary allows; a policy granting `dynamodb:*` under
-  a boundary that only permits SQS writes nothing to DynamoDB. The collector
-  records the boundary document alongside the role for exactly this.
-- Only application identities feed this tier: ECS **task** roles and Lambda
-  execution roles. ECS execution roles describe the agent, not the code, and are
-  not collected.
-- Managed AWS policies (`AmazonDynamoDBFullAccess`) → treated as `Resource: "*"`,
-  i.e. annotation only.
+1. **A permission is not a use.** The draft rated this tier `high`. An identity
+   policy is a permission exactly as a resource policy is — the reason
+   `lambda.resource-policy` only corroborates — and deployment tools grant
+   generously and rarely take grants back. A role alone makes an edge `medium` at
+   most: included, flagged. **Two independent sources agreeing is what `high`
+   means**: when the configuration names the table (Tier 2) and the role may
+   write it (Tier 3), each already at `medium`, the edge is `high`. The same rule
+   applies wherever edges from different rules meet.
+2. **Intent comes from named actions.** The verb table above says nothing about
+   `sqs:*` on one queue, which permits sending *and* receiving. Drawing both would
+   invent a consumer; drawing either would pick. A grant whose action is
+   service-wide (`*`, `sqs:*`, `NotAction`) states no intent and becomes a
+   `references` edge.
+3. **A permission never changes an edge's state.** Edges merge by "most active
+   status", and the role behind a disabled event source mapping can still receive
+   from its queue — the real validation account has exactly this. Tier-3 claims
+   go through `Context.Permit`: they create an edge when none exists and otherwise
+   add evidence and confidence, never status.
+4. **Broad is about the name, not only `Resource: "*"`.** `table/*` reaches every
+   table as surely as `*` does. Any grant whose resource-name segment is `*`
+   draws nothing and is reported once per workload and service as `broad-access`
+   — a finding, since nodes carry no annotations. AWS managed policies fall out of
+   this naturally: they cannot name your resources.
+5. **A pattern reaching several resources is a candidate, not a fact.** The draft
+   expanded wildcard ARNs at `medium`; `jobs-*` matching seven queues would be
+   seven edges from one line. A pattern matching one node is that node (`medium`);
+   matching several, each is `low` — until the configuration names one of them.
+6. **What cancels a grant is said.** A grant an unconditional `Deny` or the
+   boundary cancels is a `blocked` finding, so the missing edge is explainable. A
+   conditional `Deny` may not apply and cancels nothing. Guardrails — `dynamodb:*`
+   except `Delete*`, a boundary trimming `sqs:*` on `*` — are not reported.
+7. **Absence is a finding, never an edge change.** A reference the holder's role
+   cannot act on — the role read in full, no grant on the target (a broad one
+   counts), no queue or function policy naming the role — is an `unpermitted`
+   finding: dead configuration, or access cloud-echo does not see. It is what
+   settles Tier 2's ambiguity: `TABLE_NAME` names a table and a queue, and the role
+   writes the table and cannot touch the queue.
+8. **"Could not read" must not look like "grants nothing".** The collector
+   recorded a refused `ListRolePolicies` only as a scan warning, so a partly read
+   role looked like an empty one. The role now carries `unread`; with anything
+   unread, or an attached policy missing, nothing is concluded from absence, and
+   the workload gets an `unscanned` finding. A boundary that cannot be read lowers
+   the role's edges to `low` — its whole purpose is to restrict. A workload whose
+   role is not in the inventory at all is `unscanned` too.
+9. **Lambda receives through its mappings.** Lambda polls a queue or a stream for
+   an event source mapping with the function's own role. A function that may
+   receive from a queue no mapping connects it to is most likely holding a
+   leftover grant: `low`.
+10. **An API's role only corroborates.** An API's behaviour is its routes, which
+    Tier 1 reads in full; the role an integration assumes confirms them and draws
+    nothing new.
+
+Also: only ECS task roles and Lambda execution roles feed this tier (ECS execution
+roles describe the agent and are not collected); a grant naming one exact queue,
+table or function outside the scan — another account, the namesake trap again,
+or deleted — is `unresolved`; grants on services without nodes (logs, X-Ray, KMS,
+S3, SNS, Secrets Manager) are the infrastructure every role carries and are not
+reported until each service's collector exists.
+
+**Known gaps.** Service control policies and session policies are not collected;
+a DynamoDB resource policy is not collected (so `unpermitted` names it as a
+possibility); a queue or function policy that grants a role is read only to hold
+back `unpermitted`, not to draw edges. An integration whose target is withheld in
+a mapping template stays unresolved even when its role names the target — the
+role says what it may reach, not which call the template makes.
 
 ---
 
@@ -282,7 +342,9 @@ the SDK — the common case — has no inbound edge, so its whole pipeline is
 unreached; on the real validation account that was 23 of 31 nodes, all alive.
 "Orphan" would assert they are dead. Tier 2 brought it to 18, each one explained
 (services with no load balancer, a queue only low candidates reach) — see the
-[findings](spikes/m1-real-account-findings.md#linker-round-tier-2).
+[findings](spikes/m1-real-account-findings.md#linker-round-tier-2). Tier 3 changed
+none of those flows there; it changed what the edges mean
+([Tier-3 round](spikes/m1-real-account-findings.md#linker-round-tier-3)).
 
 Disabled edges (a disabled mapping) are recorded and not followed. Unsettled
 edges (a mapping caught mid-update) are followed and flagged. **Low-confidence
@@ -314,17 +376,21 @@ type Rule interface {
 `Context` is the only way a rule touches the graph: `Each` (typed specs) and
 `lookup` (one resource by id), `Edge` (drops to a finding when either end is not
 a node), `Local` (the account/region check), `External`, `Trigger`,
-`Corroborate`, `Unresolved` and `Finding`. Rules read **specs only, never Raw** —
+`Corroborate` (evidence, never an edge), `Permit` (an edge when none exists,
+otherwise evidence and confidence — never status), `Unresolved` and `Finding`. Rules read **specs only, never Raw** —
 the golden fixtures carry no Raw, so a rule that reached for it would find
 nothing.
 
-Findings have four kinds: `unresolved` (a reference to something outside the
+Findings have seven kinds: `unresolved` (a reference to something outside the
 inventory or without a node), `stale-permission`, `ambiguous` (a name that fits
-several resources), `unscanned` (configuration that could not be read). The text
+several resources), `unscanned` (configuration or a role that could not be read),
+`broad-access` (a grant reaching every resource of a service), `blocked` (a grant
+a `Deny` or the boundary cancels), `unpermitted` (a reference the role cannot act
+on). The text
 output groups identical findings, so twelve services sharing one task definition
 report one ElastiCache endpoint once; `graph.json` keeps every one.
 
-Every rule ships with a golden case **and a negative case**. Four golden
+Every rule ships with a golden case **and a negative case**. Five golden
 accounts in `internal/linker/testdata`:
 
 | Account | What it is |
@@ -332,6 +398,7 @@ accounts in `internal/linker/testdata`:
 | `orders` | exactly what discovery produces from its own fixtures; a test in discovery fails if it drifts |
 | `tier1-cases` | hand-written, one scenario per Tier-1 rule and per trap |
 | `tier2-cases` | hand-written, one scenario per Tier-2 pattern and per trap; `tier2_test.go` names each |
+| `tier3-cases` | hand-written, one scenario per Tier-3 decision and per trap; `tier3_test.go` names each |
 | `real-m1` | a real account's inventory, sanitized by `spikes/m1/sanitize-inventory.py` |
 
 Goldens pin the output; named tests in `rules_test.go` say why each behaviour
