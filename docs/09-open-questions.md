@@ -105,7 +105,13 @@ seed only when the user asks for "who calls this". Needs deciding before M2.
 
 ---
 
-### Q17 — Tier 3 and the references it contradicts
+### ~~Q17 — Tier 3 and the references it contradicts~~ · CLOSED 2026-09-13
+
+**Answered by Tier 3**, as leaned: a reference folds into a reverse `consume` edge
+when IAM backs that edge and no same-direction edge exists — the role may
+receive, and sends nothing, or a `publish` edge would have absorbed the reference
+first. Checked against the real account's twelve notification workers
+([findings](spikes/m1-real-account-findings.md#linker-round-tier-3)).
 
 **Raised by Tier 2.** A `references` edge points from the holder to the target
 because that is where the configuration lives. For a worker that only *receives*

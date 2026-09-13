@@ -33,11 +33,12 @@ anything reaches disk. It has been validated against a real account — with onl
 the shipped policy, and through a round trip into Floci:
 [m1-real-account-findings.md](spikes/m1-real-account-findings.md).
 
-**The linker reads two tiers**: Tier 1 (relationships the account declares) and
-Tier 2 (what configuration names — where inference, and the risk of a graph
-nobody believes, begins), plus flow classification, each validated against a real
-account. Next is Tier 3 (IAM), the only tier that knows *what* a workload does
-with what it names. See [08-roadmap.md](08-roadmap.md).
+**The linker reads three tiers**: Tier 1 (relationships the account declares),
+Tier 2 (what configuration names) and Tier 3 (what roles permit — the only tier
+that knows *what* a workload does with what it names), plus flow classification,
+each validated against a real account. What M1 still lacks is breadth — the RDS,
+ElastiCache and supporting collectors — and the exit criterion: someone who knows
+a real account confirming its graph. See [08-roadmap.md](08-roadmap.md).
 
 ## Conventions
 

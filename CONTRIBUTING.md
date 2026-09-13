@@ -207,13 +207,17 @@ optional:
 - **Resolve targets through `Local`**, which refuses ids derived from ARNs in
   another account or region. Names repeat; ids come from names.
 - **Ship a negative case** in the hand-written account for its tier
-  (`testdata/tier1-cases`, `testdata/tier2-cases`), a named test saying why the
-  case matters (`rules_test.go`, `tier2_test.go`), and regenerated goldens:
+  (`testdata/tier{1,2,3}-cases`), a named test saying why the case matters
+  (`rules_test.go`, `tier2_test.go`, `tier3_test.go`), and regenerated goldens:
   `go test ./internal/linker -update`, then read the diff.
 - **Never draw more intent than the source states.** Configuration names a
   resource without saying what is done with it: that is `references`, not
   `publish` or `write`. Ambiguity lowers confidence and becomes a finding; it is
   never settled silently.
+- **A permission is not a use, and never a state.** Claims from permissions go
+  through `Permit` (or `Corroborate`), which cannot change whether an edge is
+  enabled, and one source alone stays at `medium`. An absence — "this role cannot
+  touch that queue" — is only ever a finding.
 
 ## Tests
 
