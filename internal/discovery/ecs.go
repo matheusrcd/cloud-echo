@@ -209,6 +209,10 @@ func (c *ECS) collectTaskDefinitions(
 		if td == nil {
 			continue
 		}
+		// Redact in place, before either the normalized spec or Raw is built,
+		// so that no copy of a secret-shaped value survives into the inventory.
+		redacted := redactContainerDefinitions(td.ContainerDefinitions)
+
 		family := aws.ToString(td.Family)
 		name := fmt.Sprintf("%s:%d", family, td.Revision)
 
@@ -228,7 +232,7 @@ func (c *ECS) collectTaskDefinitions(
 				TaskRoleARN:      aws.ToString(td.TaskRoleArn),
 				ExecutionRoleARN: aws.ToString(td.ExecutionRoleArn),
 				RequiresCompat:   compatibilities(td.RequiresCompatibilities),
-				Containers:       containerSpecs(td.ContainerDefinitions),
+				Containers:       containerSpecs(td.ContainerDefinitions, redacted),
 			},
 			Raw: td,
 		}))
@@ -308,6 +312,12 @@ type containerSpec struct {
 	PortMappings []portMapping `json:"portMappings,omitempty"`
 	DependsOn    []string      `json:"dependsOn,omitempty"`
 	LogGroup     string        `json:"logGroup,omitempty"`
+
+	// Redacted lists what cloud-echo refused to copy out of AWS, e.g.
+	// "env:DB_PASSWORD" or "command[2]". The planner uses it to generate a local
+	// placeholder instead of an empty value, and it is how a user can tell a
+	// redaction from a variable that was genuinely empty.
+	Redacted []string `json:"redacted,omitempty"`
 }
 
 type portMapping struct {
@@ -319,7 +329,38 @@ type portMapping struct {
 
 // ---------------------------------------------------------------- conversion
 
-func containerSpecs(defs []ecstypes.ContainerDefinition) []containerSpec {
+// redactContainerDefinitions removes secret-shaped values from env vars, command
+// and entrypoint, mutating defs in place, and reports what it removed per
+// container.
+func redactContainerDefinitions(defs []ecstypes.ContainerDefinition) map[string][]string {
+	out := map[string][]string{}
+	for i := range defs {
+		d := &defs[i]
+		name := aws.ToString(d.Name)
+		for j := range d.Environment {
+			kv := &d.Environment[j]
+			if v, red := redactValue(aws.ToString(kv.Name), aws.ToString(kv.Value)); red {
+				kv.Value = aws.String(v)
+				out[name] = append(out[name], "env:"+aws.ToString(kv.Name))
+			}
+		}
+		var hit []int
+		if d.Command, hit = redactArgs(d.Command); len(hit) > 0 {
+			for _, n := range hit {
+				out[name] = append(out[name], fmt.Sprintf("command[%d]", n))
+			}
+		}
+		if d.EntryPoint, hit = redactArgs(d.EntryPoint); len(hit) > 0 {
+			for _, n := range hit {
+				out[name] = append(out[name], fmt.Sprintf("entryPoint[%d]", n))
+			}
+		}
+		sort.Strings(out[name])
+	}
+	return out
+}
+
+func containerSpecs(defs []ecstypes.ContainerDefinition, redacted map[string][]string) []containerSpec {
 	out := make([]containerSpec, 0, len(defs))
 	for _, d := range defs {
 		cs := containerSpec{
@@ -328,6 +369,7 @@ func containerSpecs(defs []ecstypes.ContainerDefinition) []containerSpec {
 			Essential:  aws.ToBool(d.Essential),
 			Command:    d.Command,
 			EntryPoint: d.EntryPoint,
+			Redacted:   redacted[aws.ToString(d.Name)],
 		}
 
 		if len(d.Environment) > 0 {

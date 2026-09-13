@@ -62,6 +62,12 @@ used only with `WithDecryption=false`. Record a secret's **ARN** — it is a use
 linking signal — and never its value. See
 [docs/07-security.md](docs/07-security.md).
 
+Any collector that reads free-form configuration — env vars, command lines,
+parameter values — must pass it through `redactValue` / `redactArgs` **before**
+building either the spec or `Raw`, and its tests must assert on the serialized
+resource that no planted secret survives. Redacting only the normalized spec
+leaves the secret in `Raw`, which is written to disk too.
+
 ### 3. Every resource carries provenance
 
 The linker's evidence chains bottom out in `Resource.Source`. An edge cloud-echo

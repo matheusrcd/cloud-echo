@@ -34,6 +34,9 @@ Rules every collector obeys:
    permissions; a scanner that dies on the first denial is useless.
 4. **Records provenance.** Every resource keeps the API call and response path it
    came from. The linker's evidence chain depends on this.
+5. **Redacts before it records.** Free-form configuration (env vars, command
+   lines) passes through `redactValue`/`redactArgs` before `Spec` *or* `Raw` is
+   built. Tests assert on the serialized resource, because `Raw` reaches disk too.
 
 ## Normalized resource model
 
@@ -47,13 +50,15 @@ type Resource struct {
     Name      string
     Tags      map[string]string
     Spec      json.RawMessage   // type-specific, normalized
-    Raw       json.RawMessage   // untouched API response (for evidence + future rules)
+    Raw       json.RawMessage   // API response, secret-shaped values redacted (evidence + future rules)
     Source    Provenance        // {api: "ecs:DescribeServices", collectedAt: ...}
 }
 ```
 
 Keeping `Raw` matters: new linker heuristics can be developed and tested against
-old inventories without re-scanning.
+old inventories without re-scanning. The one change made to it is redaction of
+secret-shaped configuration values, applied before `Spec` or `Raw` is built — see
+[07-security.md](07-security.md), Guarantee 2.
 
 ### Resource IDs
 

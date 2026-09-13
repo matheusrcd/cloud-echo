@@ -155,7 +155,9 @@
               { "name": "QUEUE_URL", "value": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events" },
               { "name": "DB_HOST", "value": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com" },
               { "name": "PAYMENTS_URL", "value": "https://api.payments.example.com" },
-              { "name": "LOG_LEVEL", "value": "info" }
+              { "name": "LOG_LEVEL", "value": "info" },
+              { "name": "PAYMENTS_API_KEY", "value": "not-a-real-payments-key-7f3a9c" },
+              { "name": "DATABASE_URL", "value": "postgres://orders_app:hunter2@orders-db.cluster-abc123.us-east-1.rds.amazonaws.com:5432/orders" }
             ],
             "secrets": [
               {
@@ -204,7 +206,7 @@
             "name": "worker",
             "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/notifications:v0.9",
             "essential": true,
-            "command": ["node", "worker.js"],
+            "command": ["node", "worker.js", "--smtp-password=correcthorsebattery"],
             "environment": [
               { "name": "QUEUE_URL", "value": "https://sqs.us-east-1.amazonaws.com/123456789012/notifications" },
               { "name": "CACHE_HOST", "value": "sessions.abc123.ng.0001.use1.cache.amazonaws.com" }

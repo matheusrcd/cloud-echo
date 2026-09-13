@@ -32,7 +32,9 @@ type Resource struct {
 	// consume.
 	Spec json.RawMessage `json:"spec,omitempty"`
 
-	// Raw is the untouched API response.
+	// Raw is the API response, with one modification: secret-shaped
+	// configuration values are redacted before it is stored (see
+	// internal/discovery/redact.go). Everything else is untouched.
 	//
 	// Keeping it is what lets a new linker heuristic be developed and tested
 	// against inventories captured months ago, without re-scanning anyone's
