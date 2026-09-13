@@ -30,7 +30,7 @@ func (configValueRule) Apply(c *Context) {
 	// definition is not a node, so the service holds what it declares. A task
 	// definition no service runs (a one-off RunTask) has no node to hold it.
 	Each(c, spec.TypeECSService, func(r inventory.Resource, svc *spec.ECSService) {
-		td, ok := lookup[spec.ECSTaskDefinition](c, svc.TaskDefinitionID)
+		td, ok := lookup[spec.ECSTaskDefinition](c, svc.TaskDefinitionID, spec.TypeECSTaskDefinition)
 		if !ok {
 			ref := svc.TaskDefinitionID
 			if ref == "" {
@@ -142,9 +142,12 @@ func cutFlag(a string) (key, value string, ok bool) {
 	return "", "", false
 }
 
-// lookup decodes the spec of the resource with the given id. Like Each, a spec
-// that does not decode is a collector bug, reported as a warning.
-func lookup[T any](c *Context, id string) (*T, bool) {
+// lookup decodes the spec of the resource with the given id and type. The type
+// is checked, not trusted to the decode: any spec decodes into any struct, and
+// a function read as a queue is a queue with no policy (found writing the SNS
+// rule). Like Each, a spec that does not decode is a collector bug, reported as
+// a warning.
+func lookup[T any](c *Context, id, typ string) (*T, bool) {
 	if id == "" {
 		return nil, false
 	}
@@ -155,7 +158,7 @@ func lookup[T any](c *Context, id string) (*T, bool) {
 		}
 	}
 	i, ok := c.byID[id]
-	if !ok {
+	if !ok || c.inv.Resources[i].Type != typ {
 		return nil, false
 	}
 	var v T

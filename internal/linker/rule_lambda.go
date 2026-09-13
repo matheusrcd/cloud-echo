@@ -91,6 +91,10 @@ type policyDoc struct {
 		Principal json.RawMessage
 		Action    json.RawMessage
 		Condition map[string]map[string]json.RawMessage
+		// Read only to be generous: a statement that negates cannot be
+		// ruled out.
+		NotPrincipal json.RawMessage
+		NotAction    json.RawMessage
 	}
 }
 
@@ -143,6 +147,12 @@ func (lambdaResourcePolicyRule) Apply(c *Context) {
 									Detail: fmt.Sprintf("resource policy lets target group %s invoke this function, but it is not registered there", targetGroupName(tgARN))})
 						}
 					}
+					continue
+				}
+				// SNS invokes a function for a topic: the permission names the
+				// topic, and corroborates its subscription's delivery.
+				if svc == "sns.amazonaws.com" {
+					snsSource(c, r.ID, "invoke it", source, st.Condition)
 					continue
 				}
 				if svc != "apigateway.amazonaws.com" {

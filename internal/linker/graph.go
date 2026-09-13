@@ -170,8 +170,10 @@ func (g *Graph) Node(id string) (Node, bool) {
 // queue.
 func (g *Graph) Synchronous(e Edge) bool {
 	if e.Kind == KindReferences {
+		// A queue or a topic is where a request hands work off: naming one
+		// does not put it on the request path (a topic since the SNS round).
 		n, _ := g.Node(e.To)
-		return n.Type != spec.TypeSQSQueue
+		return n.Type != spec.TypeSQSQueue && n.Type != spec.TypeSNSTopic
 	}
 	return e.Kind.Synchronous()
 }

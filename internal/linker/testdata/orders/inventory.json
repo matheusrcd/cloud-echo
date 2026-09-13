@@ -34,6 +34,12 @@
       "service": "RDS",
       "kind": "out-of-scope",
       "message": "cluster docs-db is DocumentDB, listed by the RDS API; cloud-echo has no DocumentDB collector"
+    },
+    {
+      "service": "SNS",
+      "op": "ListTagsForResource",
+      "kind": "access-denied",
+      "message": "operation error SNS: ListTagsForResource, https response error StatusCode: 403, RequestID: , AuthorizationError: not authorized to perform: SNS:ListTagsForResource"
     }
   ],
   "resources": [
@@ -1768,6 +1774,26 @@
         "roleId": "iam/role/audit-writer-role",
         "env": {
           "AUDIT_TABLE": "orders-audit"
+        },
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Id": "default",
+          "Statement": [
+            {
+              "Sid": "sns-order-events",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:audit-writer",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:sns:us-east-1:123456789012:order-events"
+                }
+              }
+            }
+          ]
         }
       },
       "source": {
@@ -2123,6 +2149,239 @@
       }
     },
     {
+      "id": "sns/alerts",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:alerts",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "alerts",
+      "spec": {
+        "topicName": "alerts",
+        "policy": {
+          "Version": "2008-10-17",
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:alerts",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            },
+            {
+              "Sid": "alarms",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudwatch.amazonaws.com"
+              },
+              "Action": "sns:Publish",
+              "Resource": "arn:aws:sns:us-east-1:123456789012:alerts"
+            }
+          ]
+        },
+        "subscriptions": [
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:alerts:s6",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:123456789012:notifications",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:notifications",
+              "id": "sqs/notifications"
+            },
+            "owner": "123456789012"
+          }
+        ]
+      },
+      "source": {
+        "api": "sns:GetTopicAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/billing.fifo",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:billing.fifo",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "billing.fifo",
+      "spec": {
+        "topicName": "billing.fifo",
+        "fifo": true,
+        "contentBasedDeduplication": true,
+        "policy": {
+          "Version": "2008-10-17",
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:billing.fifo",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            }
+          ]
+        },
+        "deliveryPolicy": {
+          "http": {
+            "defaultHealthyRetryPolicy": {
+              "numRetries": 5
+            }
+          }
+        },
+        "subscriptions": [
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:billing.fifo:s7",
+            "protocol": "firehose",
+            "endpoint": "arn:aws:firehose:us-east-1:123456789012:deliverystream/billing-archive",
+            "owner": "123456789012",
+            "roleArn": "arn:aws:iam::123456789012:role/sns-firehose"
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:billing.fifo:s8",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:999999999999:partner-billing.fifo",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-1:999999999999:partner-billing.fifo",
+              "id": "sqs/partner-billing.fifo"
+            },
+            "owner": "999999999999",
+            "rawDelivery": true
+          }
+        ]
+      },
+      "source": {
+        "api": "sns:GetTopicAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sns/order-events",
+      "type": "sns.topic",
+      "arn": "arn:aws:sns:us-east-1:123456789012:order-events",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "order-events",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "topicName": "order-events",
+        "kmsKeyId": "alias/aws/sns",
+        "policy": {
+          "Version": "2008-10-17",
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish"
+              ],
+              "Resource": "arn:aws:sns:us-east-1:123456789012:order-events",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "123456789012"
+                }
+              }
+            }
+          ]
+        },
+        "subscriptions": [
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:order-events:s4",
+            "protocol": "email",
+            "endpoint": "<redacted:personal-data>",
+            "owner": "123456789012"
+          },
+          {
+            "pending": true,
+            "protocol": "https",
+            "endpoint": "https://hooks:<redacted:url-credentials>@partner.example.com/sns/in?token=<redacted:url-query>&team=orders",
+            "owner": "123456789012"
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:order-events:s2",
+            "protocol": "lambda",
+            "endpoint": "arn:aws:lambda:us-east-1:123456789012:function:audit-writer",
+            "target": {
+              "arn": "arn:aws:lambda:us-east-1:123456789012:function:audit-writer",
+              "id": "lambda/audit-writer"
+            },
+            "owner": "123456789012",
+            "deadLetter": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:orders-events-dlq",
+              "id": "sqs/orders-events-dlq"
+            }
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:order-events:s5",
+            "protocol": "sms",
+            "endpoint": "<redacted:personal-data>",
+            "owner": "123456789012"
+          },
+          {
+            "arn": "arn:aws:sns:us-east-1:123456789012:order-events:s1",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:123456789012:orders-events",
+            "target": {
+              "arn": "arn:aws:sqs:us-east-1:123456789012:orders-events",
+              "id": "sqs/orders-events"
+            },
+            "owner": "123456789012",
+            "rawDelivery": true,
+            "filterPolicy": "{\"type\":[\"order.created\"]}",
+            "filterScope": "MessageAttributes"
+          }
+        ]
+      },
+      "source": {
+        "api": "sns:GetTopicAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
       "id": "sqs/notifications",
       "type": "sqs.queue",
       "arn": "arn:aws:sqs:us-east-1:123456789012:notifications",
@@ -2189,6 +2448,20 @@
               },
               "Action": "sqs:SendMessage",
               "Resource": "arn:aws:sqs:us-east-1:123456789012:orders-events"
+            },
+            {
+              "Sid": "sns-order-events",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:orders-events",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": "arn:aws:sns:us-east-1:123456789012:order-events"
+                }
+              }
             }
           ]
         }

@@ -112,6 +112,12 @@ func IDFromARN(arn string) string {
 		case p[0] == "targetgroup" && len(p) >= 3:
 			return "elb/tg/" + p[1]
 		}
+	case "sns":
+		// <topic>, or <topic>:<subscription-id>: a subscription belongs to its
+		// topic.
+		if name, _, _ := strings.Cut(res, ":"); name != "" {
+			return "sns/" + name
+		}
 	case "elasticache":
 		// Replication groups, cache clusters and serverless caches are three
 		// namespaces; the common case, the replication group, keeps the short id.

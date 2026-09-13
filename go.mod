@@ -15,6 +15,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.64.0
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.108.0
 	github.com/aws/aws-sdk-go-v2/service/rds v1.129.0
+	github.com/aws/aws-sdk-go-v2/service/sns v1.47.0
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.50.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.46.0
 	github.com/aws/smithy-go v1.28.1

@@ -94,7 +94,7 @@ func isNotFound(err error) bool {
 		return false
 	}
 	switch ae.ErrorCode() {
-	case "ResourceNotFoundException", "NoSuchEntity", "NotFoundException":
+	case "ResourceNotFoundException", "NoSuchEntity", "NotFoundException", "NotFound":
 		return true
 	}
 	return false

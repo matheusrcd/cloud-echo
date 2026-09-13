@@ -199,6 +199,21 @@ var services = []Service{
 		},
 	},
 	{
+		SDKID:     "SNS",
+		IAMPrefix: "sns",
+		// ListSubscriptionsByTopic returns protocol and endpoint only; a
+		// subscription's filter policy, raw delivery and dead-letter queue need
+		// GetSubscriptionAttributes, one per confirmed subscription. No
+		// response carries tags.
+		Ops: []string{
+			"GetSubscriptionAttributes",
+			"GetTopicAttributes",
+			"ListSubscriptionsByTopic",
+			"ListTagsForResource",
+			"ListTopics",
+		},
+	},
+	{
 		SDKID:     "SQS",
 		IAMPrefix: "sqs",
 		// GetQueueAttributes with AttributeNames=["All"] returns the ARN, the
@@ -241,6 +256,7 @@ var forbidden = map[string]string{
 	"sts:GetSessionToken":           "mints credentials",
 	"ec2:GetPasswordData":           "returns an encrypted administrator password",
 	"sqs:ReceiveMessage":            "hides messages from the real consumer",
+	"sns:GetEndpointAttributes":     "returns a mobile device's push token",
 	"apigateway:POST":               "creates API Gateway resources",
 	"apigateway:PUT":                "replaces API Gateway resources",
 	"apigateway:PATCH":              "modifies API Gateway resources",

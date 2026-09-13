@@ -49,7 +49,9 @@
           "Runtime": "nodejs20.x",
           "Handler": "index.handler",
           "PackageType": "Zip",
-          "Architectures": ["x86_64"],
+          "Architectures": [
+            "x86_64"
+          ],
           "MemorySize": 512,
           "Timeout": 30,
           "Role": "arn:aws:iam::123456789012:role/order-processor-role",
@@ -60,7 +62,10 @@
               "PAYMENTS_TOKEN": "not-a-real-payments-token-0000"
             }
           },
-          "LoggingConfig": { "LogFormat": "JSON", "LogGroup": "/aws/lambda/order-processor" }
+          "LoggingConfig": {
+            "LogFormat": "JSON",
+            "LogGroup": "/aws/lambda/order-processor"
+          }
         },
         {
           "FunctionName": "audit-writer",
@@ -68,16 +73,21 @@
           "Runtime": "python3.12",
           "Handler": "app.handler",
           "PackageType": "Zip",
-          "Architectures": ["arm64"],
+          "Architectures": [
+            "arm64"
+          ],
           "MemorySize": 256,
           "Timeout": 60,
           "Role": "arn:aws:iam::123456789012:role/audit-writer-role",
-          "Environment": { "Variables": { "AUDIT_TABLE": "orders-audit" } }
+          "Environment": {
+            "Variables": {
+              "AUDIT_TABLE": "orders-audit"
+            }
+          }
         }
       ]
     }
   },
-
   {
     "op": "GetPolicy",
     "match": "/functions/webhook-receiver/policy",
@@ -88,11 +98,23 @@
   },
   {
     "op": "GetPolicy",
-    "status": 404,
-    "headers": { "X-Amzn-Errortype": "ResourceNotFoundException" },
-    "response": { "Type": "User", "Message": "The resource you requested does not exist." }
+    "match": "/functions/audit-writer/policy",
+    "response": {
+      "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"default\",\"Statement\":[{\"Sid\":\"sns-order-events\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"sns.amazonaws.com\"},\"Action\":\"lambda:InvokeFunction\",\"Resource\":\"arn:aws:lambda:us-east-1:123456789012:function:audit-writer\",\"Condition\":{\"ArnLike\":{\"AWS:SourceArn\":\"arn:aws:sns:us-east-1:123456789012:order-events\"}}}]}",
+      "RevisionId": "7c1e6f2a-0000-4000-8000-000000000002"
+    }
   },
-
+  {
+    "op": "GetPolicy",
+    "status": 404,
+    "headers": {
+      "X-Amzn-Errortype": "ResourceNotFoundException"
+    },
+    "response": {
+      "Type": "User",
+      "Message": "The resource you requested does not exist."
+    }
+  },
   {
     "op": "ListEventSourceMappings",
     "response": {
@@ -105,7 +127,13 @@
           "BatchSize": 10,
           "MaximumBatchingWindowInSeconds": 5,
           "State": "Enabled",
-          "FilterCriteria": { "Filters": [{ "Pattern": "{\"body\":{\"type\":[\"order.created\"]}}" }] }
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{\"body\":{\"type\":[\"order.created\"]}}"
+              }
+            ]
+          }
         },
         {
           "UUID": "0b6f2a3c-2222-4d2e-9f00-000000000002",
@@ -115,7 +143,11 @@
           "BatchSize": 100,
           "StartingPosition": "LATEST",
           "State": "Enabled",
-          "DestinationConfig": { "OnFailure": { "Destination": "arn:aws:sqs:us-east-1:123456789012:orders-events-dlq" } }
+          "DestinationConfig": {
+            "OnFailure": {
+              "Destination": "arn:aws:sqs:us-east-1:123456789012:orders-events-dlq"
+            }
+          }
         },
         {
           "UUID": "0b6f2a3c-3333-4d2e-9f00-000000000003",

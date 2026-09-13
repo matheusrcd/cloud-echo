@@ -34,7 +34,7 @@ func (iamPolicyRule) Tier() int    { return 3 }
 var serviceOfType = map[string]string{
 	spec.TypeSQSQueue: "sqs", spec.TypeDynamoDBTable: "dynamodb", spec.TypeLambdaFunction: "lambda",
 	spec.TypeRDSInstance: "rds", spec.TypeRDSCluster: "rds",
-	spec.TypeCache: "elasticache",
+	spec.TypeCache: "elasticache", spec.TypeSNSTopic: "sns",
 }
 
 // actionClass is one intent and the actions that state it.
@@ -103,6 +103,8 @@ var actionClasses = map[string][]actionClass{
 	spec.TypeRDSInstance: {readsDBSecret},
 	// IAM authentication to Valkey/Redis: elasticache:Connect on the cache.
 	spec.TypeCache: {{kind: KindConnect, actions: []string{"elasticache:Connect"}, arns: ownARN}},
+	// PublishBatch is authorized as sns:Publish; there is no action of its own.
+	spec.TypeSNSTopic: {{kind: KindPublish, actions: []string{"sns:Publish"}, arns: ownARN}},
 }
 
 type iamTarget struct {
@@ -110,9 +112,11 @@ type iamTarget struct {
 	indexARNs    []string
 	streamARN    string
 	secretARN    string // a database's managed master secret
-	// policy is the target's own resource policy (queue policy, function
-	// policy): it may grant a role what the role's policies do not.
-	policy json.RawMessage
+	// policy is the target's own resource policy (queue, function or topic
+	// policy): it may grant a role what the role's policies do not. When it
+	// could not be read, it may have.
+	policy       json.RawMessage
+	policyUnread bool
 }
 
 // roleView is a role with every document that shapes it, parsed.
@@ -170,7 +174,7 @@ func (iamPolicyRule) Apply(c *Context) {
 	}
 	Each(c, spec.TypeLambdaFunction, func(r inventory.Resource, fn *spec.LambdaFunction) { missing(r.ID, fn.RoleID) })
 	Each(c, spec.TypeECSService, func(r inventory.Resource, s *spec.ECSService) {
-		if td, ok := lookup[spec.ECSTaskDefinition](c, s.TaskDefinitionID); ok {
+		if td, ok := lookup[spec.ECSTaskDefinition](c, s.TaskDefinitionID, spec.TypeECSTaskDefinition); ok {
 			missing(r.ID, td.TaskRoleID)
 		}
 	})
@@ -241,7 +245,15 @@ func iamTargets(c *Context) []*iamTarget {
 			}
 			var fn spec.LambdaFunction
 			if json.Unmarshal(r.Spec, &fn) == nil {
-				t.policy = fn.ResourcePolicy
+				t.policy, t.policyUnread = fn.ResourcePolicy, fn.PolicyUnread
+			}
+		case spec.TypeSNSTopic:
+			if t.arn == "" {
+				t.arn = fmt.Sprintf("arn:aws:sns:%s:%s:%s", region, acct, r.Name)
+			}
+			var tp spec.SNSTopic
+			if json.Unmarshal(r.Spec, &tp) == nil {
+				t.policy, t.policyUnread = tp.Policy, contains(tp.Unread, "attributes")
 			}
 		}
 		out = append(out, t)
@@ -273,7 +285,7 @@ func readRole(c *Context, r inventory.Resource, role *spec.IAMRole) *roleView {
 	}
 	for _, a := range role.AttachedPolicies {
 		label := "attached policy " + lastSegment(a.ARN)
-		pol, ok := lookup[spec.IAMPolicy](c, a.ID)
+		pol, ok := lookup[spec.IAMPolicy](c, a.ID, spec.TypeIAMPolicy)
 		if !ok {
 			rv.unread = append(rv.unread, label)
 			continue
@@ -291,7 +303,7 @@ func readRole(c *Context, r inventory.Resource, role *spec.IAMRole) *roleView {
 		rv.hasBoundary = true
 		label := "permissions boundary " + lastSegment(b.ARN)
 		rv.boundaryLabel = label
-		pol, ok := lookup[spec.IAMPolicy](c, b.ID)
+		pol, ok := lookup[spec.IAMPolicy](c, b.ID, spec.TypeIAMPolicy)
 		if !ok || !add(pol.Document, "iam:GetPolicyVersion "+pol.PolicyName+" "+pol.DefaultVersion, label, &rv.boundary) {
 			rv.boundaryUnread = label
 		}
@@ -417,7 +429,7 @@ func evaluate(c *Context, holder string, rv *roleView, targets []*iamTarget, map
 				reportBlocked(c, holder, t, blocked)
 			}
 		}
-		if permitted || resourcePolicyMayGrant(t.policy, rv.arn) {
+		if permitted || t.policyUnread || resourcePolicyMayGrant(t.policy, rv.arn) {
 			ev.permitted[t.id] = true
 		}
 		if len(results) == 0 {
@@ -613,9 +625,11 @@ func reportBlocked(c *Context, holder string, t *iamTarget, blocked map[string][
 	}
 }
 
-// resourcePolicyMayGrant reports whether a queue or function policy allows
-// the role (or anyone) something. Coarse on purpose: it only stops Tier 3 from
-// calling a reference unpermitted, never draws an edge.
+// resourcePolicyMayGrant reports whether a queue, function or topic policy
+// allows the role (or anyone) something. Coarse on purpose: it only stops Tier 3
+// from calling a reference unpermitted, never draws an edge. A "*" conditioned
+// only on source keys — every topic's default statement, AWS:SourceOwner —
+// admits AWS services acting for the account, not its roles.
 func resourcePolicyMayGrant(raw json.RawMessage, roleARN string) bool {
 	if len(raw) == 0 {
 		return false
@@ -630,7 +644,7 @@ func resourcePolicyMayGrant(raw json.RawMessage, roleARN string) bool {
 		}
 		_, principals := principalsOf(st.Principal)
 		for _, p := range principals {
-			if p == "*" || p == roleARN {
+			if (p == "*" && !onlySourceConditions(st.Condition)) || p == roleARN {
 				return true
 			}
 		}

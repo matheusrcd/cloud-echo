@@ -26,6 +26,7 @@ var nodeTypes = map[string]bool{
 	spec.TypeRDSCluster:     true,
 	spec.TypeCache:          true,
 	spec.TypeLoadBalancer:   true,
+	spec.TypeSNSTopic:       true,
 }
 
 // Rule turns what an inventory declares into edges, triggers and findings.
@@ -42,6 +43,8 @@ func Tier1() []Rule {
 	return []Rule{
 		eventSourceMappingRule{},
 		redriveRule{},
+		sqsResourcePolicyRule{},
+		snsSubscriptionRule{},
 		deadLetterRule{},
 		apiIntegrationRule{},
 		apiAuthorizerRule{},

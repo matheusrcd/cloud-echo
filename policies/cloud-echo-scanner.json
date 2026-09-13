@@ -35,6 +35,11 @@
         "lambda:ListFunctions",
         "rds:DescribeDBClusters",
         "rds:DescribeDBInstances",
+        "sns:GetSubscriptionAttributes",
+        "sns:GetTopicAttributes",
+        "sns:ListSubscriptionsByTopic",
+        "sns:ListTagsForResource",
+        "sns:ListTopics",
         "sqs:GetQueueAttributes",
         "sqs:ListQueueTags",
         "sqs:ListQueues"

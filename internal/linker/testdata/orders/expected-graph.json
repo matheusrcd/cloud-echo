@@ -126,6 +126,13 @@
       "external": true
     },
     {
+      "id": "ext/partner.example.com",
+      "type": "external.http",
+      "name": "partner.example.com",
+      "flow": "unreached",
+      "external": true
+    },
+    {
       "id": "lambda/audit-writer",
       "type": "lambda.function",
       "name": "audit-writer",
@@ -171,6 +178,27 @@
       "id": "rds/reports-db",
       "type": "rds.instance",
       "name": "reports-db",
+      "flow": "unreached"
+    },
+    {
+      "id": "sns/alerts",
+      "type": "sns.topic",
+      "name": "alerts",
+      "flow": "entrypoint",
+      "triggers": [
+        "cloudwatch.amazonaws.com may publish to it (topic policy)"
+      ]
+    },
+    {
+      "id": "sns/billing.fifo",
+      "type": "sns.topic",
+      "name": "billing.fifo",
+      "flow": "unreached"
+    },
+    {
+      "id": "sns/order-events",
+      "type": "sns.topic",
+      "name": "order-events",
       "flow": "unreached"
     },
     {
@@ -605,6 +633,56 @@
       ]
     },
     {
+      "from": "sns/order-events",
+      "to": "ext/partner.example.com",
+      "kind": "publish",
+      "confidence": "certain",
+      "status": "disabled",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic order-events https",
+          "detail": "delivers over HTTP to partner.example.com — pending confirmation: nothing is delivered until the endpoint confirms"
+        }
+      ]
+    },
+    {
+      "from": "sns/order-events",
+      "to": "lambda/audit-writer",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy audit-writer sns-order-events",
+          "detail": "its policy lets sns/order-events invoke it"
+        },
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic order-events lambda",
+          "detail": "delivers to lambda/audit-writer"
+        }
+      ]
+    },
+    {
+      "from": "sns/order-events",
+      "to": "sqs/orders-events",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sns.subscription",
+          "source": "sns:ListSubscriptionsByTopic order-events sqs",
+          "detail": "delivers to sqs/orders-events (filter policy on MessageAttributes)"
+        },
+        {
+          "rule": "sqs.resource-policy",
+          "source": "sqs:GetQueueAttributes orders-events Policy sns-order-events",
+          "detail": "its policy lets sns/order-events send to it"
+        }
+      ]
+    },
+    {
       "from": "sqs/orders",
       "to": "lambda/order-processor",
       "kind": "consume",
@@ -712,13 +790,6 @@
       "node": "apigw/h1t2t3p4a5",
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
-      "detail": "AWS_PROXY GET /orders/{id} → orders-fn (target is not in the inventory)"
-    },
-    {
-      "kind": "unresolved",
-      "node": "apigw/h1t2t3p4a5",
-      "target": "lambda/orders-fn",
-      "rule": "apigw.integration",
       "detail": "AWS_PROXY POST /orders → orders-fn (target is not in the inventory)"
     },
     {
@@ -727,6 +798,13 @@
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
       "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY GET /orders/{id} → orders-fn (target is not in the inventory)"
     },
     {
       "kind": "unresolved",
@@ -818,6 +896,34 @@
       "target": "apigw/a1b2c3d4e5",
       "rule": "lambda.resource-policy",
       "detail": "resource policy lets API a1b2c3d4e5 invoke this function, but no route or authorizer of that API uses it"
+    },
+    {
+      "kind": "blocked",
+      "node": "sns/alerts",
+      "target": "sqs/notifications",
+      "rule": "sns.subscription",
+      "detail": "subscribed, but the queue has no policy, and SNS may send to a queue only if its policy says so: every delivery fails, no edge"
+    },
+    {
+      "kind": "unresolved",
+      "node": "sns/billing.fifo",
+      "target": "arn:aws:firehose:us-east-1:123456789012:deliverystream/billing-archive",
+      "rule": "sns.subscription",
+      "detail": "delivers to a Firehose delivery stream; cloud-echo has no Firehose collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "sns/billing.fifo",
+      "target": "arn:aws:sqs:us-east-1:999999999999:partner-billing.fifo",
+      "rule": "sns.subscription",
+      "detail": "subscription: target is in account 999999999999, outside this scan"
+    },
+    {
+      "kind": "blocked",
+      "node": "sns/order-events",
+      "target": "sqs/orders-events-dlq",
+      "rule": "sns.subscription",
+      "detail": "dead-letter queue of the subscription to lambda/audit-writer, but the queue has no policy, and SNS may send to a queue only if its policy says so: undeliverable messages are lost"
     }
   ]
 }
