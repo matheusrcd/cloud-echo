@@ -104,6 +104,29 @@ func TestRedactKeepsHostOfCredentialURL(t *testing.T) {
 		}
 	}
 
+	// Secrets in the path and the query lose only themselves.
+	for _, tc := range []struct{ in, want string }{
+		{
+			// A Slack webhook: the token is the last path segment, and
+			// hooks.slack.com is what marks this as an external integration.
+			"https://hooks.slack.com/services/T0ABCDEF1/B0ABCDEF2/" + "aB3dE5gH7jK9mN1pQ3sT5vX7",
+			"https://hooks.slack.com/services/T0ABCDEF1/B0ABCDEF2/<redacted:url-path>",
+		},
+		{
+			"https://api.example.com/v1/charge?api_key=abc123&currency=usd",
+			"https://api.example.com/v1/charge?api_key=<redacted:url-query>&currency=usd",
+		},
+		{
+			"https://bucket.s3.amazonaws.com/report.csv?X-Amz-Expires=600&X-Amz-Signature=9f2b1c3d&X-Amz-Credential=AKIA" + "IOSFODNN7EXAMPLE%2F20260901",
+			"https://bucket.s3.amazonaws.com/report.csv?X-Amz-Expires=600&X-Amz-Signature=<redacted:url-query>&X-Amz-Credential=<redacted:url-query>",
+		},
+	} {
+		got, red := redactValue("WEBHOOK_URL", tc.in)
+		if !red || got != tc.want {
+			t.Errorf("\n  in: %s\n got: %s\nwant: %s", tc.in, got, tc.want)
+		}
+	}
+
 	// A username alone is not a secret, and the URL is kept whole.
 	in := "https://user@api.example.com/v1"
 	if got, red := redactValue("API_URL", in); red || got != in {

@@ -78,16 +78,13 @@ func redactValue(key, value string) (string, bool) {
 	if value == "" || arnPattern.MatchString(value) {
 		return value, false
 	}
-	for _, p := range credentialPatterns {
-		if p.MatchString(value) {
-			return marker("credential-pattern"), true
-		}
-	}
-	if stripped, ok := stripURLCredentials(value); ok {
-		return stripped, true
-	}
+	// URLs are sanitized component by component rather than all-or-nothing:
+	// the host is the linking signal, and it is never the secret.
 	if looksLikeURL(value) {
-		return value, false
+		return sanitizeURL(value)
+	}
+	if credentialPattern(value) {
+		return marker("credential-pattern"), true
 	}
 	if secretKeyName(key) {
 		return marker("key-name"), true
@@ -171,31 +168,95 @@ func tokenize(s string) []string {
 	return toks
 }
 
-// stripURLCredentials replaces the password in scheme://user:pass@host, keeping
-// everything else. It works on the string rather than round-tripping through
-// net/url, which would re-encode the rest of the URL and change values that are
-// only meant to lose their password.
-func stripURLCredentials(v string) (string, bool) {
+// sanitizeURL removes secrets from a URL while keeping its scheme, host and port.
+//
+// Secrets travel in URLs in three places, all common in Lambda env vars:
+//
+//   - userinfo:  postgres://app:<password>@orders-db.../orders
+//   - the path:  https://hooks.slack.com/services/T0../B0../<token>
+//   - the query: https://api.example.com/v1?api_key=<key>, or a presigned
+//     S3 URL's X-Amz-Signature
+//
+// Each component is checked on its own, so a Slack webhook keeps
+// hooks.slack.com — which is exactly what marks it as an external integration —
+// and loses only the token. It works on the string rather than round-tripping
+// through net/url, which would re-encode parts of the value that are meant to
+// survive unchanged.
+func sanitizeURL(v string) (string, bool) {
 	i := strings.Index(v, "://")
-	if i <= 0 {
-		return v, false
-	}
-	rest := v[i+3:]
+	scheme, rest := v[:i+3], v[i+3:]
+
 	authEnd := len(rest)
 	if j := strings.IndexAny(rest, "/?#"); j >= 0 {
 		authEnd = j
 	}
-	authority := rest[:authEnd]
-	at := strings.LastIndex(authority, "@")
-	if at < 0 {
-		return v, false
+	authority, tail := rest[:authEnd], rest[authEnd:]
+	changed := false
+
+	// net/url splits userinfo on the last '@', so a raw '@' in a password does
+	// not turn half of it into the host. Match that.
+	if at := strings.LastIndex(authority, "@"); at >= 0 {
+		if user, pass, ok := strings.Cut(authority[:at], ":"); ok && pass != "" {
+			authority = user + ":" + marker("url-credentials") + authority[at:]
+			changed = true
+		}
 	}
-	userinfo := authority[:at]
-	user, pass, hasPass := strings.Cut(userinfo, ":")
-	if !hasPass || pass == "" {
-		return v, false
+
+	var fragment string
+	if h := strings.Index(tail, "#"); h >= 0 {
+		tail, fragment = tail[:h], tail[h:]
 	}
-	return v[:i+3] + user + ":" + marker("url-credentials") + "@" + rest[at+1:], true
+	var query string
+	hasQuery := false
+	if q := strings.Index(tail, "?"); q >= 0 {
+		tail, query, hasQuery = tail[:q], tail[q+1:], true
+	}
+
+	segs := strings.Split(tail, "/")
+	for k, s := range segs {
+		if s != "" && (credentialPattern(s) || highEntropy(s)) {
+			segs[k] = marker("url-path")
+			changed = true
+		}
+	}
+
+	if hasQuery {
+		params := strings.Split(query, "&")
+		for k, p := range params {
+			key, val, ok := strings.Cut(p, "=")
+			if !ok || val == "" {
+				continue
+			}
+			if secretKeyName(key) || signatureParams[strings.ToLower(key)] ||
+				credentialPattern(val) || highEntropy(val) {
+				params[k] = key + "=" + marker("url-query")
+				changed = true
+			}
+		}
+		query = strings.Join(params, "&")
+	}
+
+	out := scheme + authority + strings.Join(segs, "/")
+	if hasQuery {
+		out += "?" + query
+	}
+	return out + fragment, changed
+}
+
+// signatureParams are query parameters whose value authorizes the request on
+// its own — a presigned URL is a credential with an expiry date.
+var signatureParams = map[string]bool{
+	"x-amz-signature": true, "x-amz-credential": true, "x-amz-security-token": true,
+	"signature": true, "sig": true, "awsaccesskeyid": true,
+}
+
+func credentialPattern(v string) bool {
+	for _, p := range credentialPatterns {
+		if p.MatchString(v) {
+			return true
+		}
+	}
+	return false
 }
 
 func looksLikeURL(v string) bool {
