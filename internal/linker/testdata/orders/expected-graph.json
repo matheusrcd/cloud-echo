@@ -1,0 +1,328 @@
+{
+  "formatVersion": 1,
+  "generatedBy": "cloud-echo/golden",
+  "inventoryScanId": "fixture",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "partial": true,
+  "nodes": [
+    {
+      "id": "apigw/a1b2c3d4e5",
+      "type": "apigateway.rest",
+      "name": "orders-rest",
+      "flow": "entrypoint",
+      "triggers": [
+        "REST API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "apigw/f6g7h8i9j0",
+      "type": "apigateway.rest",
+      "name": "orders-rest",
+      "flow": "entrypoint",
+      "triggers": [
+        "REST API (EDGE), default endpoint disabled: reachable through a custom domain or VPC endpoint only"
+      ]
+    },
+    {
+      "id": "apigw/h1t2t3p4a5",
+      "type": "apigateway.http",
+      "name": "orders-http",
+      "flow": "entrypoint",
+      "triggers": [
+        "HTTP API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "apigw/w1s2k3t4a5",
+      "type": "apigateway.websocket",
+      "name": "orders-ws",
+      "flow": "entrypoint",
+      "triggers": [
+        "WEBSOCKET API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "ddb/orders",
+      "type": "dynamodb.table",
+      "name": "orders",
+      "flow": "unreached"
+    },
+    {
+      "id": "ddb/orders-audit",
+      "type": "dynamodb.table",
+      "name": "orders-audit",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/batch/orders-api",
+      "type": "ecs.service",
+      "name": "orders-api",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/main/notifications",
+      "type": "ecs.service",
+      "name": "notifications",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/main/orders-api",
+      "type": "ecs.service",
+      "name": "orders-api",
+      "flow": "entrypoint",
+      "triggers": [
+        "behind a load balancer (target group orders-api; internet-facing or internal needs the ELBv2 collector)"
+      ]
+    },
+    {
+      "id": "ext/api.payments.example.com",
+      "type": "external.http",
+      "name": "api.payments.example.com",
+      "flow": "sync",
+      "external": true
+    },
+    {
+      "id": "lambda/audit-writer",
+      "type": "lambda.function",
+      "name": "audit-writer",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/legacy-report",
+      "type": "lambda.function",
+      "name": "legacy-report",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/order-processor",
+      "type": "lambda.function",
+      "name": "order-processor",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/webhook-receiver",
+      "type": "lambda.function",
+      "name": "webhook-receiver",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/notifications",
+      "type": "sqs.queue",
+      "name": "notifications",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/orders",
+      "type": "sqs.queue",
+      "name": "orders",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/orders-events",
+      "type": "sqs.queue",
+      "name": "orders-events",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/orders-events-dlq",
+      "type": "sqs.queue",
+      "name": "orders-events-dlq",
+      "flow": "unreached"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apigw/a1b2c3d4e5",
+      "to": "ext/api.payments.example.com",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources a1b2c3d4e5 GET /legacy",
+          "detail": "HTTP_PROXY GET /legacy → api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "apigw/h1t2t3p4a5",
+      "to": "ext/api.payments.example.com",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations h1t2t3p4a5 httpin1 (route $default)",
+          "detail": "HTTP_PROXY $default → api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "ddb/orders",
+      "to": "lambda/audit-writer",
+      "kind": "consume",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings 0b6f2a3c-2222-4d2e-9f00-000000000002",
+          "detail": "dynamodb-stream 00.000 → audit-writer, state Enabled, batch 100"
+        }
+      ]
+    },
+    {
+      "from": "lambda/audit-writer",
+      "to": "sqs/orders-events-dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings 0b6f2a3c-2222-4d2e-9f00-000000000002",
+          "detail": "records that fail audit-writer go to orders-events-dlq"
+        }
+      ]
+    },
+    {
+      "from": "sqs/orders",
+      "to": "lambda/order-processor",
+      "kind": "consume",
+      "confidence": "certain",
+      "status": "disabled",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings 0b6f2a3c-3333-4d2e-9f00-000000000003",
+          "detail": "sqs orders → order-processor, state Disabled, batch 10"
+        }
+      ]
+    },
+    {
+      "from": "sqs/orders-events",
+      "to": "lambda/order-processor",
+      "kind": "consume",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings 0b6f2a3c-1111-4d2e-9f00-000000000001",
+          "detail": "sqs orders-events → order-processor:live, state Enabled, batch 10"
+        }
+      ]
+    },
+    {
+      "from": "sqs/orders-events",
+      "to": "sqs/orders-events-dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sqs.redrive",
+          "source": "sqs:GetQueueAttributes orders-events",
+          "detail": "RedrivePolicy: after 5 receives a message moves to orders-events-dlq"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "unresolved",
+      "node": "apigw/a1b2c3d4e5",
+      "target": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}/invocations",
+      "rule": "apigw.integration",
+      "detail": "integration ANY /v2: no stage defines stageVariables.fn"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/a1b2c3d4e5",
+      "target": "dynamodb:Query",
+      "rule": "apigw.integration",
+      "detail": "integration GET /reports: AWS service integration whose target is not in the definition (mapping templates are withheld) or not collected"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/a1b2c3d4e5",
+      "target": "lambda/authorizer-fn",
+      "rule": "apigw.authorizer",
+      "detail": "TOKEN authorizer token-auth guards GET /orders (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/a1b2c3d4e5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY GET /orders → orders-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/a1b2c3d4e5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY GET /orders/{id} → orders-fn:live (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/a1b2c3d4e5",
+      "target": "sqs/inbox",
+      "rule": "apigw.integration",
+      "detail": "AWS POST /webhooks → sqs/inbox (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}",
+      "rule": "apigw.integration",
+      "detail": "integration GET /v2: no stage defines stageVariables.fn"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "lambda/authorizer-fn",
+      "rule": "apigw.authorizer",
+      "detail": "REQUEST authorizer request-auth guards GET /callback (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY GET /orders/{id} → orders-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY POST /orders → orders-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "sqs/inbox",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY POST /events → sqs/inbox (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/w1s2k3t4a5",
+      "target": "lambda/ws-connect-fn",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY $connect → ws-connect-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "stale-permission",
+      "node": "lambda/webhook-receiver",
+      "target": "apigw/a1b2c3d4e5",
+      "rule": "lambda.resource-policy",
+      "detail": "resource policy lets API a1b2c3d4e5 invoke this function, but no route or authorizer of that API uses it"
+    }
+  ]
+}

@@ -93,34 +93,6 @@ func (c *SQS) Collect(ctx context.Context, s *awsx.Session, out Emitter) error {
 	return nil
 }
 
-type queueSpec struct {
-	QueueName         string `json:"queueName"`
-	URL               string `json:"url"`
-	VisibilityTimeout int    `json:"visibilityTimeout"`
-	MessageRetention  int    `json:"messageRetentionPeriod,omitempty"`
-	DelaySeconds      int    `json:"delaySeconds,omitempty"`
-	MaxMessageSize    int    `json:"maximumMessageSize,omitempty"`
-	FIFO              bool   `json:"fifo,omitempty"`
-	ContentDedup      bool   `json:"contentBasedDeduplication,omitempty"`
-
-	// Redrive is the DLQ relationship, already parsed out of the JSON blob AWS
-	// returns. Nil when the queue has no DLQ configured.
-	Redrive *redriveSpec `json:"redrive,omitempty"`
-
-	// Policy is the queue's access policy, kept raw. Its Principal entries name
-	// who may send to this queue, which is a linking signal the linker will want
-	// — but interpreting IAM policy shapes belongs there, not here.
-	Policy json.RawMessage `json:"policy,omitempty"`
-}
-
-type redriveSpec struct {
-	TargetARN string `json:"deadLetterTargetArn"`
-	// TargetID is the inventory id of the DLQ, resolved from the ARN so the
-	// linker can follow it without re-parsing.
-	TargetID   string `json:"deadLetterTargetId,omitempty"`
-	MaxReceive int    `json:"maxReceiveCount"`
-}
-
 // parseRedrive pulls the DLQ relationship out of the JSON-in-a-string that
 // GetQueueAttributes returns.
 //

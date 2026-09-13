@@ -8,7 +8,7 @@ Scans your AWS account and rebuilds it as a containerized local environment usin
 > **Status: early. Not usable yet.** The architecture is designed and validated
 > ([M0 spike](docs/spikes/m0-findings.md)), and discovery is built and validated
 > against a real account — read-only guard, inventory model, collectors for six
-> services. The linker, which infers what talks to what, is next. Everything
+> services — and the linker has its first tier. Everything
 > below marked ⬚ does not exist. Feedback on the design is still the most useful
 > contribution.
 
@@ -20,7 +20,7 @@ locally — with every outgoing integration visible and mockable in real time.
 
 ```bash
 cloud-echo scan                                    # ◐ read-only discovery (6 services so far)
-cloud-echo graph --explain ecs/orders-api          # ⬚ what does it talk to, and why?
+cloud-echo graph --explain ecs/orders-api          # ◐ what does it talk to, and why? (Tier 1)
 cloud-echo plan --seed ecs/orders-api --depth 2    # ⬚ → cloud-echo.yaml
 cloud-echo up                                      # ⬚ Floci + your containers, running
 cloud-echo ui                                      # ⬚ graph + live traffic + edit mocks
@@ -29,6 +29,10 @@ cloud-echo ui                                      # ⬚ graph + live traffic + 
 What works today: `cloud-echo scan --dry-run` prints the exact API surface a scan
 would touch, and `cloud-echo scan` reads ECS, SQS, DynamoDB, Lambda, IAM and API
 Gateway into a normalized inventory, validated against a real account.
+`cloud-echo graph` links it — declared relationships so far (event source
+mappings, redrive, API integrations, authorizers) — classifies every node as
+entrypoint, sync, async or unreached, and explains any edge with
+`--explain <from> <to>`. `--format mermaid` draws it.
 
 Your ECS service runs the exact image from ECR with the exact task definition.
 Its DynamoDB tables, SQS queues, Postgres, and Valkey are real and local. The

@@ -1,0 +1,397 @@
+{
+  "formatVersion": 1,
+  "generatedBy": "cloud-echo/golden",
+  "inventoryScanId": "real-m1",
+  "accountId": "123456789012",
+  "region": "us-east-2",
+  "partial": true,
+  "nodes": [
+    {
+      "id": "apigw/fakeapi0001",
+      "type": "apigateway.http",
+      "name": "ce-test-orders-http",
+      "flow": "entrypoint",
+      "triggers": [
+        "HTTP API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "apigw/fakeapi0002",
+      "type": "apigateway.rest",
+      "name": "ce-test-orders-rest",
+      "flow": "entrypoint",
+      "triggers": [
+        "REST API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "ddb/ce-test-orders",
+      "type": "dynamodb.table",
+      "name": "ce-test-orders",
+      "flow": "unreached"
+    },
+    {
+      "id": "ddb/ce-test-orders-audit",
+      "type": "dynamodb.table",
+      "name": "ce-test-orders-audit",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-batch/ce-test-orders-api",
+      "type": "ecs.service",
+      "name": "ce-test-orders-api",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-01",
+      "type": "ecs.service",
+      "name": "ce-test-filler-01",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-02",
+      "type": "ecs.service",
+      "name": "ce-test-filler-02",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-03",
+      "type": "ecs.service",
+      "name": "ce-test-filler-03",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-04",
+      "type": "ecs.service",
+      "name": "ce-test-filler-04",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-05",
+      "type": "ecs.service",
+      "name": "ce-test-filler-05",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-06",
+      "type": "ecs.service",
+      "name": "ce-test-filler-06",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-07",
+      "type": "ecs.service",
+      "name": "ce-test-filler-07",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-08",
+      "type": "ecs.service",
+      "name": "ce-test-filler-08",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-09",
+      "type": "ecs.service",
+      "name": "ce-test-filler-09",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-10",
+      "type": "ecs.service",
+      "name": "ce-test-filler-10",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-filler-11",
+      "type": "ecs.service",
+      "name": "ce-test-filler-11",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-notifications",
+      "type": "ecs.service",
+      "name": "ce-test-notifications",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-main/ce-test-orders-api",
+      "type": "ecs.service",
+      "name": "ce-test-orders-api",
+      "flow": "unreached"
+    },
+    {
+      "id": "ext/api.payments.example.com",
+      "type": "external.http",
+      "name": "api.payments.example.com",
+      "flow": "sync",
+      "external": true
+    },
+    {
+      "id": "lambda/ce-test-audit-writer",
+      "type": "lambda.function",
+      "name": "ce-test-audit-writer",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/ce-test-authorizer-fn",
+      "type": "lambda.function",
+      "name": "ce-test-authorizer-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/ce-test-legacy-report",
+      "type": "lambda.function",
+      "name": "ce-test-legacy-report",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/ce-test-order-processor",
+      "type": "lambda.function",
+      "name": "ce-test-order-processor",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/ce-test-orders-fn",
+      "type": "lambda.function",
+      "name": "ce-test-orders-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/ce-test-webhook-receiver",
+      "type": "lambda.function",
+      "name": "ce-test-webhook-receiver",
+      "flow": "entrypoint",
+      "triggers": [
+        "invoked by API Gateway API abcdef1234, which is not in the inventory"
+      ]
+    },
+    {
+      "id": "sqs/ce-test-inbox",
+      "type": "sqs.queue",
+      "name": "ce-test-inbox",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/ce-test-notifications.fifo",
+      "type": "sqs.queue",
+      "name": "ce-test-notifications.fifo",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/ce-test-orders",
+      "type": "sqs.queue",
+      "name": "ce-test-orders",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/ce-test-orders-events",
+      "type": "sqs.queue",
+      "name": "ce-test-orders-events",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/ce-test-orders-events-dlq",
+      "type": "sqs.queue",
+      "name": "ce-test-orders-events-dlq",
+      "flow": "async"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apigw/fakeapi0001",
+      "to": "ext/api.payments.example.com",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0001 (route $default)",
+          "detail": "HTTP_PROXY $default → api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "apigw/fakeapi0001",
+      "to": "lambda/ce-test-orders-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0002 (route GET /orders/{id})",
+          "detail": "AWS_PROXY GET /orders/{id} → ce-test-orders-fn"
+        },
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0002 (route POST /orders)",
+          "detail": "AWS_PROXY POST /orders → ce-test-orders-fn"
+        },
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy ce-test-orders-fn apigw-http-fakeapi0001",
+          "detail": "resource policy lets API fakeapi0001 invoke it"
+        }
+      ]
+    },
+    {
+      "from": "apigw/fakeapi0001",
+      "to": "sqs/ce-test-inbox",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0003 (route POST /events)",
+          "detail": "AWS_PROXY POST /events → sqs/ce-test-inbox"
+        }
+      ]
+    },
+    {
+      "from": "apigw/fakeapi0002",
+      "to": "ext/api.payments.example.com",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources fakeapi0002 GET /legacy",
+          "detail": "HTTP_PROXY GET /legacy → api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "apigw/fakeapi0002",
+      "to": "lambda/ce-test-authorizer-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.authorizer",
+          "source": "apigateway:GetAuthorizers fakeapi0002 auth0002",
+          "detail": "TOKEN authorizer ce-test-token-auth guards GET /orders"
+        },
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy ce-test-authorizer-fn apigw-rest-fakeapi0002",
+          "detail": "resource policy lets API fakeapi0002 invoke it"
+        }
+      ]
+    },
+    {
+      "from": "apigw/fakeapi0002",
+      "to": "lambda/ce-test-orders-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources fakeapi0002 GET /orders",
+          "detail": "AWS_PROXY GET /orders → ce-test-orders-fn"
+        },
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources fakeapi0002 GET /orders/{id}",
+          "detail": "AWS_PROXY GET /orders/{id} → ce-test-orders-fn:live"
+        },
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy ce-test-orders-fn apigw-rest-fakeapi0002",
+          "detail": "resource policy lets API fakeapi0002 invoke it"
+        }
+      ]
+    },
+    {
+      "from": "apigw/fakeapi0002",
+      "to": "sqs/ce-test-inbox",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources fakeapi0002 POST /webhooks",
+          "detail": "AWS POST /webhooks → sqs/ce-test-inbox"
+        }
+      ]
+    },
+    {
+      "from": "ddb/ce-test-orders",
+      "to": "lambda/ce-test-audit-writer",
+      "kind": "consume",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings 00000000-0000-4000-8000-000000000002",
+          "detail": "dynamodb-stream 59.103 → ce-test-audit-writer, state Enabled, batch 100"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-audit-writer",
+      "to": "sqs/ce-test-orders-events-dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings 00000000-0000-4000-8000-000000000002",
+          "detail": "records that fail ce-test-audit-writer go to ce-test-orders-events-dlq"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-webhook-receiver",
+      "to": "sqs/ce-test-orders-events-dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.dead-letter",
+          "source": "lambda:ListFunctions ce-test-webhook-receiver",
+          "detail": "DeadLetterConfig: failed asynchronous invocations go to ce-test-orders-events-dlq"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-orders",
+      "to": "lambda/ce-test-order-processor",
+      "kind": "consume",
+      "confidence": "certain",
+      "status": "disabled",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings 00000000-0000-4000-8000-000000000001",
+          "detail": "sqs ce-test-orders → ce-test-order-processor, state Disabled, batch 10"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-orders-events",
+      "to": "lambda/ce-test-order-processor",
+      "kind": "consume",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings 00000000-0000-4000-8000-000000000003",
+          "detail": "sqs ce-test-orders-events → ce-test-order-processor:live, state Enabled, batch 10"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-orders-events",
+      "to": "sqs/ce-test-orders-events-dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sqs.redrive",
+          "source": "sqs:GetQueueAttributes ce-test-orders-events",
+          "detail": "RedrivePolicy: after 5 receives a message moves to ce-test-orders-events-dlq"
+        }
+      ]
+    }
+  ]
+}

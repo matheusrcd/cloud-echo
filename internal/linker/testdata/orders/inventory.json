@@ -1,0 +1,1591 @@
+{
+  "formatVersion": 1,
+  "scanId": "fixture",
+  "generatedBy": "cloud-echo/fixture",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "scannedAt": "2026-09-13T00:00:00Z",
+  "partial": true,
+  "warnings": [
+    {
+      "service": "IAM",
+      "op": "GetRole",
+      "kind": "dangling-reference",
+      "message": "role legacy-report-role is assumed by lambda/legacy-report but does not exist"
+    },
+    {
+      "service": "Lambda",
+      "op": "ListFunctions",
+      "kind": "unreadable",
+      "message": "legacy-report: environment not readable (KMSAccessDeniedException): Lambda was unable to decrypt the environment variables because KMS access was denied."
+    }
+  ],
+  "resources": [
+    {
+      "id": "apigw/a1b2c3d4e5",
+      "type": "apigateway.rest",
+      "arn": "arn:aws:apigateway:us-east-1::/restapis/a1b2c3d4e5",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-rest",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "apiId": "a1b2c3d4e5",
+        "name": "orders-rest",
+        "protocol": "REST",
+        "endpointType": "REGIONAL",
+        "endpoint": "https://a1b2c3d4e5.execute-api.us-east-1.amazonaws.com",
+        "routes": [
+          {
+            "routeKey": "ANY /v2",
+            "method": "ANY",
+            "path": "/v2",
+            "authorization": "NONE",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}/invocations",
+              "httpMethod": "POST",
+              "templated": true,
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "GET /health",
+            "method": "GET",
+            "path": "/health",
+            "authorization": "NONE",
+            "integration": {
+              "type": "MOCK",
+              "service": "mock",
+              "templateContentTypes": [
+                "application/json"
+              ],
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "GET /legacy",
+            "method": "GET",
+            "path": "/legacy",
+            "authorization": "NONE",
+            "integration": {
+              "type": "HTTP_PROXY",
+              "uri": "https://api.payments.example.com/v1/legacy",
+              "httpMethod": "GET",
+              "connectionType": "INTERNET",
+              "service": "http",
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "GET /orders",
+            "method": "GET",
+            "path": "/orders",
+            "authorization": "CUSTOM",
+            "authorizerId": "auth01",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:orders-fn/invocations",
+              "httpMethod": "POST",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:orders-fn",
+                "id": "lambda/orders-fn"
+              },
+              "requestParameters": {
+                "integration.request.header.Authorization": "method.request.header.Authorization"
+              },
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "GET /orders/{id}",
+            "method": "GET",
+            "path": "/orders/{id}",
+            "authorization": "NONE",
+            "integration": {
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:orders-fn:live/invocations",
+              "httpMethod": "POST",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:orders-fn:live",
+                "id": "lambda/orders-fn"
+              },
+              "qualifier": "live",
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "GET /reports",
+            "method": "GET",
+            "path": "/reports",
+            "authorization": "AWS_IAM",
+            "integration": {
+              "type": "AWS",
+              "uri": "arn:aws:apigateway:us-east-1:dynamodb:action/Query",
+              "httpMethod": "POST",
+              "credentials": "arn:aws:iam::*:user/*",
+              "service": "dynamodb",
+              "action": "Query",
+              "timeoutMs": 29000
+            }
+          },
+          {
+            "routeKey": "POST /webhooks",
+            "method": "POST",
+            "path": "/webhooks",
+            "authorization": "NONE",
+            "apiKeyRequired": true,
+            "integration": {
+              "type": "AWS",
+              "uri": "arn:aws:apigateway:us-east-1:sqs:path/123456789012/inbox",
+              "httpMethod": "POST",
+              "credentials": "arn:aws:iam::123456789012:role/apigw-integration-role",
+              "service": "sqs",
+              "target": {
+                "arn": "arn:aws:sqs:us-east-1:123456789012:inbox",
+                "id": "sqs/inbox"
+              },
+              "requestParameters": {
+                "integration.request.header.Content-Type": "'application/x-www-form-urlencoded'",
+                "integration.request.header.X-Trace": "method.request.header.X-Trace",
+                "integration.request.header.x-api-key": "<redacted:key-name>"
+              },
+              "templateContentTypes": [
+                "application/json"
+              ],
+              "timeoutMs": 29000
+            }
+          }
+        ],
+        "stages": [
+          {
+            "name": "prod",
+            "deploymentId": "dep001",
+            "variables": {
+              "DB_PASSWORD": "<redacted:key-name>",
+              "backend": "orders-fn"
+            }
+          }
+        ],
+        "authorizers": [
+          {
+            "id": "auth01",
+            "name": "token-auth",
+            "type": "TOKEN",
+            "function": {
+              "arn": "arn:aws:lambda:us-east-1:123456789012:function:authorizer-fn",
+              "id": "lambda/authorizer-fn"
+            },
+            "identitySource": [
+              "method.request.header.Authorization"
+            ]
+          }
+        ],
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": "arn:aws:execute-api:us-east-1:123456789012:a1b2c3d4e5/*"
+            }
+          ]
+        },
+        "redacted": [
+          "route:POST /webhooks:integration.request.header.x-api-key",
+          "stage:prod:DB_PASSWORD"
+        ]
+      },
+      "source": {
+        "api": "apigateway:GetRestApis",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "apigw/f6g7h8i9j0",
+      "type": "apigateway.rest",
+      "arn": "arn:aws:apigateway:us-east-1::/restapis/f6g7h8i9j0",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-rest",
+      "spec": {
+        "apiId": "f6g7h8i9j0",
+        "name": "orders-rest",
+        "protocol": "REST",
+        "endpointType": "EDGE",
+        "defaultEndpointDisabled": true,
+        "routes": []
+      },
+      "source": {
+        "api": "apigateway:GetRestApis",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "apigw/h1t2t3p4a5",
+      "type": "apigateway.http",
+      "arn": "arn:aws:apigateway:us-east-1::/apis/h1t2t3p4a5",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-http",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "apiId": "h1t2t3p4a5",
+        "name": "orders-http",
+        "protocol": "HTTP",
+        "endpointType": "REGIONAL",
+        "endpoint": "https://h1t2t3p4a5.execute-api.us-east-1.amazonaws.com",
+        "routes": [
+          {
+            "routeKey": "$default",
+            "authorization": "NONE",
+            "integration": {
+              "id": "httpin1",
+              "type": "HTTP_PROXY",
+              "uri": "https://api.payments.example.com",
+              "httpMethod": "ANY",
+              "connectionType": "INTERNET",
+              "service": "http",
+              "requestParameters": {
+                "append:header.X-Trace": "$request.header.X-Trace",
+                "overwrite:header.x-api-key": "<redacted:key-name>"
+              },
+              "payloadFormatVersion": "1.0"
+            }
+          },
+          {
+            "routeKey": "GET /callback",
+            "method": "GET",
+            "path": "/callback",
+            "authorization": "CUSTOM",
+            "authorizerId": "reqauth",
+            "integration": {
+              "id": "fnint01",
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:lambda:us-east-1:123456789012:function:orders-fn",
+              "connectionType": "INTERNET",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:orders-fn",
+                "id": "lambda/orders-fn"
+              },
+              "payloadFormatVersion": "2.0"
+            }
+          },
+          {
+            "routeKey": "GET /orders/{id}",
+            "method": "GET",
+            "path": "/orders/{id}",
+            "authorization": "NONE",
+            "integration": {
+              "id": "fnint01",
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:lambda:us-east-1:123456789012:function:orders-fn",
+              "connectionType": "INTERNET",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:orders-fn",
+                "id": "lambda/orders-fn"
+              },
+              "payloadFormatVersion": "2.0"
+            }
+          },
+          {
+            "routeKey": "GET /v2",
+            "method": "GET",
+            "path": "/v2",
+            "authorization": "NONE",
+            "integration": {
+              "id": "tmplin1",
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}",
+              "templated": true,
+              "payloadFormatVersion": "2.0"
+            }
+          },
+          {
+            "routeKey": "POST /events",
+            "method": "POST",
+            "path": "/events",
+            "authorization": "NONE",
+            "integration": {
+              "id": "sqsint1",
+              "type": "AWS_PROXY",
+              "subtype": "SQS-SendMessage",
+              "connectionType": "INTERNET",
+              "credentials": "arn:aws:iam::123456789012:role/apigw-integration-role",
+              "service": "sqs",
+              "action": "SendMessage",
+              "target": {
+                "arn": "arn:aws:sqs:us-east-1:123456789012:inbox",
+                "id": "sqs/inbox"
+              },
+              "requestParameters": {
+                "MessageBody": "$request.body",
+                "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/inbox"
+              },
+              "payloadFormatVersion": "1.0"
+            }
+          },
+          {
+            "routeKey": "POST /orders",
+            "method": "POST",
+            "path": "/orders",
+            "authorization": "JWT",
+            "authorizerId": "jwtauth",
+            "integration": {
+              "id": "fnint01",
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:lambda:us-east-1:123456789012:function:orders-fn",
+              "connectionType": "INTERNET",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:orders-fn",
+                "id": "lambda/orders-fn"
+              },
+              "payloadFormatVersion": "2.0"
+            }
+          }
+        ],
+        "stages": [
+          {
+            "name": "$default",
+            "autoDeploy": true
+          },
+          {
+            "name": "prod",
+            "variables": {
+              "API_TOKEN": "<redacted:key-name>",
+              "backend": "orders-fn"
+            }
+          }
+        ],
+        "authorizers": [
+          {
+            "id": "jwtauth",
+            "name": "jwt",
+            "type": "JWT",
+            "identitySource": [
+              "$request.header.Authorization"
+            ],
+            "jwtIssuer": "https://accounts.google.com",
+            "jwtAudience": [
+              "orders-client"
+            ]
+          },
+          {
+            "id": "reqauth",
+            "name": "request-auth",
+            "type": "REQUEST",
+            "function": {
+              "arn": "arn:aws:lambda:us-east-1:123456789012:function:authorizer-fn",
+              "id": "lambda/authorizer-fn"
+            },
+            "identitySource": [
+              "$request.header.X-Signature"
+            ],
+            "credentials": "arn:aws:iam::123456789012:role/apigw-integration-role"
+          }
+        ],
+        "redacted": [
+          "integration:httpin1:overwrite:header.x-api-key",
+          "stage:prod:API_TOKEN"
+        ]
+      },
+      "source": {
+        "api": "apigatewayv2:GetApis",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "apigw/w1s2k3t4a5",
+      "type": "apigateway.websocket",
+      "arn": "arn:aws:apigateway:us-east-1::/apis/w1s2k3t4a5",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-ws",
+      "spec": {
+        "apiId": "w1s2k3t4a5",
+        "name": "orders-ws",
+        "protocol": "WEBSOCKET",
+        "endpointType": "REGIONAL",
+        "endpoint": "wss://w1s2k3t4a5.execute-api.us-east-1.amazonaws.com",
+        "routes": [
+          {
+            "routeKey": "$connect",
+            "authorization": "NONE",
+            "integration": {
+              "id": "wsint01",
+              "type": "AWS_PROXY",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:ws-connect-fn/invocations",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:ws-connect-fn",
+                "id": "lambda/ws-connect-fn"
+              }
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "apigatewayv2:GetApis",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/orders",
+      "type": "dynamodb.table",
+      "arn": "arn:aws:dynamodb:us-east-1:123456789012:table/orders",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "tableName": "orders",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          },
+          {
+            "name": "sk",
+            "type": "S",
+            "role": "RANGE"
+          }
+        ],
+        "billingMode": "PAY_PER_REQUEST",
+        "globalSecondaryIndexes": [
+          {
+            "name": "gsi1",
+            "keySchema": [
+              {
+                "name": "gsi1pk",
+                "type": "S",
+                "role": "HASH"
+              },
+              {
+                "name": "createdAt",
+                "type": "N",
+                "role": "RANGE"
+              }
+            ],
+            "projection": "INCLUDE",
+            "nonKeyAttributes": [
+              "status",
+              "total"
+            ]
+          }
+        ],
+        "stream": {
+          "enabled": true,
+          "viewType": "NEW_AND_OLD_IMAGES",
+          "arn": "arn:aws:dynamodb:us-east-1:123456789012:table/orders/stream/2026-08-01T00:00:00.000"
+        },
+        "ttl": {
+          "enabled": true,
+          "attribute": "expiresAt"
+        },
+        "itemCountEstimate": 184203
+      },
+      "source": {
+        "api": "dynamodb:DescribeTable",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/orders-audit",
+      "type": "dynamodb.table",
+      "arn": "arn:aws:dynamodb:us-east-1:123456789012:table/orders-audit",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-audit",
+      "spec": {
+        "tableName": "orders-audit",
+        "keySchema": [
+          {
+            "name": "id",
+            "type": "S",
+            "role": "HASH"
+          }
+        ],
+        "billingMode": "PROVISIONED",
+        "provisionedThroughput": {
+          "read": 5,
+          "write": 5
+        },
+        "itemCountEstimate": 9
+      },
+      "source": {
+        "api": "dynamodb:DescribeTable",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/batch/orders-api",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-1:123456789012:service/batch/orders-api",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-api",
+      "spec": {
+        "cluster": "batch",
+        "serviceName": "orders-api",
+        "status": "ACTIVE",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-1:123456789012:task-definition/orders-api:41",
+        "taskDefinitionId": "ecs/taskdef/orders-api:41"
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/cluster/batch",
+      "type": "ecs.cluster",
+      "arn": "arn:aws:ecs:us-east-1:123456789012:cluster/batch",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "batch",
+      "spec": {
+        "name": "batch",
+        "status": "ACTIVE",
+        "activeServices": 1,
+        "runningTasks": 1,
+        "capacityProviders": [
+          "FARGATE"
+        ]
+      },
+      "source": {
+        "api": "ecs:DescribeClusters",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/cluster/main",
+      "type": "ecs.cluster",
+      "arn": "arn:aws:ecs:us-east-1:123456789012:cluster/main",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "main",
+      "tags": {
+        "env": "prod"
+      },
+      "spec": {
+        "name": "main",
+        "status": "ACTIVE",
+        "activeServices": 2,
+        "runningTasks": 5,
+        "capacityProviders": [
+          "FARGATE",
+          "FARGATE_SPOT"
+        ],
+        "defaultCapacityProviders": [
+          "FARGATE"
+        ]
+      },
+      "source": {
+        "api": "ecs:DescribeClusters",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/notifications",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-1:123456789012:service/main/notifications",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "notifications",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "notifications",
+        "status": "ACTIVE",
+        "desiredCount": 2,
+        "runningCount": 2,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-1:123456789012:task-definition/notifications:7",
+        "taskDefinitionId": "ecs/taskdef/notifications:7"
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/orders-api",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-1:123456789012:service/main/orders-api",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-api",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "cluster": "main",
+        "serviceName": "orders-api",
+        "status": "ACTIVE",
+        "desiredCount": 4,
+        "runningCount": 4,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-1:123456789012:task-definition/orders-api:41",
+        "taskDefinitionId": "ecs/taskdef/orders-api:41",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/orders-api/8f2b1c",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ],
+        "network": {
+          "subnets": [
+            "subnet-0a1b2c3d",
+            "subnet-0e4f5a6b"
+          ],
+          "securityGroups": [
+            "sg-0123456789abcdef0"
+          ],
+          "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/notifications:7",
+      "type": "ecs.taskdefinition",
+      "arn": "arn:aws:ecs:us-east-1:123456789012:task-definition/notifications:7",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "notifications:7",
+      "spec": {
+        "family": "notifications",
+        "revision": 7,
+        "networkMode": "awsvpc",
+        "cpu": "512",
+        "memory": "1024",
+        "taskRoleArn": "arn:aws:iam::123456789012:role/notifications-task",
+        "taskRoleId": "iam/role/notifications-task",
+        "requiresCompatibilities": [
+          "FARGATE"
+        ],
+        "containers": [
+          {
+            "name": "worker",
+            "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/notifications:v0.9",
+            "essential": true,
+            "command": [
+              "node",
+              "worker.js",
+              "--smtp-password=<redacted:key-name>"
+            ],
+            "env": {
+              "CACHE_HOST": "sessions.abc123.ng.0001.use1.cache.amazonaws.com",
+              "QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/notifications"
+            },
+            "log": {
+              "driver": "splunk",
+              "options": {
+                "splunk-format": "json",
+                "splunk-token": "<redacted:key-name>",
+                "splunk-url": "https://splunk.example.com:8088"
+              },
+              "secretOptions": {
+                "splunk-token-v2": "arn:aws:ssm:us-east-1:123456789012:parameter/splunk/token"
+              }
+            },
+            "redacted": [
+              "command[2]",
+              "log:splunk-token"
+            ]
+          }
+        ]
+      },
+      "source": {
+        "api": "ecs:DescribeTaskDefinition",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/orders-api:41",
+      "type": "ecs.taskdefinition",
+      "arn": "arn:aws:ecs:us-east-1:123456789012:task-definition/orders-api:41",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-api:41",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "family": "orders-api",
+        "revision": 41,
+        "networkMode": "awsvpc",
+        "cpu": "1024",
+        "memory": "2048",
+        "taskRoleArn": "arn:aws:iam::123456789012:role/orders-api-task",
+        "taskRoleId": "iam/role/orders-api-task",
+        "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+        "requiresCompatibilities": [
+          "FARGATE"
+        ],
+        "containers": [
+          {
+            "name": "app",
+            "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/orders-api:v1.42",
+            "essential": true,
+            "env": {
+              "DATABASE_URL": "postgres://orders_app:<redacted:url-credentials>@orders-db.cluster-abc123.us-east-1.rds.amazonaws.com:5432/orders",
+              "DB_HOST": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
+              "LOG_LEVEL": "info",
+              "PAYMENTS_API_KEY": "<redacted:key-name>",
+              "PAYMENTS_URL": "https://api.payments.example.com",
+              "QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events",
+              "TABLE_NAME": "orders"
+            },
+            "secrets": {
+              "DB_PASSWORD": "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/orders/db-AbCdEf"
+            },
+            "portMappings": [
+              {
+                "containerPort": 8080,
+                "hostPort": 8080,
+                "protocol": "tcp",
+                "name": "http"
+              }
+            ],
+            "dependsOn": [
+              {
+                "container": "otel",
+                "condition": "START"
+              }
+            ],
+            "logGroup": "/ecs/orders-api",
+            "log": {
+              "driver": "awslogs",
+              "options": {
+                "awslogs-group": "/ecs/orders-api",
+                "awslogs-region": "us-east-1",
+                "awslogs-stream-prefix": "ecs"
+              }
+            },
+            "redacted": [
+              "env:DATABASE_URL",
+              "env:PAYMENTS_API_KEY"
+            ]
+          },
+          {
+            "name": "otel",
+            "image": "public.ecr.aws/aws-observability/aws-otel-collector:v0.41.0",
+            "essential": false
+          }
+        ]
+      },
+      "source": {
+        "api": "ecs:DescribeTaskDefinition",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/aws-policy/AWSLambdaBasicExecutionRole",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "AWSLambdaBasicExecutionRole",
+      "spec": {
+        "policyName": "AWSLambdaBasicExecutionRole",
+        "path": "/service-role/",
+        "awsManaged": true,
+        "defaultVersion": "v1",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "iam:GetPolicyVersion",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/aws-policy/AmazonSQSFullAccess",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::aws:policy/AmazonSQSFullAccess",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "AmazonSQSFullAccess",
+      "spec": {
+        "policyName": "AmazonSQSFullAccess",
+        "path": "/",
+        "awsManaged": true,
+        "defaultVersion": "v3",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Action": [
+                "sqs:*"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "iam:GetPolicyVersion",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/policy/orders-observability",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::123456789012:policy/orders-observability",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "orders-observability",
+      "spec": {
+        "policyName": "orders-observability",
+        "path": "/",
+        "awsManaged": false,
+        "defaultVersion": "v2",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": "xray:PutTraceSegments",
+              "Resource": "*",
+              "Condition": {
+                "StringLike": {
+                  "aws:PrincipalTag/team": "orders+payments team"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "iam:GetPolicyVersion",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/policy/workload-boundary",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::123456789012:policy/workload-boundary",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "workload-boundary",
+      "spec": {
+        "policyName": "workload-boundary",
+        "path": "/",
+        "awsManaged": false,
+        "defaultVersion": "v1",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "dynamodb:*",
+                "sqs:*",
+                "cloudwatch:PutMetricData",
+                "xray:PutTraceSegments",
+                "logs:*"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "iam:GetPolicyVersion",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/apigw-integration-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/apigw-integration-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "apigw-integration-role",
+      "spec": {
+        "roleName": "apigw-integration-role",
+        "path": "/",
+        "assumedBy": [
+          "apigw/a1b2c3d4e5",
+          "apigw/h1t2t3p4a5"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "integrate",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:inbox"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "lambda:InvokeFunction",
+                  "Resource": "arn:aws:lambda:us-east-1:123456789012:function:authorizer-fn"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/audit-writer-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/audit-writer-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "audit-writer-role",
+      "spec": {
+        "roleName": "audit-writer-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/audit-writer"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "audit",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:GetRecords",
+                    "dynamodb:GetShardIterator",
+                    "dynamodb:DescribeStream",
+                    "dynamodb:ListStreams"
+                  ],
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/orders/stream/*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:PutItem",
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/orders-audit"
+                }
+              ]
+            }
+          }
+        ],
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "id": "iam/aws-policy/AWSLambdaBasicExecutionRole"
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/notifications-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/notifications-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "notifications-task",
+      "spec": {
+        "roleName": "notifications-task",
+        "path": "/",
+        "assumedBy": [
+          "ecs/taskdef/notifications:7"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/AmazonSQSFullAccess",
+            "id": "iam/aws-policy/AmazonSQSFullAccess"
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/order-processor-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/order-processor-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "order-processor-role",
+      "spec": {
+        "roleName": "order-processor-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/order-processor"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "process",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes"
+                  ],
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:orders-events"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:UpdateItem",
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/orders"
+                }
+              ]
+            }
+          }
+        ],
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "id": "iam/aws-policy/AWSLambdaBasicExecutionRole"
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/orders-api-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/orders-api-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "orders-api-task",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "roleName": "orders-api-task",
+        "path": "/",
+        "assumedBy": [
+          "ecs/taskdef/orders-api:41"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "orders-data",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:Query"
+                  ],
+                  "Resource": [
+                    "arn:aws:dynamodb:us-east-1:123456789012:table/orders",
+                    "arn:aws:dynamodb:us-east-1:123456789012:table/orders/index/*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:orders-events"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "cloudwatch:PutMetricData",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ],
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::123456789012:policy/orders-observability",
+            "id": "iam/policy/orders-observability"
+          }
+        ],
+        "permissionsBoundary": {
+          "arn": "arn:aws:iam::123456789012:policy/workload-boundary",
+          "id": "iam/policy/workload-boundary"
+        }
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/webhook-receiver-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/webhook-receiver-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "webhook-receiver-role",
+      "spec": {
+        "roleName": "webhook-receiver-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/webhook-receiver"
+        ],
+        "trustPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "inlinePolicies": [
+          {
+            "name": "enqueue",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:orders-events"
+                },
+                {
+                  "Effect": "Deny",
+                  "Action": "dynamodb:*",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ],
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "id": "iam/aws-policy/AWSLambdaBasicExecutionRole"
+          }
+        ]
+      },
+      "source": {
+        "api": "iam:GetRole",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/audit-writer",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:audit-writer",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "audit-writer",
+      "spec": {
+        "functionName": "audit-writer",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "packageType": "Zip",
+        "architectures": [
+          "arm64"
+        ],
+        "memoryMb": 256,
+        "timeoutSec": 60,
+        "roleArn": "arn:aws:iam::123456789012:role/audit-writer-role",
+        "roleId": "iam/role/audit-writer-role",
+        "env": {
+          "AUDIT_TABLE": "orders-audit"
+        }
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/0b6f2a3c-1111-4d2e-9f00-000000000001",
+      "type": "lambda.event-source-mapping",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:event-source-mapping:0b6f2a3c-1111-4d2e-9f00-000000000001",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "0b6f2a3c-1111-4d2e-9f00-000000000001",
+      "spec": {
+        "uuid": "0b6f2a3c-1111-4d2e-9f00-000000000001",
+        "state": "Enabled",
+        "enabled": true,
+        "batchSize": 10,
+        "maxBatchingWindowSec": 5,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:orders-events",
+          "id": "sqs/orders-events"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:order-processor:live",
+        "functionId": "lambda/order-processor",
+        "qualifier": "live",
+        "filters": [
+          "{\"body\":{\"type\":[\"order.created\"]}}"
+        ]
+      },
+      "source": {
+        "api": "lambda:ListEventSourceMappings",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/0b6f2a3c-2222-4d2e-9f00-000000000002",
+      "type": "lambda.event-source-mapping",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:event-source-mapping:0b6f2a3c-2222-4d2e-9f00-000000000002",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "0b6f2a3c-2222-4d2e-9f00-000000000002",
+      "spec": {
+        "uuid": "0b6f2a3c-2222-4d2e-9f00-000000000002",
+        "state": "Enabled",
+        "enabled": true,
+        "batchSize": 100,
+        "source": {
+          "arn": "arn:aws:dynamodb:us-east-1:123456789012:table/orders/stream/2026-08-01T00:00:00.000",
+          "id": "ddb/orders"
+        },
+        "sourceType": "dynamodb-stream",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:audit-writer",
+        "functionId": "lambda/audit-writer",
+        "startingPosition": "LATEST",
+        "onFailure": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:orders-events-dlq",
+          "id": "sqs/orders-events-dlq"
+        }
+      },
+      "source": {
+        "api": "lambda:ListEventSourceMappings",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/0b6f2a3c-3333-4d2e-9f00-000000000003",
+      "type": "lambda.event-source-mapping",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:event-source-mapping:0b6f2a3c-3333-4d2e-9f00-000000000003",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "0b6f2a3c-3333-4d2e-9f00-000000000003",
+      "spec": {
+        "uuid": "0b6f2a3c-3333-4d2e-9f00-000000000003",
+        "state": "Disabled",
+        "enabled": false,
+        "batchSize": 10,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:orders",
+          "id": "sqs/orders"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:order-processor",
+        "functionId": "lambda/order-processor"
+      },
+      "source": {
+        "api": "lambda:ListEventSourceMappings",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/legacy-report",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:legacy-report",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "legacy-report",
+      "spec": {
+        "functionName": "legacy-report",
+        "runtime": "python3.9",
+        "handler": "report.main",
+        "packageType": "Zip",
+        "memoryMb": 256,
+        "timeoutSec": 300,
+        "roleArn": "arn:aws:iam::123456789012:role/service-role/legacy-report-role",
+        "roleId": "iam/role/legacy-report-role",
+        "envUnreadable": "KMSAccessDeniedException"
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/order-processor",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:order-processor",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "order-processor",
+      "spec": {
+        "functionName": "order-processor",
+        "runtime": "nodejs20.x",
+        "handler": "index.handler",
+        "packageType": "Zip",
+        "architectures": [
+          "x86_64"
+        ],
+        "memoryMb": 512,
+        "timeoutSec": 30,
+        "roleArn": "arn:aws:iam::123456789012:role/order-processor-role",
+        "roleId": "iam/role/order-processor-role",
+        "env": {
+          "PAYMENTS_TOKEN": "<redacted:key-name>",
+          "SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/T-FAKE/B-FAKE/<redacted:url-path>",
+          "TABLE_NAME": "orders"
+        },
+        "redacted": [
+          "env:PAYMENTS_TOKEN",
+          "env:SLACK_WEBHOOK_URL"
+        ],
+        "logGroup": "/aws/lambda/order-processor"
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/webhook-receiver",
+      "type": "lambda.function",
+      "arn": "arn:aws:lambda:us-east-1:123456789012:function:webhook-receiver",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "webhook-receiver",
+      "spec": {
+        "functionName": "webhook-receiver",
+        "runtime": "nodejs20.x",
+        "handler": "index.handler",
+        "packageType": "Zip",
+        "memoryMb": 512,
+        "timeoutSec": 10,
+        "roleArn": "arn:aws:iam::123456789012:role/webhook-receiver-role",
+        "roleId": "iam/role/webhook-receiver-role",
+        "env": {
+          "ORDERS_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events"
+        },
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Id": "default",
+          "Statement": [
+            {
+              "Sid": "apigw-invoke",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:webhook-receiver",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:execute-api:us-east-1:123456789012:a1b2c3d4e5/*/POST/webhooks/pay"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/notifications",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:notifications",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "notifications",
+      "spec": {
+        "queueName": "notifications",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/notifications",
+        "visibilityTimeout": 60,
+        "fifo": true,
+        "contentBasedDeduplication": true
+      },
+      "source": {
+        "api": "sqs:GetQueueAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/orders",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:orders",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders",
+      "spec": {
+        "queueName": "orders",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/orders",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "sqs:GetQueueAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/orders-events",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:orders-events",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-events",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "queueName": "orders-events",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events",
+        "visibilityTimeout": 30,
+        "messageRetentionPeriod": 345600,
+        "maximumMessageSize": 262144,
+        "redrive": {
+          "deadLetterTargetArn": "arn:aws:sqs:us-east-1:123456789012:orders-events-dlq",
+          "deadLetterTargetId": "sqs/orders-events-dlq",
+          "maxReceiveCount": 5
+        },
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::123456789012:role/orders-api-task"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:orders-events"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "sqs:GetQueueAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/orders-events-dlq",
+      "type": "sqs.queue",
+      "arn": "arn:aws:sqs:us-east-1:123456789012:orders-events-dlq",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-events-dlq",
+      "spec": {
+        "queueName": "orders-events-dlq",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-events-dlq",
+        "visibilityTimeout": 30,
+        "messageRetentionPeriod": 1209600
+      },
+      "source": {
+        "api": "sqs:GetQueueAttributes",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    }
+  ]
+}

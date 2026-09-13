@@ -68,6 +68,11 @@ type Resource struct {
 }
 ```
 
+`Spec` is typed by the structs in
+[`internal/inventory/spec`](../internal/inventory/spec/spec.go), together with the
+id scheme. That package is the contract between discovery and every later stage;
+the linker reads specs through it and never touches Raw.
+
 Keeping `Raw` matters: new linker heuristics can be developed and tested against
 old inventories without re-scanning. The one change made to it is redaction of
 secret-shaped configuration values, applied before `Spec` or `Raw` is built — see

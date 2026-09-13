@@ -1,0 +1,375 @@
+{
+  "formatVersion": 1,
+  "generatedBy": "cloud-echo/golden",
+  "inventoryScanId": "tier1-cases",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "nodes": [
+    {
+      "id": "apigw/api0000001",
+      "type": "apigateway.rest",
+      "name": "public-rest",
+      "flow": "entrypoint",
+      "triggers": [
+        "REST API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "apigw/api0000002",
+      "type": "apigateway.http",
+      "name": "mock-only",
+      "flow": "entrypoint",
+      "triggers": [
+        "HTTP API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "ddb/unused",
+      "type": "dynamodb.table",
+      "name": "unused",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/main/web",
+      "type": "ecs.service",
+      "name": "web",
+      "flow": "entrypoint",
+      "triggers": [
+        "behind a load balancer (target group web; internet-facing or internal needs the ELBv2 collector)"
+      ]
+    },
+    {
+      "id": "ext/partner.example.com",
+      "type": "external.http",
+      "name": "partner.example.com",
+      "flow": "sync",
+      "external": true
+    },
+    {
+      "id": "lambda/auth-fn",
+      "type": "lambda.function",
+      "name": "auth-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/disabled-consumer",
+      "type": "lambda.function",
+      "name": "disabled-consumer",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/events-consumer",
+      "type": "lambda.function",
+      "name": "events-consumer",
+      "flow": "async"
+    },
+    {
+      "id": "lambda/items-fn",
+      "type": "lambda.function",
+      "name": "items-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/kinesis-fn",
+      "type": "lambda.function",
+      "name": "kinesis-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/s3-fn",
+      "type": "lambda.function",
+      "name": "s3-fn",
+      "flow": "entrypoint",
+      "triggers": [
+        "s3.amazonaws.com may invoke it (resource policy)"
+      ]
+    },
+    {
+      "id": "lambda/shared-fn",
+      "type": "lambda.function",
+      "name": "shared-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/stale-fn",
+      "type": "lambda.function",
+      "name": "stale-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/unsettled-consumer",
+      "type": "lambda.function",
+      "name": "unsettled-consumer",
+      "flow": "async"
+    },
+    {
+      "id": "lambda/unused-auth-fn",
+      "type": "lambda.function",
+      "name": "unused-auth-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/worker-fn",
+      "type": "lambda.function",
+      "name": "worker-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "sqs/consumer-dlq",
+      "type": "sqs.queue",
+      "name": "consumer-dlq",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/events",
+      "type": "sqs.queue",
+      "name": "events",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/events-dlq",
+      "type": "sqs.queue",
+      "name": "events-dlq",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/idle",
+      "type": "sqs.queue",
+      "name": "idle",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/jobs",
+      "type": "sqs.queue",
+      "name": "jobs",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/orders-dlq",
+      "type": "sqs.queue",
+      "name": "orders-dlq",
+      "flow": "unreached"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apigw/api0000001",
+      "to": "ext/partner.example.com",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources api0000001 GET /partner",
+          "detail": "HTTP_PROXY GET /partner → partner.example.com"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000001",
+      "to": "lambda/auth-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.authorizer",
+          "source": "apigateway:GetAuthorizers api0000001 auth-used",
+          "detail": "TOKEN authorizer token guards GET /items"
+        },
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy auth-fn s1",
+          "detail": "resource policy lets API api0000001 invoke it"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000001",
+      "to": "lambda/items-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources api0000001 GET /items",
+          "detail": "AWS_PROXY GET /items → items-fn"
+        },
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy items-fn s1",
+          "detail": "resource policy lets API api0000001 invoke it"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000001",
+      "to": "lambda/shared-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources api0000001 GET /shared",
+          "detail": "AWS_PROXY GET /shared → shared-fn"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000001",
+      "to": "lambda/worker-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources api0000001 ANY /dyn",
+          "detail": "AWS_PROXY ANY /dyn → worker-fn (stage prod resolves arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}/invocations)"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000001",
+      "to": "sqs/events",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources api0000001 POST /events",
+          "detail": "AWS POST /events → sqs/events"
+        }
+      ]
+    },
+    {
+      "from": "lambda/events-consumer",
+      "to": "sqs/consumer-dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.dead-letter",
+          "source": "lambda:ListFunctions events-consumer",
+          "detail": "DeadLetterConfig: failed asynchronous invocations go to consumer-dlq"
+        }
+      ]
+    },
+    {
+      "from": "sqs/events",
+      "to": "lambda/disabled-consumer",
+      "kind": "consume",
+      "confidence": "certain",
+      "status": "disabled",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings m-disabled",
+          "detail": "sqs events → disabled-consumer, state Disabled, batch 10"
+        }
+      ]
+    },
+    {
+      "from": "sqs/events",
+      "to": "lambda/events-consumer",
+      "kind": "consume",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings m-events",
+          "detail": "sqs events → events-consumer, state Enabled, batch 10"
+        }
+      ]
+    },
+    {
+      "from": "sqs/events",
+      "to": "lambda/shared-fn",
+      "kind": "consume",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings m-shared",
+          "detail": "sqs events → shared-fn, state Enabled, batch 10"
+        }
+      ]
+    },
+    {
+      "from": "sqs/events",
+      "to": "lambda/unsettled-consumer",
+      "kind": "consume",
+      "confidence": "certain",
+      "status": "unsettled",
+      "evidence": [
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings m-unsettled",
+          "detail": "sqs events → unsettled-consumer, state Updating, batch 10"
+        }
+      ]
+    },
+    {
+      "from": "sqs/events",
+      "to": "sqs/events-dlq",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "sqs.redrive",
+          "source": "sqs:GetQueueAttributes events",
+          "detail": "RedrivePolicy: after 3 receives a message moves to events-dlq"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "unresolved",
+      "node": "apigw/api0000001",
+      "target": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.missing}/invocations",
+      "rule": "apigw.integration",
+      "detail": "integration GET /nostage: no stage defines stageVariables.missing"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/api0000001",
+      "target": "arn:aws:lambda:us-west-2:123456789012:function:items-fn",
+      "rule": "apigw.integration",
+      "detail": "integration GET /far: target is in region us-west-2, outside this scan"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/api0000001",
+      "target": "dynamodb:Query",
+      "rule": "apigw.integration",
+      "detail": "integration GET /reports: AWS service integration whose target is not in the definition (mapping templates are withheld) or not collected"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/api0000001",
+      "target": "http://internal-nlb.example.internal/api",
+      "rule": "apigw.integration",
+      "detail": "integration GET /internal: VPC link target needs the ELBv2 collector"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/kinesis-fn",
+      "target": "arn:aws:kinesis:us-east-1:123456789012:stream/clicks",
+      "rule": "lambda.event-source-mapping",
+      "detail": "event source kinesis: no collector for this kind of target"
+    },
+    {
+      "kind": "stale-permission",
+      "node": "lambda/stale-fn",
+      "target": "apigw/api0000001",
+      "rule": "lambda.resource-policy",
+      "detail": "resource policy lets API api0000001 invoke this function, but no route or authorizer of that API uses it"
+    },
+    {
+      "kind": "unresolved",
+      "node": "sqs/jobs",
+      "target": "arn:aws:sqs:us-east-1:999999999999:orders-dlq",
+      "rule": "sqs.redrive",
+      "detail": "dead-letter queue: target is in account 999999999999, outside this scan"
+    }
+  ]
+}

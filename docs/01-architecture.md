@@ -141,9 +141,10 @@ internal/
     collector.go         Collector interface
     ecs.go sqs.go ...
   inventory/             normalized resource model + serialization
+    spec/                the spec types and id scheme — the contract every stage reads
   linker/
-    rules/               one file per inference rule (tiered)
-    classify.go          entrypoint / sync / async / scheduled
+    rule_*.go            one file per inference rule (tiered)
+    linker.go            context, node set, flow classification
   blueprint/             schema, load, merge, validate, diff
   planner/               seed traversal, defaults, downscaling
   materializer/
@@ -175,7 +176,7 @@ testdata/
 The pipeline shape makes this tractable:
 
 - **Discovery**: contract tests against recorded HTTP fixtures. No live AWS in CI.
-- **Linker**: golden tests. `testdata/accounts/<case>/inventory.json` →
+- **Linker**: golden tests. `internal/linker/testdata/<account>/inventory.json` →
   `expected-graph.json`. Every new heuristic ships with a fixture, including
   negative cases (things it must *not* link).
 - **Blueprint**: round-trip and merge tests; schema validation.

@@ -92,6 +92,19 @@ Tier-2 link is otherwise invisible — with the scope widened explicitly.
 
 ---
 
+### Q16 — Which way the planner walks the graph
+
+**Raised by the linker.** Edges are causal: `sqs/orders-events → lambda/processor`
+(consume), `service → table` (write). Flow classification follows them forward.
+The planner's slice-from-seed cannot: seeding the processor must pull in the
+queue it consumes, which is *upstream* of it.
+
+Leaning: the planner walks forward from the seed and backward across `consume`
+edges (a consumer needs its source) and across `invoke`/`http` edges into the
+seed only when the user asks for "who calls this". Needs deciding before M2.
+
+---
+
 ### Q2 — Stateful mocks
 
 Sequence-dependent responses ("first poll returns `pending`, second returns

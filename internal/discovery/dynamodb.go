@@ -105,44 +105,6 @@ func (c *DynamoDB) Collect(ctx context.Context, s *awsx.Session, out Emitter) er
 	return nil
 }
 
-type tableSpec struct {
-	TableName   string    `json:"tableName"`
-	KeySchema   []keyPart `json:"keySchema"`
-	BillingMode string    `json:"billingMode,omitempty"`
-
-	// Throughput is set only for PROVISIONED tables. A round trip through Floci
-	// had to read it from Raw because the spec lacked it, and a provisioned
-	// table cannot be created without it.
-	Throughput *throughputSpec `json:"provisionedThroughput,omitempty"`
-	GSIs       []indexSpec     `json:"globalSecondaryIndexes,omitempty"`
-	LSIs       []indexSpec     `json:"localSecondaryIndexes,omitempty"`
-	Stream     *streamSpec     `json:"stream,omitempty"`
-	TTL        *ttlSpec        `json:"ttl,omitempty"`
-
-	// ItemCount is AWS's own estimate, updated roughly every six hours. It is
-	// recorded for sizing hints only and is never treated as exact.
-	ItemCount int64 `json:"itemCountEstimate,omitempty"`
-}
-
-type keyPart struct {
-	Name string `json:"name"`
-	Type string `json:"type"` // S | N | B
-	Role string `json:"role"` // HASH | RANGE
-}
-
-type indexSpec struct {
-	Name       string          `json:"name"`
-	KeySchema  []keyPart       `json:"keySchema"`
-	Projection string          `json:"projection,omitempty"`
-	NonKeyAttr []string        `json:"nonKeyAttributes,omitempty"`
-	Throughput *throughputSpec `json:"provisionedThroughput,omitempty"`
-}
-
-type throughputSpec struct {
-	Read  int64 `json:"read"`
-	Write int64 `json:"write"`
-}
-
 // throughput reports capacity only when it is real. On-demand tables still
 // return a ProvisionedThroughput block, zeroed, which would read as "provisioned
 // at 0" if copied through.
@@ -151,17 +113,6 @@ func throughput(pt *ddbtypes.ProvisionedThroughputDescription) *throughputSpec {
 		return nil
 	}
 	return &throughputSpec{Read: aws.ToInt64(pt.ReadCapacityUnits), Write: aws.ToInt64(pt.WriteCapacityUnits)}
-}
-
-type streamSpec struct {
-	Enabled  bool   `json:"enabled"`
-	ViewType string `json:"viewType,omitempty"`
-	ARN      string `json:"arn,omitempty"`
-}
-
-type ttlSpec struct {
-	Enabled   bool   `json:"enabled"`
-	Attribute string `json:"attribute,omitempty"`
 }
 
 // keySchema joins the key schema with the attribute definitions.

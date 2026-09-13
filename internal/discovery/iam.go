@@ -297,38 +297,6 @@ func (c *IAM) document(out Emitter, op, what string, raw *string) json.RawMessag
 	return doc
 }
 
-type roleSpec struct {
-	RoleName string `json:"roleName"`
-	Path     string `json:"path,omitempty"`
-
-	// AssumedBy lists the workloads in this inventory running as the role. It
-	// is why the role was collected at all.
-	AssumedBy []string `json:"assumedBy"`
-
-	TrustPolicy      json.RawMessage `json:"trustPolicy,omitempty"`
-	InlinePolicies   []inlinePolicy  `json:"inlinePolicies,omitempty"`
-	AttachedPolicies []targetRef     `json:"attachedPolicies,omitempty"`
-
-	// PermissionsBoundary caps what the role's policies can grant: effective
-	// permission is their intersection. A role whose policy says dynamodb:* under
-	// a boundary that allows only SQS cannot touch DynamoDB, and an edge inferred
-	// from the policy alone would be wrong.
-	PermissionsBoundary *targetRef `json:"permissionsBoundary,omitempty"`
-}
-
-type inlinePolicy struct {
-	Name     string          `json:"name"`
-	Document json.RawMessage `json:"document"`
-}
-
-type policySpec struct {
-	PolicyName     string          `json:"policyName"`
-	Path           string          `json:"path,omitempty"`
-	AWSManaged     bool            `json:"awsManaged"`
-	DefaultVersion string          `json:"defaultVersion"`
-	Document       json.RawMessage `json:"document"`
-}
-
 // decodePolicyDocument undoes the URL encoding IAM applies to every policy
 // document it returns (trust policies, inline policies, managed policy versions).
 // The SDK does not decode it.

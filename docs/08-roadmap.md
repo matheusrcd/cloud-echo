@@ -62,10 +62,12 @@ default and we scope a metadata shim.
 - [x] Read-only guard middleware + the test that proves it.
 - [x] `policies/cloud-echo-scanner.json` and the drift test that keeps it honest.
 - [x] Inventory model, deterministic serialization, scan runner, `scan --dry-run`.
-- [ ] Linker tiers 1–3 with evidence, plus flow classification.
-- [ ] `graph --format=text|json|dot|mermaid`, `graph --explain <from> <to>`.
-- [ ] Golden-test harness with at least three fixture accounts, including negative
-      cases.
+- [x] Linker **Tier 1** with evidence, plus flow classification — validated
+      against a real account ([findings](spikes/m1-real-account-findings.md#linker-round-tier-1)).
+- [ ] Linker Tier 2 (config values) and Tier 3 (IAM).
+- [x] `graph --format=text|json|mermaid`, `graph --explain <from> <to>`. (`dot`
+      deferred: Mermaid renders on GitHub, which covers the need.)
+- [x] Golden-test harness with three fixture accounts, including negative cases.
 
 **Sequencing note.** Lambda and IAM are prioritised over the remaining primary
 services because they are what the linker needs, not because they are next
