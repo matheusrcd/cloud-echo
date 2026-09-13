@@ -100,6 +100,21 @@ func IDFromARN(arn string) string {
 		if id, ok := strings.CutPrefix(res, "cluster:"); ok && id != "" {
 			return "rds/cluster/" + id
 		}
+	case "elasticache":
+		// Replication groups, cache clusters and serverless caches are three
+		// namespaces; the common case, the replication group, keeps the short id.
+		kind, id, ok := strings.Cut(res, ":")
+		if !ok || id == "" {
+			return ""
+		}
+		switch kind {
+		case "replicationgroup":
+			return "cache/" + id
+		case "cluster":
+			return "cache/cluster/" + id
+		case "serverlesscache":
+			return "cache/serverless/" + id
+		}
 	}
 	return ""
 }

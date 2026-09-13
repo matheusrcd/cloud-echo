@@ -1,0 +1,471 @@
+{
+  "formatVersion": 1,
+  "scanId": "cache-cases",
+  "generatedBy": "hand-written",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "scannedAt": "2026-09-13T00:00:00Z",
+  "resources": [
+    {
+      "id": "apigw/api0000040",
+      "type": "apigateway.http",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "cache-http",
+      "spec": {
+        "apiId": "api0000040",
+        "name": "cache-http",
+        "protocol": "HTTP",
+        "endpointType": "REGIONAL",
+        "routes": [
+          {
+            "routeKey": "GET /cart",
+            "method": "GET",
+            "path": "/cart",
+            "authorization": "NONE",
+            "integration": {
+              "id": "i1",
+              "type": "AWS_PROXY",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:api-fn",
+                "id": "lambda/api-fn"
+              }
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/carts",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-1:123456789012:replicationgroup:carts",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "carts",
+      "spec": {
+        "kind": "replication-group",
+        "identifier": "carts",
+        "engine": "valkey",
+        "status": "available",
+        "configurationEndpoint": "clustercfg.carts.fix002.use1.cache.amazonaws.com",
+        "port": 6379,
+        "clusterMode": true,
+        "nodes": [
+          {
+            "id": "carts-0001-001",
+            "endpoint": "carts-0001-001.carts.fix002.use1.cache.amazonaws.com"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/cluster/memo",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-1:123456789012:cluster:memo",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "memo",
+      "spec": {
+        "kind": "cache-cluster",
+        "identifier": "memo",
+        "engine": "memcached",
+        "status": "available",
+        "configurationEndpoint": "memo.fix002.cfg.use1.cache.amazonaws.com",
+        "port": 11211,
+        "nodes": [
+          {
+            "id": "0001",
+            "endpoint": "memo.fix002.0001.use1.cache.amazonaws.com"
+          },
+          {
+            "id": "0002",
+            "endpoint": "memo.fix002.0002.use1.cache.amazonaws.com"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/serverless/ratelimit",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-1:123456789012:serverlesscache:ratelimit",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "ratelimit",
+      "spec": {
+        "kind": "serverless",
+        "identifier": "ratelimit",
+        "engine": "valkey",
+        "status": "available",
+        "primaryEndpoint": "ratelimit-fix002.serverless.use1.cache.amazonaws.com",
+        "readerEndpoint": "ratelimit-fix002.serverless.use1.cache.amazonaws.com",
+        "port": 6379,
+        "transitEncryption": true
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/sessions",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-1:123456789012:replicationgroup:sessions",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "sessions",
+      "spec": {
+        "kind": "replication-group",
+        "identifier": "sessions",
+        "engine": "valkey",
+        "engineVersion": "8.0.1",
+        "status": "available",
+        "primaryEndpoint": "master.sessions.fix002.use1.cache.amazonaws.com",
+        "readerEndpoint": "replica.sessions.fix002.use1.cache.amazonaws.com",
+        "port": 6379,
+        "nodes": [
+          {
+            "id": "sessions-001",
+            "role": "primary",
+            "endpoint": "sessions-001.sessions.fix002.use1.cache.amazonaws.com"
+          },
+          {
+            "id": "sessions-002",
+            "role": "replica",
+            "endpoint": "sessions-002.sessions.fix002.use1.cache.amazonaws.com"
+          }
+        ],
+        "transitEncryption": true
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/api",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "api",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "api:1",
+        "taskDefinitionId": "ecs/taskdef/api:1",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api/abc",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/worker",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "worker",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "worker",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "worker:1",
+        "taskDefinitionId": "ecs/taskdef/worker:1"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/api:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api:1",
+      "spec": {
+        "family": "api",
+        "revision": 1,
+        "containers": [
+          {
+            "name": "app",
+            "image": "api:1",
+            "essential": true,
+            "env": {
+              "CACHE_HOST": "sessions.other9.ng.0001.use1.cache.amazonaws.com",
+              "RATE_OTHER": "ratelimit-zzz999.serverless.use1.cache.amazonaws.com",
+              "GONE": "nothere.fix002.cfg.use1.cache.amazonaws.com"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/worker:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "worker:1",
+      "spec": {
+        "family": "worker",
+        "revision": 1,
+        "containers": [
+          {
+            "name": "app",
+            "image": "worker:1",
+            "essential": true,
+            "env": {
+              "CARTS": "clustercfg.carts.fix002.use1.cache.amazonaws.com:6379",
+              "MEMCACHED_SERVERS": "memo.fix002.0001.use1.cache.amazonaws.com:11211,memo.fix002.0002.use1.cache.amazonaws.com:11211",
+              "NODE": "sessions-002.sessions.fix002.use1.cache.amazonaws.com",
+              "CACHE_ARN": "arn:aws:elasticache:us-east-1:123456789012:replicationgroup:sessions"
+            }
+          }
+        ],
+        "taskRoleArn": "arn:aws:iam::123456789012:role/worker-task",
+        "taskRoleId": "iam/role/worker-task"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/admin-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/admin-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "admin-role",
+      "spec": {
+        "roleName": "admin-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/admin-fn"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "cache",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "elasticache:Connect",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/api-fn-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/api-fn-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "api-fn-role",
+      "spec": {
+        "roleName": "api-fn-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/api-fn"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "cache",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "elasticache:Connect",
+                  "Resource": "arn:aws:elasticache:us-east-1:123456789012:replicationgroup:sessions"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/probe-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/probe-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "probe-role",
+      "spec": {
+        "roleName": "probe-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/probe-fn"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "logs",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "logs:PutLogEvents",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/worker-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/worker-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "worker-task",
+      "spec": {
+        "roleName": "worker-task",
+        "path": "/",
+        "assumedBy": [
+          "ecs/taskdef/worker:1"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "logs",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "logs:PutLogEvents",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/admin-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "admin-fn",
+      "spec": {
+        "functionName": "admin-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/admin-role",
+        "roleId": "iam/role/admin-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/api-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api-fn",
+      "spec": {
+        "functionName": "api-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/api-fn-role",
+        "roleId": "iam/role/api-fn-role",
+        "env": {
+          "SESSIONS_URL": "rediss://master.sessions.fix002.use1.cache.amazonaws.com:6379/0",
+          "RATE_HOST": "ratelimit-fix002.serverless.use1.cache.amazonaws.com:6380"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/probe-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "probe-fn",
+      "spec": {
+        "functionName": "probe-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/probe-role",
+        "roleId": "iam/role/probe-role",
+        "env": {
+          "CACHE_ARN": "arn:aws:elasticache:us-east-1:123456789012:serverlesscache:ratelimit"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    }
+  ]
+}

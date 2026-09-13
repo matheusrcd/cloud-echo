@@ -129,6 +129,18 @@ var services = []Service{
 		},
 	},
 	{
+		SDKID:     "ElastiCache",
+		IAMPrefix: "elasticache",
+		// Three listings, because serverless caches answer on none of the
+		// other two. None carries tags, hence ListTagsForResource per cache.
+		Ops: []string{
+			"DescribeCacheClusters",
+			"DescribeReplicationGroups",
+			"DescribeServerlessCaches",
+			"ListTagsForResource",
+		},
+	},
+	{
 		SDKID:     "IAM",
 		IAMPrefix: "iam",
 		// Only the roles collected workloads assume are read, never the whole

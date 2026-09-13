@@ -418,10 +418,10 @@ func (b *builder) checkUnpermitted() {
 		if ev == nil || !ev.complete || n == nil {
 			continue
 		}
-		// A database is reached with a password over a route, not through
-		// IAM: a role with no grant on it proves nothing.
+		// A database or a cache is reached with a password over a route, not
+		// through IAM: a role with no grant on it proves nothing.
 		svc := serviceOfType[n.Type]
-		if svc == "" || svc == "rds" || ev.permitted[k.to] {
+		if svc == "" || svc == "rds" || svc == "elasticache" || ev.permitted[k.to] {
 			continue
 		}
 		b.findings = append(b.findings, Finding{Kind: "unpermitted", Node: k.from, Target: k.to, Rule: ruleIAM,

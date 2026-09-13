@@ -424,6 +424,28 @@ for r in of("rds.instance"):
         args += ["--enable-iam-database-authentication"]
     aws(r["id"], "create-db-instance", *args)
 
+# ---------------------------------------------------------------- ElastiCache
+# From the spec. No AUTH token is ever in the inventory; none is set locally.
+for r in of("elasticache.cache"):
+    s = r["spec"]
+    if s["kind"] == "replication-group":
+        args = ["elasticache", "create-replication-group", "--replication-group-id", s["identifier"],
+                "--replication-group-description", "seeded by cloud-echo", "--engine", s["engine"],
+                "--cache-node-type", s.get("nodeType") or "cache.t4g.micro", "--num-cache-clusters", str(max(1, len(s.get("nodes") or []))) ]
+        if s.get("transitEncryption"):
+            args.append("--transit-encryption-enabled")
+        # Passed as the materializer will — Floci ran valkey:8 for 9.1 anyway.
+        if s.get("engineVersion"):
+            args += ["--engine-version", s["engineVersion"]]
+        aws(r["id"], "create-replication-group", *args)
+    elif s["kind"] == "serverless":
+        aws(r["id"], "create-serverless-cache", "elasticache", "create-serverless-cache",
+            "--serverless-cache-name", s["identifier"], "--engine", s["engine"])
+    else:
+        aws(r["id"], "create-cache-cluster", "elasticache", "create-cache-cluster", "--cache-cluster-id", s["identifier"],
+            "--engine", s["engine"], "--cache-node-type", s.get("nodeType") or "cache.t4g.micro",
+            "--num-cache-nodes", str(max(1, len(s.get("nodes") or []))))
+
 # ---------------------------------------------------------------- report
 report = {"ok": len(ok), "failed": [dict(zip(("id", "step", "error"), f)) for f in failed],
           "specGaps": [dict(zip(("id", "gap"), g)) for g in gaps]}

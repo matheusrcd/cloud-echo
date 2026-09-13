@@ -34,6 +34,7 @@ func (iamPolicyRule) Tier() int    { return 3 }
 var serviceOfType = map[string]string{
 	spec.TypeSQSQueue: "sqs", spec.TypeDynamoDBTable: "dynamodb", spec.TypeLambdaFunction: "lambda",
 	spec.TypeRDSInstance: "rds", spec.TypeRDSCluster: "rds",
+	spec.TypeCache: "elasticache",
 }
 
 // actionClass is one intent and the actions that state it.
@@ -100,6 +101,8 @@ var actionClasses = map[string][]actionClass{
 		readsDBSecret,
 	},
 	spec.TypeRDSInstance: {readsDBSecret},
+	// IAM authentication to Valkey/Redis: elasticache:Connect on the cache.
+	spec.TypeCache: {{kind: KindConnect, actions: []string{"elasticache:Connect"}, arns: ownARN}},
 }
 
 type iamTarget struct {
@@ -221,6 +224,16 @@ func iamTargets(c *Context) []*iamTarget {
 			var in spec.RDSInstance
 			if json.Unmarshal(r.Spec, &in) == nil {
 				t.secretARN = in.MasterSecretARN
+			}
+		case spec.TypeCache:
+			if t.arn == "" {
+				kind, name := "replicationgroup", strings.TrimPrefix(r.ID, "cache/")
+				if n, ok := strings.CutPrefix(r.ID, "cache/serverless/"); ok {
+					kind, name = "serverlesscache", n
+				} else if n, ok := strings.CutPrefix(r.ID, "cache/cluster/"); ok {
+					kind, name = "cluster", n
+				}
+				t.arn = fmt.Sprintf("arn:aws:elasticache:%s:%s:%s:%s", region, acct, kind, name)
 			}
 		case spec.TypeLambdaFunction:
 			if t.arn == "" {
@@ -520,7 +533,7 @@ func claim(c *Context, holder string, t *iamTarget, cl actionClass, grants []gra
 // infrastructure every role carries, and are not reported.
 func reportOutside(c *Context, holder string, rv *roleView) {
 	typeOf := map[string]string{"sqs": spec.TypeSQSQueue, "dynamodb": spec.TypeDynamoDBTable, "lambda": spec.TypeLambdaFunction,
-		"rds": spec.TypeRDSCluster}
+		"rds": spec.TypeRDSCluster, "elasticache": spec.TypeCache}
 	for _, st := range rv.identity {
 		if !st.Allow {
 			continue

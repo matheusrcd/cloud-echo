@@ -18,10 +18,14 @@ httpapis=$(aws apigatewayv2 get-apis --query "Items[?starts_with(Name,'$P-')].Ap
 apikeys=$(aws apigateway get-api-keys --query "items[?starts_with(name,'$P-')].id" --output text)
 dbinstances=$(aws rds describe-db-instances --query "DBInstances[?starts_with(DBInstanceIdentifier,'$P-')].DBInstanceIdentifier" --output text)
 dbclusters=$(aws rds describe-db-clusters --query "DBClusters[?starts_with(DBClusterIdentifier,'$P-')].DBClusterIdentifier" --output text)
+cachegroups=$(aws elasticache describe-replication-groups --query "ReplicationGroups[?starts_with(ReplicationGroupId,'$P-')].ReplicationGroupId" --output text)
+cacheclusters=$(aws elasticache describe-cache-clusters --query "CacheClusters[?starts_with(CacheClusterId,'$P-') && ReplicationGroupId==null].CacheClusterId" --output text)
+serverless=$(aws elasticache describe-serverless-caches --query "ServerlessCaches[?starts_with(ServerlessCacheName,'$P-')].ServerlessCacheName" --output text)
+cachesubnets=$(aws elasticache describe-cache-subnet-groups --query "CacheSubnetGroups[?starts_with(CacheSubnetGroupName,'$P-')].CacheSubnetGroupName" --output text)
 
 log "will delete (account $(echo "$ACCT" | redact), region $AWS_REGION)"
-printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  apigw:    rest=%s http=%s keys=%s\n  rds:      instances=%s clusters=%s (no final snapshot)\n  local:    ce-m1 Floci containers, network, volume\n' \
-  "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$restapis" "$httpapis" "$apikeys" "$dbinstances" "$dbclusters"
+printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  apigw:    rest=%s http=%s keys=%s\n  rds:      instances=%s clusters=%s (no final snapshot)\n  cache:    groups=%s clusters=%s serverless=%s subnets=%s\n  local:    ce-m1 Floci containers, network, volume\n' \
+  "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$restapis" "$httpapis" "$apikeys" "$dbinstances" "$dbclusters" "$cachegroups" "$cacheclusters" "$serverless" "$cachesubnets"
 if [ "${1:-}" != "--yes" ]; then
   read -r -p "type DELETE to continue: " ans; [ "$ans" = "DELETE" ] || { echo "aborted"; exit 1; }
 fi
@@ -33,6 +37,11 @@ log "rds (started first: deleting a database takes minutes)"
 for d in $dbinstances; do
   aws rds delete-db-instance --db-instance-identifier "$d" --skip-final-snapshot --delete-automated-backups >/dev/null && echo "  instance $d (deleting)"
 done
+
+log "elasticache (started early too)"
+for c in $cachegroups; do aws elasticache delete-replication-group --replication-group-id "$c" --no-retain-primary-cluster >/dev/null && echo "  group $c (deleting)"; done
+for c in $cacheclusters; do aws elasticache delete-cache-cluster --cache-cluster-id "$c" >/dev/null && echo "  cluster $c (deleting)"; done
+for c in $serverless; do aws elasticache delete-serverless-cache --serverless-cache-name "$c" >/dev/null && echo "  serverless $c (deleting)"; done
 
 log "api gateway"
 # API Gateway throttles deletes hard (a few per minute for REST APIs); pace them.
@@ -85,6 +94,16 @@ for c in $dbclusters; do
   aws rds delete-db-cluster --db-cluster-identifier "$c" --skip-final-snapshot >/dev/null && echo "  cluster $c (deleting)"
 done
 for c in $dbclusters; do aws rds wait db-cluster-deleted --db-cluster-identifier "$c" && echo "  cluster $c deleted"; done
+
+log "elasticache subnet groups (after their caches are gone)"
+for c in $cachegroups; do aws elasticache wait replication-group-deleted --replication-group-id "$c" && echo "  group $c deleted"; done
+for c in $cacheclusters; do aws elasticache wait cache-cluster-deleted --cache-cluster-id "$c" && echo "  cluster $c deleted"; done
+for c in $serverless; do
+  for i in $(seq 1 60); do
+    [ "$(aws elasticache describe-serverless-caches --serverless-cache-name "$c" --query 'length(ServerlessCaches)' --output text 2>/dev/null)" = "1" ] || break; sleep 15
+  done; echo "  serverless $c deleted"
+done
+for g in $cachesubnets; do aws elasticache delete-cache-subnet-group --cache-subnet-group-name "$g" && echo "  subnet group $g"; done
 
 log "local Floci"
 # Only containers on this suite's network: Floci's children join it. A broader

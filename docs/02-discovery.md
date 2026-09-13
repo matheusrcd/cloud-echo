@@ -125,7 +125,7 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | **RDS** ✅ | `DescribeDBInstances`, `DescribeDBClusters` | endpoints (writer, reader, custom, members'), `Port`, `Engine`/`EngineVersion`, the managed master secret's ARN, `DbiResourceId`, subnet group and security groups, Data API, Serverless v2 range |
 | **API Gateway v1** ✅ | `GetRestApis`, `GetResources` (`embed=methods`), `GetStages`, `GetAuthorizers` | integration `uri`, `type`, `credentials`, `connectionId`; authorizer function; stage variables |
 | **API Gateway v2** ✅ | `GetApis`, `GetRoutes`, `GetIntegrations`, `GetStages`, `GetAuthorizers` | integration `uri`/subtype + `QueueUrl`; JWT issuer; authorizer function |
-| **ElastiCache** | `DescribeReplicationGroups` (Redis/Valkey), `DescribeCacheClusters` (memcached only) | `Engine`, `EngineVersion`, endpoint, port |
+| **ElastiCache** ✅ | `DescribeReplicationGroups` (Valkey/Redis), `DescribeCacheClusters` (memcached, and the groups' members), `DescribeServerlessCaches`, `ListTagsForResource` | every endpoint (primary, reader, configuration, nodes'), port, engine and version, TLS, AUTH required, serverless caps, subnet group and security groups |
 
 > **Tags come from `Include`, not a second call.** Every ECS `Describe*` accepts
 > an `Include: [TAGS]` parameter, so `ListTagsForResource` is not needed and is
@@ -225,12 +225,34 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 > alias pinned to an older version, that version's environment can differ. The
 > mapping's `qualifier` is recorded so the gap is at least visible.
 
-> **ElastiCache is two APIs, not one.** Redis and Valkey clusters are *only*
-> visible through `DescribeReplicationGroups`; `DescribeCacheClusters` covers
-> memcached. M0 confirmed Floci enforces the same split as modern AWS
+> **ElastiCache is three APIs, not one — and not two.** Redis and Valkey clusters
+> are *only* visible through `DescribeReplicationGroups`; `DescribeCacheClusters`
+> covers memcached. M0 confirmed Floci enforces the same split as modern AWS
 > (`CreateCacheCluster` rejects Redis/Valkey with *"Engine must be 'memcached'"*).
 > A collector that reads only `DescribeCacheClusters` will silently miss every
-> Redis cluster in the account.
+> Redis cluster in the account — and one that reads those two misses every
+> **serverless** cache, which only `DescribeServerlessCaches` returns. The design
+> listed two; the collector reads all three.
+>
+> Also from real payloads, before the collector was written:
+>
+> - **The replication group is the node**, its member cache clusters its nodes —
+>   like an Aurora cluster. The group carries neither an engine version nor
+>   security groups: both come from its members, which `DescribeCacheClusters`
+>   lists beside the standalone clusters (with `ShowCacheNodeInfo`, or no node
+>   endpoints come back at all).
+> - **A serverless cache's reader is its writer's host on another port** (6380).
+>   A host alone cannot tell them apart, and must not be expected to.
+> - **Endpoint shapes differ by kind**, and the account's suffix sits in a
+>   different label in each: `master.<rg>.<sfx>.<rc>…`, `<rg>-001.<rg>.<sfx>…`,
+>   `<id>.<sfx>.cfg.<rc>…`, `<name>-<sfx>.serverless.<rc>…` (`<rc>` is a short
+>   region code such as `use2`).
+> - **No response carries tags**, hence `ListTagsForResource`, one call per cache;
+>   a denial costs the tags, never the cache.
+> - The AUTH token is never returned; whether one is required is recorded.
+> - The first ElastiCache call in an account creates its service-linked role, and
+>   creates issued in the following seconds fail with `InvalidCredentialsException`
+>   — the spike tooling retries; the read-only collector is unaffected.
 
 ### Supporting services
 

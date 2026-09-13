@@ -25,7 +25,7 @@ var updateLinkerFixture = flag.Bool("update-linker-fixture", false,
 //
 // then see what it did to the graph with `go test ./internal/linker`.
 func TestLinkerFixtureMatchesDiscovery(t *testing.T) {
-	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb", "lambda", "apigateway", "apigatewayv2", "rds", "iam")
+	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb", "lambda", "apigateway", "apigatewayv2", "rds", "elasticache", "iam")
 	inv, err := NewRegistry().Scan(context.Background(), fixtureSession(tr), Options{GeneratedBy: "cloud-echo/fixture"})
 	if err != nil {
 		t.Fatalf("Scan: %v", err)

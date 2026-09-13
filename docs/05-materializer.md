@@ -93,6 +93,13 @@ requirements no earlier section had:
   proxy. But the **port changes** per database, Aurora is plain Postgres (no
   members, no reader), and the Data API, Serverless v2 and IAM authentication are
   not emulated.
+- **Caches run, but are not described** (ElastiCache round): Floci started real
+  `valkey` and `memcached` containers that answer `PING` and `version`, and
+  describes neither's endpoints (see [04-blueprint.md](04-blueprint.md)). It
+  runs `valkey:8` whatever version is asked for — the account's was 9.1 — so a
+  workload using a newer command fails locally, and it implements neither
+  **serverless caches** nor `ListTagsForResource`. A serverless cache has to be
+  materialized as a plain Valkey container.
 - **Managed master secrets work locally**: Floci creates one, and the password in
   it connects. Its content is richer than AWS's (it adds `host`, `port`,
   `dbname`), so an application reading the host from the secret works locally and

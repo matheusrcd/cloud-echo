@@ -52,6 +52,20 @@ for r in keep:
         m = re.search(r":secret:(rds![a-z]+-[0-9a-f-]+-[A-Za-z0-9]{6})$", s.get("masterSecretArn", ""))
         if m:
             fake(m.group(1), "rds!db-fakesecret-")
+    if r["type"] == "elasticache.cache":
+        # The account's suffix sits in a different place in each endpoint
+        # shape: master.<rg>.<sfx>.use2…, <rg>-001.<rg>.<sfx>…, <id>.<sfx>.cfg…,
+        # <name>-<sfx>.serverless… — found as the six-character label that is
+        # neither a name nor a fixed word.
+        known = {s["identifier"]} | {n["id"] for n in s.get("nodes") or []}
+        fixed = {"master", "replica", "clustercfg", "cfg", "serverless", "ng", "cache", "amazonaws", "com"}
+        for e in [s.get("primaryEndpoint"), s.get("readerEndpoint"), s.get("configurationEndpoint")] + [n.get("endpoint") for n in s.get("nodes") or []]:
+            labels = (e or "").split(".")
+            if len(labels) > 1 and labels[1] == "serverless":
+                labels[0] = labels[0].rsplit("-", 1)[-1]
+            for l in labels[:-3]:
+                if re.fullmatch(r"[a-z0-9]{6}", l) and l not in known and l not in fixed and not l.isdigit() and not re.fullmatch(r"[a-z]{3}\d", l):
+                    fake(l, "fk")
 text = json.dumps({**inv, "resources": keep, "scanId": "real-m1", "generatedBy": "sanitized from a real scan",
                    "scannedAt": "2026-09-13T00:00:00Z"}, indent=2)
 for orig in re.findall(r"\b(?:subnet|sg|vpc)-[0-9a-f]{8,17}\b", text):

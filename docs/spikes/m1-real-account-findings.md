@@ -144,8 +144,9 @@ verify by exercising (run the task, send the message), not by describing.
 
 ## Not tested
 
-- ElastiCache — it bills by the hour, and has no collector yet. (RDS and API
-  Gateway have their own rounds below.)
+- Every other service in the target stack's supporting list (ECR, SNS, EC2,
+  ELBv2, Secrets Manager, SSM) — no collectors yet. API Gateway, RDS and
+  ElastiCache have their own rounds below.
 - A Lambda environment encrypted with a customer KMS key — a key costs money; the
   `unreadable` path is covered by fixtures only.
 - Pagination at real scale beyond ECS services (e.g. >1000 queues); the mechanism
@@ -560,6 +561,68 @@ about US$0.02/hour, and the Aurora cluster bills compute only while awake. On a
 free-plan account this draws on its credits. `90-aws-teardown.sh` now removes
 both, with no final snapshot.
 
+## ElastiCache round
+
+**Date:** 2026-09-13 (seventh round) · One cache per API ElastiCache answers on,
+from [`15-aws-elasticache-create.sh`](../../spikes/m1/15-aws-elasticache-create.sh):
+a Valkey replication group (`cache.t4g.micro`, TLS), a Valkey Serverless cache
+(capped at 1 GB and 1000 ECPU/s) and a memcached cluster, then configuration and
+a grant naming them — the group's primary as `rediss://` in `order-processor`
+with `elasticache:Connect` on it, its reader and the serverless host in
+`orders-fn`, memcached's configuration endpoint as `host:port` in
+`webhook-receiver`. The twelve notification services keep their made-up
+`ce-test-sessions.abc123…`: the group's real name, another account's suffix.
+
+| Check | Result |
+| --- | --- |
+| Inventory checker ([`check-elasticache.py`](../../spikes/m1/check-elasticache.py), written before looking) | **16 / 16** after one correction (below) |
+| Scan with only the shipped policy vs admin | **0 differences** across 53 resources |
+| Graph checker, with 8 cache checks written before looking | **85 / 85**, and the same on the sanitized fixture |
+| Earlier checkers, re-run | **46 / 46**, **29 / 29**, **19 / 19** |
+| Mutations | ElastiCache **15 / 15**, with RDS, Tier 2 and Tier 3 still killed |
+| Floci round trip | the group and memcached run (`PING`, `version`); serverless unsupported |
+
+What reading real payloads changed:
+
+- **Three APIs, not two.** Serverless caches answer only on
+  `DescribeServerlessCaches`; a collector reading the design's two misses them.
+- **A serverless cache's reader is its writer's host on port 6380.** The host
+  names the cache, not the role.
+- **The replication group carries no engine version and no security groups**;
+  both come from its members. And **no response carries tags**:
+  `ListTagsForResource`, one per cache.
+- **Endpoint shapes differ by kind** — `master.`/`replica.`, `clustercfg.`,
+  `.cfg.`, `<name>-<suffix>.serverless` — and the namesake check reads every one.
+
+**The check that was wrong.** `check-elasticache.py` expected the group's
+security group "from its member". The account returned `SecurityGroups: null`
+for both the group's member and memcached: created without one, a cache cluster
+runs under the VPC's **default** group, and the API does not list it — while the
+serverless cache lists the same default group explicitly. Recorded in the spec,
+because network reachability (Tier 4) must read an empty list as "the default".
+
+**The defect the round trip found.** Floci does not implement
+`DescribeServerlessCaches`, and the collector treated `UnsupportedOperation` as
+fatal — losing the replication group and memcached it had already read.
+ElastiCache Serverless is not in every region either, so this was not only an
+emulator problem. Fixed where every collector benefits: `warnOrFail` now records
+an unsupported operation as a warning (`unsupported`) and the scan keeps the
+rest; a regression test serves the error in front of the recorded response. The
+next round trip kept both caches.
+
+**Floci, exercised.** Real `valkey` and `memcached` containers answered — but the
+group came back with no endpoints (a configuration endpoint of `localhost`),
+Floci ran `valkey:8` for a requested 9.1 (tested directly, not only through the
+seeder), and serverless caches and `ListTagsForResource` are unsupported.
+
+**First use of ElastiCache in an account** creates its service-linked role, and
+the creates issued in the next seconds failed with `InvalidCredentialsException`
+("cannot be completed now"); the CLI's waiter also gave up after ten minutes on
+the TLS replication group. The script retries both — tooling, not product.
+
+**Cost.** About US$0.04/hour for the three, on top of RDS; torn down with
+`90-aws-teardown.sh`, which now removes the caches and their subnet group.
+
 ## Reproducing
 
 ```bash
@@ -575,6 +638,8 @@ python3 diff-inventory.py .work/inventory-aws.json .work/inventory-least.json
 ./13-aws-iam-tier3.sh        # Tier-3 grants to cancel, widen and read the other way
 ./14-aws-rds-create.sh       # RDS — COSTS MONEY: an Aurora cluster and a t4g.micro
 python3 check-rds.py .work/inventory-aws.json
+./15-aws-elasticache-create.sh  # ElastiCache — COSTS MONEY: one cache per API
+python3 check-elasticache.py .work/inventory-aws.json
 python3 check-apigw.py .work/inventory-aws.json
 ./22-probe-scope.sh          # the policy cannot read API key values
 ./.work/cloud-echo graph --inventory .work/inventory-aws.json --out .work/graph-aws.json --format json >/dev/null
@@ -584,6 +649,7 @@ python3 group-diff.py .work/inventory-aws.json .work/inventory-floci.json
 ./90-aws-teardown.sh         # lists, asks, then removes every ce-test- resource
 ```
 
-Idle cost is effectively zero without `14-aws-rds-create.sh`; the one continuous
-activity is the enabled SQS mapping's long-polling, well inside the SQS free
-tier. With it, the RDS instance bills by the hour until the teardown.
+Idle cost is effectively zero without `14-` and `15-aws-*-create.sh`; the one
+continuous activity is the enabled SQS mapping's long-polling, well inside the
+SQS free tier. With them, the RDS instance and the caches bill by the hour until
+the teardown.

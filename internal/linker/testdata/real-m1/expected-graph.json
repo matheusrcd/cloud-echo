@@ -25,6 +25,24 @@
       ]
     },
     {
+      "id": "cache/ce-test-sessions",
+      "type": "elasticache.cache",
+      "name": "ce-test-sessions",
+      "flow": "sync"
+    },
+    {
+      "id": "cache/cluster/ce-test-memo",
+      "type": "elasticache.cache",
+      "name": "ce-test-memo",
+      "flow": "sync"
+    },
+    {
+      "id": "cache/serverless/ce-test-ratelimit",
+      "type": "elasticache.cache",
+      "name": "ce-test-ratelimit",
+      "flow": "sync"
+    },
+    {
       "id": "ddb/ce-test-orders",
       "type": "dynamodb.table",
       "name": "ce-test-orders",
@@ -592,6 +610,24 @@
     },
     {
       "from": "lambda/ce-test-order-processor",
+      "to": "cache/ce-test-sessions",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-order-processor env SESSIONS_URL",
+          "detail": "SESSIONS_URL connects to cache/ce-test-sessions (its primary endpoint)"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-order-processor-role tier3-cache",
+          "detail": "role ce-test-order-processor-role: Allow elasticache:Connect on arn:aws:elasticache:us-east-2:123456789012:replicationgroup:ce-test-sessions (inline policy tier3-cache)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-order-processor",
       "to": "ddb/ce-test-orders",
       "kind": "read",
       "confidence": "medium",
@@ -698,6 +734,32 @@
     },
     {
       "from": "lambda/ce-test-orders-fn",
+      "to": "cache/ce-test-sessions",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-orders-fn env SESSIONS_READER",
+          "detail": "SESSIONS_READER connects to cache/ce-test-sessions (its reader endpoint)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-orders-fn",
+      "to": "cache/serverless/ce-test-ratelimit",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-orders-fn env RATE_LIMIT_HOST",
+          "detail": "RATE_LIMIT_HOST connects to cache/serverless/ce-test-ratelimit (its primary endpoint)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-orders-fn",
       "to": "ddb/ce-test-orders-audit",
       "kind": "references",
       "confidence": "high",
@@ -737,6 +799,19 @@
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions ce-test-orders-fn env DB_READER_HOST",
           "detail": "DB_READER_HOST connects to rds/cluster/ce-test-db (its reader endpoint)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-webhook-receiver",
+      "to": "cache/cluster/ce-test-memo",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-webhook-receiver env MEMO_SERVERS",
+          "detail": "MEMO_SERVERS connects to cache/cluster/ce-test-memo (its configuration endpoint)"
         }
       ]
     },
@@ -1097,7 +1172,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-01",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1111,7 +1186,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-02",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1125,7 +1200,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-03",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1139,7 +1214,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-04",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1153,7 +1228,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-05",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1167,7 +1242,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-06",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1181,7 +1256,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-07",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1195,7 +1270,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-08",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1209,7 +1284,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-09",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1223,7 +1298,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-10",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1237,7 +1312,7 @@
       "node": "ecs/ce-test-main/ce-test-filler-11",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",
@@ -1251,7 +1326,7 @@
       "node": "ecs/ce-test-main/ce-test-notifications",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+      "detail": "CACHE_HOST names an endpoint of a cache called ce-test-sessions, like cache/ce-test-sessions in this scan, with another account's suffix: a namesake, not this cache"
     },
     {
       "kind": "broad-access",

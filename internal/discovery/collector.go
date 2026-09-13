@@ -120,5 +120,31 @@ func warnOrFail(out Emitter, service, op string, err error) error {
 		})
 		return nil
 	}
+	// An operation the endpoint does not offer — ElastiCache Serverless is not
+	// in every region, and an emulator implements a subset — is one part of the
+	// account that cannot be read, like a denial: the rest still counts. Found
+	// when a round trip through Floci lost every cache to an unsupported
+	// DescribeServerlessCaches.
+	if isUnsupported(err) {
+		out.Warn(inventory.Warning{
+			Service: service,
+			Op:      op,
+			Kind:    "unsupported",
+			Message: err.Error(),
+		})
+		return nil
+	}
 	return err
+}
+
+func isUnsupported(err error) bool {
+	var ae smithy.APIError
+	if !errors.As(err, &ae) {
+		return false
+	}
+	switch ae.ErrorCode() {
+	case "UnsupportedOperation", "UnsupportedOperationException", "InvalidAction", "UnknownOperationException":
+		return true
+	}
+	return false
 }

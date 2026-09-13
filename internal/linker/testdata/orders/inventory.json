@@ -8,6 +8,12 @@
   "partial": true,
   "warnings": [
     {
+      "service": "ElastiCache",
+      "op": "ListTagsForResource",
+      "kind": "access-denied",
+      "message": "operation error ElastiCache: ListTagsForResource, https response error StatusCode: 403, RequestID: , api error AccessDenied: not authorized to perform: elasticache:ListTagsForResource"
+    },
+    {
       "service": "IAM",
       "op": "GetRole",
       "kind": "dangling-reference",
@@ -441,6 +447,165 @@
       },
       "source": {
         "api": "apigatewayv2:GetApis",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/carts",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-1:123456789012:replicationgroup:carts",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "carts",
+      "spec": {
+        "kind": "replication-group",
+        "identifier": "carts",
+        "engine": "valkey",
+        "engineVersion": "8.0.1",
+        "status": "available",
+        "nodeType": "cache.t4g.small",
+        "configurationEndpoint": "clustercfg.carts.abc123.use1.cache.amazonaws.com",
+        "port": 6379,
+        "nodes": [
+          {
+            "id": "carts-0001-001",
+            "endpoint": "carts-0001-001.carts.abc123.use1.cache.amazonaws.com"
+          }
+        ],
+        "clusterMode": true,
+        "network": {
+          "subnetGroup": "orders-cache",
+          "securityGroups": [
+            "sg-0fixture0000cache"
+          ]
+        }
+      },
+      "source": {
+        "api": "elasticache:DescribeReplicationGroups",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/cluster/memo",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-1:123456789012:cluster:memo",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "memo",
+      "spec": {
+        "kind": "cache-cluster",
+        "identifier": "memo",
+        "engine": "memcached",
+        "engineVersion": "1.6.22",
+        "status": "available",
+        "nodeType": "cache.t4g.small",
+        "configurationEndpoint": "memo.abc123.cfg.use1.cache.amazonaws.com",
+        "port": 11211,
+        "nodes": [
+          {
+            "id": "0001",
+            "endpoint": "memo.abc123.0001.use1.cache.amazonaws.com"
+          },
+          {
+            "id": "0002",
+            "endpoint": "memo.abc123.0002.use1.cache.amazonaws.com"
+          }
+        ],
+        "network": {
+          "subnetGroup": "orders-cache",
+          "securityGroups": [
+            "sg-0fixture0000cache"
+          ]
+        }
+      },
+      "source": {
+        "api": "elasticache:DescribeCacheClusters",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/serverless/ratelimit",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-1:123456789012:serverlesscache:ratelimit",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "ratelimit",
+      "spec": {
+        "kind": "serverless",
+        "identifier": "ratelimit",
+        "engine": "valkey",
+        "engineVersion": "8.0",
+        "status": "available",
+        "primaryEndpoint": "ratelimit-abc123.serverless.use1.cache.amazonaws.com",
+        "readerEndpoint": "ratelimit-abc123.serverless.use1.cache.amazonaws.com",
+        "port": 6379,
+        "transitEncryption": true,
+        "limits": {
+          "maxStorageGb": 5,
+          "maxEcpuPerSecond": 5000
+        },
+        "network": {
+          "subnets": [
+            "subnet-0fixture000000a",
+            "subnet-0fixture000000b"
+          ],
+          "securityGroups": [
+            "sg-0fixture0000cache"
+          ]
+        }
+      },
+      "source": {
+        "api": "elasticache:DescribeServerlessCaches",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/sessions",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-1:123456789012:replicationgroup:sessions",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "sessions",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "kind": "replication-group",
+        "identifier": "sessions",
+        "engine": "valkey",
+        "engineVersion": "8.0.1",
+        "status": "available",
+        "nodeType": "cache.t4g.small",
+        "primaryEndpoint": "sessions.abc123.ng.0001.use1.cache.amazonaws.com",
+        "readerEndpoint": "sessions-ro.abc123.use1.cache.amazonaws.com",
+        "port": 6379,
+        "nodes": [
+          {
+            "id": "sessions-001",
+            "role": "primary",
+            "endpoint": "sessions-001.sessions.abc123.use1.cache.amazonaws.com"
+          },
+          {
+            "id": "sessions-002",
+            "role": "replica",
+            "endpoint": "sessions-002.sessions.abc123.use1.cache.amazonaws.com"
+          }
+        ],
+        "multiAz": true,
+        "transitEncryption": true,
+        "authToken": true,
+        "userGroups": [
+          "orders-users"
+        ],
+        "network": {
+          "subnetGroup": "orders-cache",
+          "securityGroups": [
+            "sg-0fixture0000cache"
+          ]
+        }
+      },
+      "source": {
+        "api": "elasticache:DescribeReplicationGroups",
         "collectedAt": "2026-09-13T00:00:00Z"
       }
     },

@@ -76,6 +76,11 @@ For ElastiCache, Floci returns `NodeGroups: null`, so there is no discoverable
 endpoint at all — cloud-echo synthesises one from the Floci host plus the
 conventional port. Known gap, tracked in
 [spikes/m0-findings.md](spikes/m0-findings.md#d4--ref-targets-for-rds-and-elasticache).
+The ElastiCache round confirmed it — a replication group comes back with no
+primary, reader or node endpoints and a configuration endpoint of `localhost`,
+while real `valkey` and `memcached` containers answer on the project network —
+so `${ref:cache/x.host}` resolves to the cache's container, never to anything
+Floci describes.
 
 ## Schema (v1 draft)
 

@@ -118,7 +118,8 @@ Each value is matched against these patterns, strongest first:
 | The whole value equal to a table, queue or function name | `references` | `medium` or `low` — below |
 | An RDS endpoint — writer, reader, custom, or a member's own — matching a database exactly | `connect` to the database | `high` |
 | The ARN of a database's managed master secret (in env, or injected through ECS `secrets[]`) | `connect` to the database | `high` |
-| An ElastiCache or load-balancer endpoint, an RDS Proxy, a Function URL, an S3 bucket, another AWS endpoint, a non-HTTP URL outside AWS, a host with no domain | an `unresolved` finding | — |
+| An ElastiCache endpoint — primary, reader, configuration, serverless, or a node's — matching a cache exactly | `connect` to the cache | `high` |
+| A load-balancer endpoint, an RDS Proxy, a Function URL, an S3 bucket, another AWS endpoint, a non-HTTP URL outside AWS, a host with no domain | an `unresolved` finding | — |
 
 A command line is read with its flags: `--table orders` and `--table=orders`
 carry `table` as their key, and a positional argument yields only what names
@@ -316,6 +317,17 @@ What linking a database adds to the tiers above, each pinned by a named test in
 - Gap: IAM database authentication (`rds-db:connect`) names a resource id and a
   database user rather than an ARN, and is not read yet.
 
+#### Caches (ElastiCache)
+
+The same decisions as databases, pinned by `cache_test.go` and a mutation each:
+an endpoint of any shape matches its cache exactly or not at all, and a label
+naming a cache of this scan beside another account's suffix is reported as a
+namesake — including a serverless host, whose first label is `<name>-<suffix>`;
+the edge is `connect`; `elasticache:Connect` (IAM authentication) is a Tier-3
+`connect` on the cache's ARN; and a cache is not IAM-gated, so a reference to one
+is never `unpermitted`. A serverless cache's reader shares its writer's host, so
+the host names the cache and not the role.
+
 **Known gaps.** Service control policies and session policies are not collected;
 a DynamoDB resource policy is not collected (so `unpermitted` names it as a
 possibility); a queue or function policy that grants a role is read only to hold
@@ -423,7 +435,7 @@ on). The text
 output groups identical findings, so twelve services sharing one task definition
 report one ElastiCache endpoint once; `graph.json` keeps every one.
 
-Every rule ships with a golden case **and a negative case**. Six golden
+Every rule ships with a golden case **and a negative case**. Seven golden
 accounts in `internal/linker/testdata`:
 
 | Account | What it is |
@@ -433,6 +445,7 @@ accounts in `internal/linker/testdata`:
 | `tier2-cases` | hand-written, one scenario per Tier-2 pattern and per trap; `tier2_test.go` names each |
 | `tier3-cases` | hand-written, one scenario per Tier-3 decision and per trap; `tier3_test.go` names each |
 | `rds-cases` | hand-written, one scenario per database-linking decision and trap; `rds_test.go` names each |
+| `cache-cases` | hand-written, one scenario per cache endpoint shape and trap; `cache_test.go` names each |
 | `real-m1` | a real account's inventory, sanitized by `spikes/m1/sanitize-inventory.py` |
 
 Goldens pin the output; named tests in `rules_test.go` say why each behaviour

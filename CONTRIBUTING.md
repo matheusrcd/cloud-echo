@@ -84,7 +84,10 @@ this, `scan --diff` reports noise instead of change.
 ### 5. A denied call degrades; it does not abort
 
 Real accounts hand out partial permissions. `AccessDenied` on one call becomes a
-warning and a partial inventory. Everything else — a network failure, a cancelled
+warning and a partial inventory — and so does an operation the endpoint does not
+offer (`UnsupportedOperation`: a feature missing in a region, an emulator's
+subset). Emit what was read before a call that can fail this way, or read the
+listings independently: one unsupported API must not cost the others. Everything else — a network failure, a cancelled
 context — propagates. Reporting a Ctrl-C as a permissions problem sends users to
 fix the wrong thing.
 

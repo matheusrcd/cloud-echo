@@ -26,6 +26,7 @@ const (
 	TypeWebSocketAPI       = "apigateway.websocket"
 	TypeRDSInstance        = "rds.instance"
 	TypeRDSCluster         = "rds.cluster"
+	TypeCache              = "elasticache.cache"
 )
 
 // Types lists every type a collector may emit. A test in discovery checks
@@ -34,7 +35,7 @@ const (
 var Types = []string{
 	TypeECSCluster, TypeECSService, TypeECSTaskDefinition, TypeSQSQueue, TypeDynamoDBTable,
 	TypeLambdaFunction, TypeEventSourceMapping, TypeIAMRole, TypeIAMPolicy,
-	TypeRESTAPI, TypeHTTPAPI, TypeWebSocketAPI, TypeRDSInstance, TypeRDSCluster,
+	TypeRESTAPI, TypeHTTPAPI, TypeWebSocketAPI, TypeRDSInstance, TypeRDSCluster, TypeCache,
 }
 
 type API struct {
@@ -525,6 +526,68 @@ type DBServerless struct {
 
 type DBNetwork struct {
 	VpcID          string   `json:"vpcId,omitempty"`
+	SubnetGroup    string   `json:"subnetGroup,omitempty"`
+	Subnets        []string `json:"subnets,omitempty"`
+	SecurityGroups []string `json:"securityGroups,omitempty"`
+}
+
+// Cache is an ElastiCache cache, whichever of its three APIs describes it: a
+// Valkey/Redis replication group, a serverless cache, or a standalone cache
+// cluster (memcached, or a legacy Redis node outside any replication group).
+// All three are one kind of node — something a workload connects to and keeps
+// data in — and differ only in the shape of their endpoints.
+type Cache struct {
+	Kind          string `json:"kind"` // replication-group | serverless | cache-cluster
+	Identifier    string `json:"identifier"`
+	Engine        string `json:"engine"` // valkey | redis | memcached
+	EngineVersion string `json:"engineVersion,omitempty"`
+	Status        string `json:"status"`
+	NodeType      string `json:"nodeType,omitempty"`
+
+	// PrimaryEndpoint takes writes and ReaderEndpoint balances reads, for a
+	// replication group without cluster mode and for a serverless cache.
+	// ConfigurationEndpoint is how a client discovers the nodes of a sharded
+	// replication group or a memcached cluster. Any of them, or a node's own
+	// endpoint, names this cache.
+	PrimaryEndpoint       string      `json:"primaryEndpoint,omitempty"`
+	ReaderEndpoint        string      `json:"readerEndpoint,omitempty"`
+	ConfigurationEndpoint string      `json:"configurationEndpoint,omitempty"`
+	Port                  int32       `json:"port,omitempty"`
+	Nodes                 []CacheNode `json:"nodes,omitempty"`
+
+	ClusterMode bool `json:"clusterMode,omitempty"`
+	MultiAZ     bool `json:"multiAz,omitempty"`
+	// TransitEncryption means clients must speak TLS (rediss://) — a local
+	// cache that does not would reject them, or they it.
+	TransitEncryption bool `json:"transitEncryption,omitempty"`
+	// AuthToken is whether AUTH is required; the token is never read.
+	AuthToken  bool          `json:"authToken,omitempty"`
+	UserGroups []string      `json:"userGroups,omitempty"`
+	Limits     *CacheLimits  `json:"limits,omitempty"`
+	Network    *CacheNetwork `json:"network,omitempty"`
+}
+
+type CacheNode struct {
+	ID       string `json:"id"`
+	Role     string `json:"role,omitempty"` // primary | replica, for replication groups
+	Endpoint string `json:"endpoint,omitempty"`
+}
+
+// CacheLimits are a serverless cache's caps.
+type CacheLimits struct {
+	MaxStorageGB     int32 `json:"maxStorageGb,omitempty"`
+	MaxECPUPerSecond int32 `json:"maxEcpuPerSecond,omitempty"`
+}
+
+// CacheNetwork records what reachability needs. A replication group or cache
+// cluster names its subnet group (the subnet ids are one more call away, and
+// nothing reads them yet); a serverless cache lists its subnets directly.
+//
+// No security group is not no security group: a cache cluster created without
+// one runs under its VPC's default group, and DescribeCacheClusters lists none.
+// Seen on the validation account; reachability (Tier 4) must read an empty list
+// as "the default group".
+type CacheNetwork struct {
 	SubnetGroup    string   `json:"subnetGroup,omitempty"`
 	Subnets        []string `json:"subnets,omitempty"`
 	SecurityGroups []string `json:"securityGroups,omitempty"`
