@@ -180,6 +180,8 @@ func WriteMermaid(w io.Writer, g *Graph) {
 			open, close = "([\"", "\"])"
 		case strings.HasPrefix(n.Type, "sqs."):
 			open, close = "[/\"", "\"/]"
+		case strings.HasPrefix(n.Type, "elbv2."):
+			open, close = "{{\"", "\"}}"
 		case strings.HasPrefix(n.Type, "dynamodb."), strings.HasPrefix(n.Type, "rds."), strings.HasPrefix(n.Type, "elasticache."):
 			open, close = "[(\"", "\")]"
 		}

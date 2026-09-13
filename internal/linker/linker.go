@@ -25,6 +25,7 @@ var nodeTypes = map[string]bool{
 	spec.TypeRDSInstance:    true,
 	spec.TypeRDSCluster:     true,
 	spec.TypeCache:          true,
+	spec.TypeLoadBalancer:   true,
 }
 
 // Rule turns what an inventory declares into edges, triggers and findings.
@@ -47,6 +48,7 @@ func Tier1() []Rule {
 		lambdaResourcePolicyRule{},
 		apiEntrypointRule{},
 		loadBalancerRule{},
+		elbListenerRule{},
 	}
 }
 
@@ -112,6 +114,7 @@ type Context struct {
 	b    *builder
 	rule string
 	byID map[string]int // resource index by id, built on first lookup
+	elb  *elbIndex      // load balancers and target groups, built on first use
 }
 
 // Each calls fn for every resource of one type, with its spec decoded into v's

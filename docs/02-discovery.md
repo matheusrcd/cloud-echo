@@ -126,6 +126,7 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | **API Gateway v1** ✅ | `GetRestApis`, `GetResources` (`embed=methods`), `GetStages`, `GetAuthorizers` | integration `uri`, `type`, `credentials`, `connectionId`; authorizer function; stage variables |
 | **API Gateway v2** ✅ | `GetApis`, `GetRoutes`, `GetIntegrations`, `GetStages`, `GetAuthorizers` | integration `uri`/subtype + `QueueUrl`; JWT issuer; authorizer function |
 | **ElastiCache** ✅ | `DescribeReplicationGroups` (Valkey/Redis), `DescribeCacheClusters` (memcached, and the groups' members), `DescribeServerlessCaches`, `ListTagsForResource` | every endpoint (primary, reader, configuration, nodes'), port, engine and version, TLS, AUTH required, serverless caps, subnet group and security groups |
+| **ELBv2** ✅ | `DescribeLoadBalancers`, `DescribeListeners`, `DescribeRules`, `DescribeTargetGroups`, `DescribeTargetHealth` (Lambda and ALB target groups only), `DescribeTags` | scheme, type, DNS name, listeners (ARN, port, protocol, certificate ARNs) and their rules in the order they apply — conditions, forwards with weights, redirects, fixed-response status; target groups' type, port, load balancers, Lambda and ALB targets |
 
 > **Tags come from `Include`, not a second call.** Every ECS `Describe*` accepts
 > an `Include: [TAGS]` parameter, so `ListTagsForResource` is not needed and is
@@ -254,6 +255,31 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 >   creates issued in the following seconds fail with `InvalidCredentialsException`
 >   — the spike tooling retries; the read-only collector is unaffected.
 
+> **ELBv2: the rules are the definition.** The design listed four calls and
+> placed ELBv2 among the supporting services, as the ALB → ECS path. It is a
+> workload service: the load balancer is where traffic enters. Corrected from
+> real payloads, before the collector was written:
+>
+> - **Six calls, not four.** No response carries tags (`DescribeTags`, batches of
+>   20), and only a target group knows its Lambda and ALB targets
+>   (`DescribeTargetHealth` — read for those types only: an ip or instance target
+>   is a task or host whose address changes with every deployment, and ECS
+>   services name their own target groups).
+> - **Rules in the order they apply**, the default last — however the API
+>   returns them, and numerically: as text, priority `100` sorts before `20`. A
+>   Network Load Balancer has no rules, only its listener's default actions.
+> - **Rules carry secrets.** A header condition holds the shared secret a CDN
+>   proves itself with; an OIDC action its client secret; a fixed response free
+>   text; a redirect a signed query. Header and query-string values are redacted
+>   like env vars, the client secret and the body dropped, the query sanitized
+>   like a URL's — before Spec *or* Raw is built.
+> - **The listener's ARN is recorded**: an API Gateway VPC link names a listener,
+>   and with two on one balancer the balancer alone does not say which. Found by
+>   rebuilding the topology in Floci, not by reading.
+> - Gateway Load Balancers route packets to appliances and are reported out of
+>   scope; Classic Load Balancers are another API (`elasticloadbalancing` v1) and
+>   are not collected.
+
 ### Supporting services
 
 | Service | Calls | Why |
@@ -264,7 +290,6 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | **Secrets Manager** | `ListSecrets`, `DescribeSecret` | **never `GetSecretValue`** by default |
 | **SSM** | `DescribeParameters`, `GetParameters` (String/StringList only) | config values are a rich linking signal; SecureString is skipped |
 | **EC2** | `DescribeVpcs`, `DescribeSubnets`, `DescribeSecurityGroups` | Tier-4 reachability corroboration |
-| **ELBv2** | `DescribeLoadBalancers`, `DescribeTargetGroups`, `DescribeListeners`, `DescribeRules` | API GW / ALB → ECS path |
 | **CloudWatch Logs** | `DescribeLogGroups` | map workloads to log groups (used later for runtime observation) |
 
 > **IAM reads only the roles workloads assume.** No `ListRoles`, no

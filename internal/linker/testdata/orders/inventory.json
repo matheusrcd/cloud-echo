@@ -14,6 +14,11 @@
       "message": "operation error ElastiCache: ListTagsForResource, https response error StatusCode: 403, RequestID: , api error AccessDenied: not authorized to perform: elasticache:ListTagsForResource"
     },
     {
+      "service": "Elastic Load Balancing v2",
+      "kind": "out-of-scope",
+      "message": "load balancer inspection is a Gateway Load Balancer: it routes packets to appliances, not requests to workloads, and is not collected"
+    },
+    {
       "service": "IAM",
       "op": "GetRole",
       "kind": "dangling-reference",
@@ -969,6 +974,301 @@
       },
       "source": {
         "api": "ecs:DescribeTaskDefinition",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/internal-jobs",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/net/internal-jobs/73e2d6bc24d8a067",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "internal-jobs",
+      "spec": {
+        "name": "internal-jobs",
+        "type": "network",
+        "scheme": "internal",
+        "state": "active",
+        "dnsName": "internal-jobs-73e2d6bc24d8a067.elb.us-east-1.amazonaws.com",
+        "vpcId": "vpc-0fixture0000000a",
+        "subnets": [
+          "subnet-0fixture000000a",
+          "subnet-0fixture000000b"
+        ],
+        "listeners": [
+          {
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/net/internal-jobs/73e2d6bc24d8a067/ltcpcccc",
+            "port": 5432,
+            "protocol": "TCP",
+            "rules": [
+              {
+                "priority": "default",
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/jobs-tg/1b2c3d4e5f6a7b8c",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeLoadBalancers",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/orders-public",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/orders-public/50dc6c495c0c9188",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-public",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "name": "orders-public",
+        "type": "application",
+        "scheme": "internet-facing",
+        "state": "active",
+        "dnsName": "orders-public-1234567890.us-east-1.elb.amazonaws.com",
+        "vpcId": "vpc-0fixture0000000a",
+        "subnets": [
+          "subnet-0fixture000000a",
+          "subnet-0fixture000000b"
+        ],
+        "securityGroups": [
+          "sg-0fixture00000000lb"
+        ],
+        "listeners": [
+          {
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/orders-public/50dc6c495c0c9188/l080bbbb",
+            "port": 80,
+            "protocol": "HTTP",
+            "rules": [
+              {
+                "priority": "default",
+                "actions": [
+                  {
+                    "type": "redirect",
+                    "redirect": "HTTPS://#{host}:443/#{path}?sig=<redacted:url-query> HTTP_301"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/orders-public/50dc6c495c0c9188/l443aaaa",
+            "port": 443,
+            "protocol": "HTTPS",
+            "certificates": [
+              "arn:aws:acm:us-east-1:123456789012:certificate/0fixture-cert"
+            ],
+            "rules": [
+              {
+                "priority": "10",
+                "conditions": [
+                  {
+                    "field": "path-pattern",
+                    "values": [
+                      "/api/*"
+                    ]
+                  }
+                ],
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/orders-api/8f2b1c",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "priority": "20",
+                "conditions": [
+                  {
+                    "field": "http-header",
+                    "header": "x-origin-secret",
+                    "values": [
+                      "<redacted:key-name>"
+                    ]
+                  }
+                ],
+                "actions": [
+                  {
+                    "type": "authenticate-oidc",
+                    "issuer": "https://auth.example.com"
+                  },
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/orders-api/8f2b1c",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "priority": "30",
+                "conditions": [
+                  {
+                    "field": "path-pattern",
+                    "values": [
+                      "/fn/*"
+                    ]
+                  }
+                ],
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/fn-tg/0a1b2c3d4e5f6a7b",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "priority": "100",
+                "conditions": [
+                  {
+                    "field": "path-pattern",
+                    "values": [
+                      "/legacy/*"
+                    ]
+                  }
+                ],
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/orders-api/8f2b1c",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "priority": "default",
+                "actions": [
+                  {
+                    "type": "fixed-response",
+                    "fixedStatus": "404"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeLoadBalancers",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/fn-tg",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/fn-tg/0a1b2c3d4e5f6a7b",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "fn-tg",
+      "spec": {
+        "name": "fn-tg",
+        "targetType": "lambda",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/orders-public/50dc6c495c0c9188"
+        ],
+        "targets": [
+          {
+            "arn": "arn:aws:lambda:us-east-1:123456789012:function:webhook-receiver",
+            "id": "lambda/webhook-receiver"
+          }
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeTargetGroups",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/idle-tg",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/idle-tg/2c3d4e5f6a7b8c9d",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "idle-tg",
+      "spec": {
+        "name": "idle-tg",
+        "targetType": "ip",
+        "protocol": "HTTP",
+        "port": 80,
+        "vpcId": "vpc-0fixture0000000a"
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeTargetGroups",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/jobs-tg",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/jobs-tg/1b2c3d4e5f6a7b8c",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "jobs-tg",
+      "spec": {
+        "name": "jobs-tg",
+        "targetType": "ip",
+        "protocol": "TCP",
+        "port": 5432,
+        "vpcId": "vpc-0fixture0000000a",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/net/internal-jobs/73e2d6bc24d8a067"
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeTargetGroups",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/orders-api",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/orders-api/8f2b1c",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-api",
+      "spec": {
+        "name": "orders-api",
+        "targetType": "ip",
+        "protocol": "HTTP",
+        "port": 8080,
+        "vpcId": "vpc-0fixture0000000a",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/orders-public/50dc6c495c0c9188"
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeTargetGroups",
         "collectedAt": "2026-09-13T00:00:00Z"
       }
     },

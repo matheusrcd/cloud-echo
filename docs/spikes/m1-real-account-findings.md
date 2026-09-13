@@ -145,8 +145,8 @@ verify by exercising (run the task, send the message), not by describing.
 ## Not tested
 
 - Every other service in the target stack's supporting list (ECR, SNS, EC2,
-  ELBv2, Secrets Manager, SSM) — no collectors yet. API Gateway, RDS and
-  ElastiCache have their own rounds below.
+  Secrets Manager, SSM) — no collectors yet. API Gateway, RDS, ElastiCache and
+  ELBv2 have their own rounds below.
 - A Lambda environment encrypted with a customer KMS key — a key costs money; the
   `unreadable` path is covered by fixtures only.
 - Pagination at real scale beyond ECS services (e.g. >1000 queues); the mechanism
@@ -623,6 +623,101 @@ the TLS replication group. The script retries both — tooling, not product.
 **Cost.** About US$0.04/hour for the three, on top of RDS; torn down with
 `90-aws-teardown.sh`, which now removes the caches and their subnet group.
 
+## ELBv2 round
+
+**Date:** 2026-09-13 (eighth round) · From
+[`16-aws-elbv2-create.sh`](../../spikes/m1/16-aws-elbv2-create.sh): an
+internet-facing ALB, `ce-test-web`, whose listener sends `/fn/*` to a Lambda
+target group (`orders-fn`, with the permission AWS requires), `/old/*` to a
+redirect, `/health` to a fixed response, and everything else to an ip target
+group an ECS service registers in (`ce-test-web`, 0 tasks, running orders-api's
+task definition); an internal NLB, `ce-test-tcp`, on TCP 6379 with an ip target
+group nothing registers in; an HTTP API route through a VPC link to the ALB's
+listener. Then configuration naming them: the ALB's DNS name in `orders-fn`
+(`WEB_URL`), the NLB's as `host:port` in `order-processor`, and in
+`webhook-receiver` an ALB called `ce-test-web` with another hash — the namesake
+trap, in a DNS name.
+
+| Check | Result |
+| --- | --- |
+| Inventory checker ([`check-elbv2.py`](../../spikes/m1/check-elbv2.py), written before looking) | **21 / 21** after one correction (below) |
+| Scan with only the shipped policy vs admin | **0 differences** across 59 resources, after one correction to the diff |
+| Graph checker, with 10 load-balancer checks written before looking | **95 / 95**, and the same on the sanitized fixture |
+| Earlier checkers, re-run | **46 / 46**, **29 / 29**, **19 / 19**, **16 / 16** |
+| Mutations | ELBv2 **28 / 28**; Tier 2, Tier 3, RDS and ElastiCache still killed (**100** in all) |
+| Floci round trip | every ELBv2 call succeeds; rules answer (`301`, `200`); forwards fail under the scanned account |
+
+What reading real payloads changed:
+
+- **The load balancer is a node, not an implied hop.** The design's
+  `elbv2.target-group` rule drew "ALB → ECS service" from the service; the
+  graph now enters at the internet-facing balancer, and the services behind it
+  are reached through it instead of being entrypoints each.
+- **Six calls, not four**: `DescribeTags` (no response carries tags) and
+  `DescribeTargetHealth`, only for Lambda and ALB target groups — the only place
+  their targets are listed.
+- **Rules carry secrets** — header values, OIDC client secrets, fixed-response
+  bodies, redirect queries — all planted in the fixture and redacted before Spec
+  or Raw.
+- **Two DNS shapes**: `<name>-<decimal hash>.<region>.elb.amazonaws.com` for an
+  ALB, `<name>-<ARN id>.elb.<region>.amazonaws.com` for an NLB. The NLB's reuses
+  its ARN's id, so the sanitizer learns both, and refuses to write if any ELB id
+  or DNS hash is left that it did not fake.
+
+**Checks written wrong, and why.** `ce-test-web` runs orders-api's task
+definition, so every finding orders-api's configuration raises it raises too;
+four checks that compared findings to the two orders-api services were widened
+to "who runs that definition" before the scan, and "services without load
+balancers are unreached" finally excludes the one behind a load balancer.
+`check-elbv2.py` asserted `MessageBody` absent from Raw; the SDK type keeps the
+key, withheld as `null` — the check meant the value. And the least-privilege
+diff showed 24 differences, all in ECS services' `Events`: a moving window ECS
+appends to on its own ("reached a steady state"), which two scans a minute apart
+straddled. The diff now drops that log, and only that.
+
+**The defect the round trip found.** Rebuilding the VPC link integration needs
+the listener it names, and the spec kept each listener's rules but not its ARN:
+with `:80` and `:443` on one balancer, the balancer alone cannot say which. The
+collector now records it — and the linker matches a VPC link's listener exactly,
+so one the balancer no longer has is reported instead of linked through its ARN.
+The real fixture was rescanned for it. A mutant that survived on the first run
+exposed a fixture gap: priorities 10, 20, 30 sort the same as text and as
+numbers; a rule at 100 now sorts before 20 if they are compared as text.
+
+**Floci, exercised.** Target groups, load balancers, listeners, rules, a Lambda
+target, an ECS registration and a VPC link were all accepted — with new ids, so
+each reference was re-resolved (and a Lambda permission for a target group
+granted before the function is registered). Then, with `curl` inside Floci's
+container:
+
+- The listener really serves its rules: `/old/x` answered `301`, `/health` `200`.
+- **Every forward returned `502 Target group not found`** under the scanned
+  account's id. The same Lambda target group created in Floci's default account
+  answered `200` with the function's body: target groups are looked up in the
+  default account whatever the balancer's. The ARN-fidelity setup every round
+  trip relies on, and ELB forwarding, do not currently go together — open as
+  [Q19](../09-open-questions.md).
+- **One port space.** Floci's data plane bound the NLB's `6379` inside its
+  container, and the Valkey replication group that needed the same port failed
+  to start — it had run in the ElastiCache round. In AWS each has its own
+  address.
+- **The linker caught the configuration still naming production.** Run on the
+  local inventory, `WEB_URL` and `TCP_BACKEND` became namesake findings: they
+  were seeded with the AWS DNS names, and the local balancers have other ones.
+  Declared edges — listener to service, to function, the VPC link — survived.
+- Floci defaults a Lambda target group's protocol to `HTTP` and a TCP one's
+  health check path to `/`; AWS leaves both empty.
+
+**Tooling.** The round trip removed Floci but not the databases and caches it
+had started, which kept running from one round to the next. It now removes
+Floci's own containers — by label *and* by this suite's network, so another
+Floci's are never touched. `90-aws-teardown.sh` removes the load balancers (with
+their listeners), the VPC link, and the target groups once nothing uses them.
+
+**Cost.** About US$0.05/hour for the two load balancers, on top of RDS and the
+caches (about US$0.11/hour for all of it); the VPC link and the 0-task service
+cost nothing.
+
 ## Reproducing
 
 ```bash
@@ -640,6 +735,8 @@ python3 diff-inventory.py .work/inventory-aws.json .work/inventory-least.json
 python3 check-rds.py .work/inventory-aws.json
 ./15-aws-elasticache-create.sh  # ElastiCache — COSTS MONEY: one cache per API
 python3 check-elasticache.py .work/inventory-aws.json
+./16-aws-elbv2-create.sh     # ELBv2 — COSTS MONEY: an ALB and an NLB
+python3 check-elbv2.py .work/inventory-aws.json
 python3 check-apigw.py .work/inventory-aws.json
 ./22-probe-scope.sh          # the policy cannot read API key values
 ./.work/cloud-echo graph --inventory .work/inventory-aws.json --out .work/graph-aws.json --format json >/dev/null
@@ -649,7 +746,7 @@ python3 group-diff.py .work/inventory-aws.json .work/inventory-floci.json
 ./90-aws-teardown.sh         # lists, asks, then removes every ce-test- resource
 ```
 
-Idle cost is effectively zero without `14-` and `15-aws-*-create.sh`; the one
+Idle cost is effectively zero without `14-`, `15-` and `16-aws-*-create.sh`; the one
 continuous activity is the enabled SQS mapping's long-polling, well inside the
-SQS free tier. With them, the RDS instance and the caches bill by the hour until
+SQS free tier. With them, the RDS instance, the caches and the load balancers bill by the hour until
 the teardown.

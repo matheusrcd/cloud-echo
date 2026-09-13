@@ -22,10 +22,14 @@ cachegroups=$(aws elasticache describe-replication-groups --query "ReplicationGr
 cacheclusters=$(aws elasticache describe-cache-clusters --query "CacheClusters[?starts_with(CacheClusterId,'$P-') && ReplicationGroupId==null].CacheClusterId" --output text)
 serverless=$(aws elasticache describe-serverless-caches --query "ServerlessCaches[?starts_with(ServerlessCacheName,'$P-')].ServerlessCacheName" --output text)
 cachesubnets=$(aws elasticache describe-cache-subnet-groups --query "CacheSubnetGroups[?starts_with(CacheSubnetGroupName,'$P-')].CacheSubnetGroupName" --output text)
+lbs=$(aws elbv2 describe-load-balancers --query "LoadBalancers[?starts_with(LoadBalancerName,'$P-')].LoadBalancerArn" --output text)
+tgs=$(aws elbv2 describe-target-groups --query "TargetGroups[?starts_with(TargetGroupName,'$P-')].TargetGroupArn" --output text)
+vpclinks=$(aws apigatewayv2 get-vpc-links --query "Items[?starts_with(Name,'$P-')].VpcLinkId" --output text)
 
 log "will delete (account $(echo "$ACCT" | redact), region $AWS_REGION)"
-printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  apigw:    rest=%s http=%s keys=%s\n  rds:      instances=%s clusters=%s (no final snapshot)\n  cache:    groups=%s clusters=%s serverless=%s subnets=%s\n  local:    ce-m1 Floci containers, network, volume\n' \
-  "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$restapis" "$httpapis" "$apikeys" "$dbinstances" "$dbclusters" "$cachegroups" "$cacheclusters" "$serverless" "$cachesubnets"
+printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  apigw:    rest=%s http=%s keys=%s\n  rds:      instances=%s clusters=%s (no final snapshot)\n  cache:    groups=%s clusters=%s serverless=%s subnets=%s\n  elbv2:    %s (with their listeners), target groups %s, vpc links %s\n  local:    ce-m1 Floci containers, network, volume\n' \
+  "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$restapis" "$httpapis" "$apikeys" "$dbinstances" "$dbclusters" "$cachegroups" "$cacheclusters" "$serverless" "$cachesubnets" \
+  "$(echo "$lbs" | tr '\t' '\n' | awk -F/ '{print $3}' | tr '\n' ' ')" "$(echo "$tgs" | tr '\t' '\n' | awk -F/ '{print $2}' | tr '\n' ' ')" "$vpclinks"
 if [ "${1:-}" != "--yes" ]; then
   read -r -p "type DELETE to continue: " ans; [ "$ans" = "DELETE" ] || { echo "aborted"; exit 1; }
 fi
@@ -49,7 +53,13 @@ for a in $restapis; do aws apigateway delete-rest-api --rest-api-id "$a" && echo
 for a in $httpapis; do aws apigatewayv2 delete-api --api-id "$a" && echo "  http $a"; done
 for k in $apikeys; do aws apigateway delete-api-key --api-key "$k" && echo "  key $k"; done
 
-log "lambda (mappings first)"
+log "elbv2 load balancers and VPC links (after the APIs that use them)"
+# Deleting a load balancer deletes its listeners and rules; its target groups
+# stay in use until it is gone, so they go after the ECS services, below.
+for a in $lbs; do aws elbv2 delete-load-balancer --load-balancer-arn "$a" && echo "  ${a#*loadbalancer/} (deleting)"; done
+for v in $vpclinks; do aws apigatewayv2 delete-vpc-link --vpc-link-id "$v" && echo "  vpc link $v"; done
+
+log "lambda (mappings first; a function's permissions go with it)"
 for f in $fns; do
   for u in $(aws lambda list-event-source-mappings --function-name "$f" --query 'EventSourceMappings[].UUID' --output text); do
     aws lambda delete-event-source-mapping --uuid "$u" >/dev/null && echo "  mapping $u"
@@ -70,6 +80,12 @@ done
 for td in $(aws ecs list-task-definitions --family-prefix "$P-" --query taskDefinitionArns --output text); do
   aws ecs deregister-task-definition --task-definition "$td" >/dev/null && echo "  deregistered ${td##*/}"
 done
+
+log "elbv2 target groups (after their load balancers and services)"
+[ -n "$lbs" ] && aws elbv2 wait load-balancers-deleted --load-balancer-arns $lbs
+# A target group can read as in use for a little while after its load balancer is gone.
+retry() { for i in 1 2 3 4 5 6; do "$@" && return 0; echo "  retrying in 20s"; sleep 20; done; return 1; }
+for t in $tgs; do retry aws elbv2 delete-target-group --target-group-arn "$t" && echo "  ${t#*targetgroup/}"; done
 
 log "dynamodb"
 for t in $tables; do aws dynamodb delete-table --table-name "$t" >/dev/null && echo "  $t"; done

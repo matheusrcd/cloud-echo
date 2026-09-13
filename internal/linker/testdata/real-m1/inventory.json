@@ -47,12 +47,32 @@
             }
           },
           {
+            "routeKey": "ANY /web/{proxy+}",
+            "method": "ANY",
+            "path": "/web/{proxy+}",
+            "authorization": "NONE",
+            "integration": {
+              "id": "int0002",
+              "type": "HTTP_PROXY",
+              "uri": "arn:aws:elasticloadbalancing:us-east-2:123456789012:listener/app/ce-test-web/feedfacefeed0002/feedfacefeed0003",
+              "httpMethod": "ANY",
+              "connectionType": "VPC_LINK",
+              "connectionId": "vlink0001",
+              "service": "elasticloadbalancing",
+              "target": {
+                "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:listener/app/ce-test-web/feedfacefeed0002/feedfacefeed0003"
+              },
+              "timeoutMs": 30000,
+              "payloadFormatVersion": "1.0"
+            }
+          },
+          {
             "routeKey": "GET /orders/{id}",
             "method": "GET",
             "path": "/orders/{id}",
             "authorization": "NONE",
             "integration": {
-              "id": "int0002",
+              "id": "int0003",
               "type": "AWS_PROXY",
               "uri": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
               "httpMethod": "POST",
@@ -72,7 +92,7 @@
             "path": "/events",
             "authorization": "NONE",
             "integration": {
-              "id": "int0003",
+              "id": "int0004",
               "type": "AWS_PROXY",
               "subtype": "SQS-SendMessage",
               "connectionType": "INTERNET",
@@ -98,7 +118,7 @@
             "authorization": "JWT",
             "authorizerId": "auth0001",
             "integration": {
-              "id": "int0002",
+              "id": "int0003",
               "type": "AWS_PROXY",
               "uri": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
               "httpMethod": "POST",
@@ -536,6 +556,51 @@
             "sg-fake0001"
           ],
           "assignPublicIp": "DISABLED"
+        }
+      },
+      "source": {
+        "api": "ecs:DescribeServices",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/ce-test-batch/ce-test-web",
+      "type": "ecs.service",
+      "arn": "arn:aws:ecs:us-east-2:123456789012:service/ce-test-batch/ce-test-web",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-web",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "cluster": "ce-test-batch",
+        "serviceName": "ce-test-web",
+        "status": "ACTIVE",
+        "desiredCount": 0,
+        "runningCount": 0,
+        "launchType": "FARGATE",
+        "schedulingStrategy": "REPLICA",
+        "taskDefinition": "arn:aws:ecs:us-east-2:123456789012:task-definition/ce-test-orders-api:3",
+        "taskDefinitionId": "ecs/taskdef/ce-test-orders-api:3",
+        "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/ce-test-web-tg/feedfacefeed0004",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ],
+        "network": {
+          "subnets": [
+            "subnet-fake0003",
+            "subnet-fake0001",
+            "subnet-fake0002"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ],
+          "assignPublicIp": "ENABLED"
         }
       },
       "source": {
@@ -1037,7 +1102,7 @@
       "spec": {
         "name": "ce-test-batch",
         "status": "ACTIVE",
-        "activeServices": 1,
+        "activeServices": 2,
         "runningTasks": 0
       },
       "source": {
@@ -1185,6 +1250,246 @@
       },
       "source": {
         "api": "ecs:DescribeTaskDefinition",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/ce-test-tcp",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:loadbalancer/net/ce-test-tcp/feedfacefeed0001",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-tcp",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "name": "ce-test-tcp",
+        "type": "network",
+        "scheme": "internal",
+        "state": "active",
+        "dnsName": "ce-test-tcp-feedfacefeed0001.elb.us-east-2.amazonaws.com",
+        "vpcId": "vpc-fake0001",
+        "subnets": [
+          "subnet-fake0001",
+          "subnet-fake0002",
+          "subnet-fake0003"
+        ],
+        "listeners": [
+          {
+            "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:listener/net/ce-test-tcp/feedfacefeed0001/feedfacefeed0005",
+            "port": 6379,
+            "protocol": "TCP",
+            "rules": [
+              {
+                "priority": "default",
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/ce-test-tcp-tg/feedfacefeed0006"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeLoadBalancers",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/ce-test-web",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:loadbalancer/app/ce-test-web/feedfacefeed0002",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-web",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "name": "ce-test-web",
+        "type": "application",
+        "scheme": "internet-facing",
+        "state": "active",
+        "dnsName": "ce-test-web-100000001.us-east-2.elb.amazonaws.com",
+        "vpcId": "vpc-fake0001",
+        "subnets": [
+          "subnet-fake0001",
+          "subnet-fake0002",
+          "subnet-fake0003"
+        ],
+        "securityGroups": [
+          "sg-fake0001"
+        ],
+        "listeners": [
+          {
+            "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:listener/app/ce-test-web/feedfacefeed0002/feedfacefeed0003",
+            "port": 80,
+            "protocol": "HTTP",
+            "rules": [
+              {
+                "priority": "10",
+                "conditions": [
+                  {
+                    "field": "path-pattern",
+                    "values": [
+                      "/fn/*"
+                    ]
+                  }
+                ],
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/ce-test-fn-tg/feedfacefeed0007",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "priority": "20",
+                "conditions": [
+                  {
+                    "field": "path-pattern",
+                    "values": [
+                      "/old/*"
+                    ]
+                  }
+                ],
+                "actions": [
+                  {
+                    "type": "redirect",
+                    "redirect": "HTTPS://#{host}:443/#{path}?#{query} HTTP_301"
+                  }
+                ]
+              },
+              {
+                "priority": "30",
+                "conditions": [
+                  {
+                    "field": "path-pattern",
+                    "values": [
+                      "/health"
+                    ]
+                  }
+                ],
+                "actions": [
+                  {
+                    "type": "fixed-response",
+                    "fixedStatus": "200"
+                  }
+                ]
+              },
+              {
+                "priority": "default",
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/ce-test-web-tg/feedfacefeed0004",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeLoadBalancers",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/ce-test-fn-tg",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/ce-test-fn-tg/feedfacefeed0007",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-fn-tg",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "name": "ce-test-fn-tg",
+        "targetType": "lambda",
+        "healthCheckPath": "/",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-2:123456789012:loadbalancer/app/ce-test-web/feedfacefeed0002"
+        ],
+        "targets": [
+          {
+            "arn": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+            "id": "lambda/ce-test-orders-fn"
+          }
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeTargetGroups",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/ce-test-tcp-tg",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/ce-test-tcp-tg/feedfacefeed0006",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-tcp-tg",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "name": "ce-test-tcp-tg",
+        "targetType": "ip",
+        "protocol": "TCP",
+        "port": 6379,
+        "vpcId": "vpc-fake0001",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-2:123456789012:loadbalancer/net/ce-test-tcp/feedfacefeed0001"
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeTargetGroups",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/ce-test-web-tg",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/ce-test-web-tg/feedfacefeed0004",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-web-tg",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "name": "ce-test-web-tg",
+        "targetType": "ip",
+        "protocol": "HTTP",
+        "port": 8080,
+        "vpcId": "vpc-fake0001",
+        "healthCheckPath": "/health",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-2:123456789012:loadbalancer/app/ce-test-web/feedfacefeed0002"
+        ]
+      },
+      "source": {
+        "api": "elasticloadbalancing:DescribeTargetGroups",
         "collectedAt": "2026-09-13T00:00:00Z"
       }
     },
@@ -1956,7 +2261,8 @@
           "PAYMENTS_TOKEN": "<redacted:key-name>",
           "SESSIONS_URL": "rediss://master.ce-test-sessions.fk0001.use2.cache.amazonaws.com:6379/0",
           "SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/T-FAKE/B-FAKE/<redacted:url-path>",
-          "TABLE_NAME": "ce-test-orders"
+          "TABLE_NAME": "ce-test-orders",
+          "TCP_BACKEND": "ce-test-tcp-feedfacefeed0001.elb.us-east-2.amazonaws.com:6379"
         },
         "redacted": [
           "env:DATABASE_URL",
@@ -1996,7 +2302,8 @@
           "PARTNER_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/999999999999/ce-test-orders-events",
           "PUBLIC_API_URL": "https://fakeapi0001.execute-api.us-east-2.amazonaws.com/prod",
           "RATE_LIMIT_HOST": "ce-test-ratelimit-fk0001.serverless.use2.cache.amazonaws.com",
-          "SESSIONS_READER": "replica.ce-test-sessions.fk0001.use2.cache.amazonaws.com"
+          "SESSIONS_READER": "replica.ce-test-sessions.fk0001.use2.cache.amazonaws.com",
+          "WEB_URL": "http://ce-test-web-100000001.us-east-2.elb.amazonaws.com/"
         },
         "logGroup": "/aws/lambda/ce-test-orders-fn",
         "resourcePolicy": {
@@ -2030,6 +2337,20 @@
                   "AWS:SourceArn": "arn:aws:execute-api:us-east-2:123456789012:fakeapi0001/*"
                 }
               }
+            },
+            {
+              "Sid": "elb-ce-test-fn-tg",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "elasticloadbalancing.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/ce-test-fn-tg/feedfacefeed0007"
+                }
+              }
             }
           ]
         }
@@ -2060,6 +2381,7 @@
         "roleId": "iam/role/ce-test-webhook-receiver-role",
         "env": {
           "LEGACY_DB_URL": "postgres://app:<redacted:url-credentials>@ce-test-legacy-db.fakesfx0001.us-east-2.rds.amazonaws.com:5432/legacy",
+          "LEGACY_LB_URL": "http://ce-test-web-0000000000.us-east-2.elb.amazonaws.com/",
           "MEMO_SERVERS": "ce-test-memo.fk0001.cfg.use2.cache.amazonaws.com:11211",
           "ORDERS_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders-events"
         },

@@ -46,7 +46,7 @@
       "id": "ddb/ce-test-orders",
       "type": "dynamodb.table",
       "name": "ce-test-orders",
-      "flow": "async"
+      "flow": "sync"
     },
     {
       "id": "ddb/ce-test-orders-audit",
@@ -59,6 +59,12 @@
       "type": "ecs.service",
       "name": "ce-test-orders-api",
       "flow": "unreached"
+    },
+    {
+      "id": "ecs/ce-test-batch/ce-test-web",
+      "type": "ecs.service",
+      "name": "ce-test-web",
+      "flow": "sync"
     },
     {
       "id": "ecs/ce-test-main/ce-test-filler-01",
@@ -137,6 +143,21 @@
       "type": "ecs.service",
       "name": "ce-test-orders-api",
       "flow": "unreached"
+    },
+    {
+      "id": "elb/ce-test-tcp",
+      "type": "elbv2.load-balancer",
+      "name": "ce-test-tcp",
+      "flow": "async"
+    },
+    {
+      "id": "elb/ce-test-web",
+      "type": "elbv2.load-balancer",
+      "name": "ce-test-web",
+      "flow": "entrypoint",
+      "triggers": [
+        "internet-facing application load balancer"
+      ]
     },
     {
       "id": "ext/api.payments.example.com",
@@ -237,6 +258,19 @@
   "edges": [
     {
       "from": "apigw/fakeapi0001",
+      "to": "elb/ce-test-web",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0002 (route ANY /web/{proxy+})",
+          "detail": "HTTP_PROXY ANY /web/{proxy+} → elb/ce-test-web (through a VPC link, listener feedfacefeed0003)"
+        }
+      ]
+    },
+    {
+      "from": "apigw/fakeapi0001",
       "to": "ext/api.payments.example.com",
       "kind": "http",
       "confidence": "certain",
@@ -256,12 +290,12 @@
       "evidence": [
         {
           "rule": "apigw.integration",
-          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0002 (route GET /orders/{id})",
+          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0003 (route GET /orders/{id})",
           "detail": "AWS_PROXY GET /orders/{id} → ce-test-orders-fn"
         },
         {
           "rule": "apigw.integration",
-          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0002 (route POST /orders)",
+          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0003 (route POST /orders)",
           "detail": "AWS_PROXY POST /orders → ce-test-orders-fn"
         },
         {
@@ -284,7 +318,7 @@
       "evidence": [
         {
           "rule": "apigw.integration",
-          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0003 (route POST /events)",
+          "source": "apigatewayv2:GetIntegrations fakeapi0001 int0004 (route POST /events)",
           "detail": "AWS_PROXY POST /events → sqs/ce-test-inbox"
         },
         {
@@ -475,6 +509,91 @@
       ]
     },
     {
+      "from": "ecs/ce-test-batch/ce-test-web",
+      "to": "ddb/ce-test-orders",
+      "kind": "read",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow dynamodb:GetItem, dynamodb:Query on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders (inline policy orders-data)"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow dynamodb:Query on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders/index/* (inline policy orders-data)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-batch/ce-test-web",
+      "to": "ddb/ce-test-orders",
+      "kind": "write",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow dynamodb:PutItem, dynamodb:UpdateItem on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders (inline policy orders-data)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-batch/ce-test-web",
+      "to": "ext/api.payments.example.com",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env PAYMENTS_URL",
+          "detail": "PAYMENTS_URL calls https://api.payments.example.com"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-batch/ce-test-web",
+      "to": "sqs/ce-test-orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of sqs/ce-test-orders — a candidate only: the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-batch/ce-test-web",
+      "to": "sqs/ce-test-orders-events",
+      "kind": "publish",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-orders-events"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow sqs:SendMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events (inline policy orders-data)"
+        }
+      ]
+    },
+    {
       "from": "ecs/ce-test-main/ce-test-orders-api",
       "to": "ddb/ce-test-orders",
       "kind": "read",
@@ -556,6 +675,37 @@
           "rule": "iam.policy-resource",
           "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
           "detail": "role ce-test-orders-api-task: Allow sqs:SendMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events (inline policy orders-data)"
+        }
+      ]
+    },
+    {
+      "from": "elb/ce-test-web",
+      "to": "ecs/ce-test-batch/ce-test-web",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules ce-test-web HTTP:80 default",
+          "detail": "HTTP:80 default → target group ce-test-web-tg → ecs/ce-test-batch/ce-test-web"
+        }
+      ]
+    },
+    {
+      "from": "elb/ce-test-web",
+      "to": "lambda/ce-test-orders-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules ce-test-web HTTP:80 10",
+          "detail": "HTTP:80 rule 10 (path-pattern /fn/*) → target group ce-test-fn-tg → lambda/ce-test-orders-fn"
+        },
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy ce-test-orders-fn elb-ce-test-fn-tg",
+          "detail": "resource policy lets target group ce-test-fn-tg invoke it"
         }
       ]
     },
@@ -677,6 +827,19 @@
     },
     {
       "from": "lambda/ce-test-order-processor",
+      "to": "elb/ce-test-tcp",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-order-processor env TCP_BACKEND",
+          "detail": "TCP_BACKEND reaches elb/ce-test-tcp (its DNS name)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-order-processor",
       "to": "ext/hooks.slack.com",
       "kind": "http",
       "confidence": "high",
@@ -768,6 +931,19 @@
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions ce-test-orders-fn env AUDIT_TABLE_ARN",
           "detail": "AUDIT_TABLE_ARN holds the ARN of ddb/ce-test-orders-audit"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-orders-fn",
+      "to": "elb/ce-test-web",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-orders-fn env WEB_URL",
+          "detail": "WEB_URL reaches elb/ce-test-web (its DNS name)"
         }
       ]
     },
@@ -1137,14 +1313,14 @@
       "node": "ecs/ce-test-batch/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DB_HOST names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
+      "detail": "DATABASE_URL names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "unresolved",
       "node": "ecs/ce-test-batch/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
+      "detail": "DB_HOST names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "ambiguous",
@@ -1163,6 +1339,41 @@
     {
       "kind": "unpermitted",
       "node": "ecs/ce-test-batch/ce-test-orders-api",
+      "target": "sqs/ce-test-orders",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sqs/ce-test-orders, but its role ce-test-orders-api-task grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-batch/ce-test-web",
+      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DATABASE_URL names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-batch/ce-test-web",
+      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DB_HOST names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "ecs/ce-test-batch/ce-test-web",
+      "target": "ce-test-orders",
+      "rule": "config.value-scan",
+      "detail": "TABLE_NAME = \"ce-test-orders\" names ddb/ce-test-orders and sqs/ce-test-orders; the key points at ddb/ce-test-orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "blocked",
+      "node": "ecs/ce-test-batch/ce-test-web",
+      "target": "lambda/ce-test-orders-fn",
+      "rule": "iam.policy-resource",
+      "detail": "its role allows lambda:InvokeFunction on it (inline policy tier3-invoke), but the permissions boundary ce-test-boundary does not allow it: no edge"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "ecs/ce-test-batch/ce-test-web",
       "target": "sqs/ce-test-orders",
       "rule": "iam.policy-resource",
       "detail": "its configuration names sqs/ce-test-orders, but its role ce-test-orders-api-task grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
@@ -1340,14 +1551,14 @@
       "node": "ecs/ce-test-main/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
+      "detail": "DB_HOST names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "unresolved",
       "node": "ecs/ce-test-main/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DB_HOST names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
+      "detail": "DATABASE_URL names an endpoint called ce-test-db, like rds/cluster/ce-test-db in this scan, with another account's suffix: a namesake, not this database"
     },
     {
       "kind": "ambiguous",
@@ -1369,6 +1580,13 @@
       "target": "sqs/ce-test-orders",
       "rule": "iam.policy-resource",
       "detail": "its configuration names sqs/ce-test-orders, but its role ce-test-orders-api-task grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "unresolved",
+      "node": "elb/ce-test-tcp",
+      "target": "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/ce-test-tcp-tg/feedfacefeed0006",
+      "rule": "elbv2.listener",
+      "detail": "TCP:6379 default forwards to target group ce-test-tcp-tg, whose ip targets no ECS service registers: hosts outside the inventory"
     },
     {
       "kind": "unscanned",
@@ -1397,6 +1615,13 @@
       "target": "ddb/ce-test-orders-audit",
       "rule": "iam.policy-resource",
       "detail": "its configuration names ddb/ce-test-orders-audit, but its role ce-test-apigw-fn-role grants no dynamodb action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/ce-test-webhook-receiver",
+      "target": "ce-test-web-0000000000.us-east-2.elb.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "LEGACY_LB_URL names a load balancer called ce-test-web, like elb/ce-test-web in this scan, with another DNS name: a namesake (recreated, or another account's), not this one"
     },
     {
       "kind": "blocked",

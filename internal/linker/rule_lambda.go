@@ -125,6 +125,26 @@ func (lambdaResourcePolicyRule) Apply(c *Context) {
 				}
 			}
 			for _, svc := range services {
+				// A load balancer invokes a function through a target group:
+				// the permission names the target group, and corroborates the
+				// edge from each load balancer forwarding to it.
+				if svc == "elasticloadbalancing.amazonaws.com" {
+					tgARN := sourceArn(st.Condition)
+					tg := c.elbs().tgs[tgARN]
+					if tg == nil {
+						c.Trigger(r.ID, "a load balancer may invoke it (resource policy names target group "+targetGroupName(tgARN)+", not in the inventory)")
+						continue
+					}
+					for _, lbARN := range tg.LoadBalancerARNs {
+						if lb, ok := c.elbs().byARN[lbARN]; ok {
+							c.Corroborate(lb, r.ID, KindInvoke, source,
+								fmt.Sprintf("resource policy lets target group %s invoke it", targetGroupName(tgARN)),
+								&Finding{Kind: "stale-permission", Node: r.ID, Target: lb,
+									Detail: fmt.Sprintf("resource policy lets target group %s invoke this function, but it is not registered there", targetGroupName(tgARN))})
+						}
+					}
+					continue
+				}
 				if svc != "apigateway.amazonaws.com" {
 					c.Trigger(r.ID, svc+" may invoke it (resource policy)")
 					continue

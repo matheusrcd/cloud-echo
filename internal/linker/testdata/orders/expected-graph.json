@@ -94,9 +94,21 @@
       "id": "ecs/main/orders-api",
       "type": "ecs.service",
       "name": "orders-api",
+      "flow": "sync"
+    },
+    {
+      "id": "elb/internal-jobs",
+      "type": "elbv2.load-balancer",
+      "name": "internal-jobs",
+      "flow": "unreached"
+    },
+    {
+      "id": "elb/orders-public",
+      "type": "elbv2.load-balancer",
+      "name": "orders-public",
       "flow": "entrypoint",
       "triggers": [
-        "behind a load balancer (target group orders-api; internet-facing or internal needs the ELBv2 collector)"
+        "internet-facing application load balancer"
       ]
     },
     {
@@ -135,7 +147,7 @@
       "id": "lambda/webhook-receiver",
       "type": "lambda.function",
       "name": "webhook-receiver",
-      "flow": "unreached"
+      "flow": "sync"
     },
     {
       "id": "rds/cluster/orders-db",
@@ -464,6 +476,42 @@
       ]
     },
     {
+      "from": "elb/orders-public",
+      "to": "ecs/main/orders-api",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules orders-public HTTPS:443 10",
+          "detail": "HTTPS:443 rule 10 (path-pattern /api/*) → target group orders-api → ecs/main/orders-api"
+        },
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules orders-public HTTPS:443 100",
+          "detail": "HTTPS:443 rule 100 (path-pattern /legacy/*) → target group orders-api → ecs/main/orders-api"
+        },
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules orders-public HTTPS:443 20",
+          "detail": "HTTPS:443 rule 20 (http-header x-origin-secret <redacted:key-name>) → target group orders-api → ecs/main/orders-api"
+        }
+      ]
+    },
+    {
+      "from": "elb/orders-public",
+      "to": "lambda/webhook-receiver",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules orders-public HTTPS:443 30",
+          "detail": "HTTPS:443 rule 30 (path-pattern /fn/*) → target group fn-tg → lambda/webhook-receiver"
+        }
+      ]
+    },
+    {
       "from": "lambda/audit-writer",
       "to": "ddb/orders-audit",
       "kind": "write",
@@ -664,13 +712,6 @@
       "node": "apigw/h1t2t3p4a5",
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
-      "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
-    },
-    {
-      "kind": "unresolved",
-      "node": "apigw/h1t2t3p4a5",
-      "target": "lambda/orders-fn",
-      "rule": "apigw.integration",
       "detail": "AWS_PROXY GET /orders/{id} → orders-fn (target is not in the inventory)"
     },
     {
@@ -679,6 +720,13 @@
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
       "detail": "AWS_PROXY POST /orders → orders-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
+      "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
     },
     {
       "kind": "unresolved",
@@ -728,6 +776,13 @@
       "target": "sqs/orders",
       "rule": "iam.policy-resource",
       "detail": "its configuration names sqs/orders, but its role orders-api-task grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "unresolved",
+      "node": "elb/internal-jobs",
+      "target": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/jobs-tg/1b2c3d4e5f6a7b8c",
+      "rule": "elbv2.listener",
+      "detail": "TCP:5432 default forwards to target group jobs-tg, whose ip targets no ECS service registers: hosts outside the inventory"
     },
     {
       "kind": "unscanned",

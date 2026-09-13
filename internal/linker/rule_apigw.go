@@ -83,14 +83,32 @@ func linkIntegration(c *Context, api string, rt spec.Route, it *spec.Integration
 		// Through a VPC link the URL is an internal load balancer, not a third
 		// party: it must not become an ext/ node the gateway would mock.
 		if it.ConnectionType == "VPC_LINK" {
-			c.Unresolved(api, it.URI, fmt.Sprintf("integration %s: VPC link target needs the ELBv2 collector", rt.RouteKey))
+			// A REST API's VPC link targets a Network Load Balancer, named by
+			// its DNS name in the URI.
+			x := c.elbs()
+			if id, ok := x.byDNS[strings.ToLower(hostOf(it.URI))]; ok {
+				c.Edge(api, id, KindHTTP, Certain, Active, source, detail(id)+" (through a VPC link)")
+				return
+			}
+			c.Unresolved(api, it.URI, fmt.Sprintf("integration %s: VPC link target is not a load balancer in the inventory", rt.RouteKey))
 			return
 		}
 		if to, ok := c.External(it.URI); ok {
 			c.Edge(api, to, KindHTTP, Certain, Active, source, detail(strings.TrimPrefix(to, "ext/")))
 		}
-	case "elasticloadbalancing", "servicediscovery":
-		c.Unresolved(api, it.URI, fmt.Sprintf("integration %s: VPC link target needs the %s collector", rt.RouteKey, it.Service))
+	case "elasticloadbalancing":
+		// An HTTP API's VPC link names a listener; the listener belongs to
+		// its load balancer — if the load balancer still has it.
+		switch id, listed := c.elbs().byListener(it.URI); {
+		case listed:
+			c.Edge(api, id, KindHTTP, Certain, Active, source, detail(id)+" (through a VPC link, listener "+lastSegment(it.URI)+")")
+		case id != "":
+			c.Unresolved(api, it.URI, fmt.Sprintf("integration %s: VPC link to listener %s, which %s does not have (deleted): requests fail", rt.RouteKey, lastSegment(it.URI), id))
+		default:
+			c.Unresolved(api, it.URI, fmt.Sprintf("integration %s: VPC link to a listener of a load balancer not in the inventory", rt.RouteKey))
+		}
+	case "servicediscovery":
+		c.Unresolved(api, it.URI, fmt.Sprintf("integration %s: VPC link target needs the Cloud Map collector", rt.RouteKey))
 	default:
 		target := it.Service
 		if it.Action != "" {

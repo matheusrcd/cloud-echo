@@ -1,0 +1,712 @@
+{
+  "formatVersion": 1,
+  "scanId": "elb-cases",
+  "generatedBy": "hand-written",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "scannedAt": "2026-09-13T00:00:00Z",
+  "resources": [
+    {
+      "id": "apigw/api0000050",
+      "type": "apigateway.http",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "elb-http",
+      "spec": {
+        "apiId": "api0000050",
+        "name": "elb-http",
+        "protocol": "HTTP",
+        "routes": [
+          {
+            "routeKey": "GET /call",
+            "integration": {
+              "id": "i1",
+              "type": "AWS_PROXY",
+              "service": "lambda",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:caller-fn",
+                "id": "lambda/caller-fn"
+              }
+            }
+          },
+          {
+            "routeKey": "ANY /internal/{proxy+}",
+            "integration": {
+              "id": "i2",
+              "type": "HTTP_PROXY",
+              "service": "elasticloadbalancing",
+              "connectionType": "VPC_LINK",
+              "connectionId": "vl1",
+              "uri": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/internal-api/2222222222222222/l80"
+            }
+          },
+          {
+            "routeKey": "ANY /gone/{proxy+}",
+            "integration": {
+              "id": "i3",
+              "type": "HTTP_PROXY",
+              "service": "elasticloadbalancing",
+              "connectionType": "VPC_LINK",
+              "connectionId": "vl1",
+              "uri": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/internal-api/2222222222222222/l443"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "apigw/api0000051",
+      "type": "apigateway.rest",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "elb-rest",
+      "spec": {
+        "apiId": "api0000051",
+        "name": "elb-rest",
+        "protocol": "REST",
+        "routes": [
+          {
+            "routeKey": "ANY /db",
+            "integration": {
+              "type": "HTTP_PROXY",
+              "service": "http",
+              "connectionType": "VPC_LINK",
+              "connectionId": "vl2",
+              "uri": "http://tcp-333.elb.us-east-1.amazonaws.com/db"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/api",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "api",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "api:1",
+        "taskDefinitionId": "ecs/taskdef/api:1",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api/a1",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/canary",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "canary",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "canary",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "canary:1",
+        "taskDefinitionId": "ecs/taskdef/canary:1",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/canary/c3",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/idle",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "idle",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "idle",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "idle:1",
+        "taskDefinitionId": "ecs/taskdef/idle:1",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/idle/07",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/legacy",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "legacy",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "legacy",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "legacy:1",
+        "taskDefinitionId": "ecs/taskdef/legacy:1",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/legacy-tg/99",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/orders",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "orders",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "orders:1",
+        "taskDefinitionId": "ecs/taskdef/orders:1",
+        "loadBalancers": [
+          {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/orders/d4",
+            "containerName": "app",
+            "containerPort": 8080
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/front",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/net/front/4444444444444444",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "front",
+      "spec": {
+        "name": "front",
+        "type": "network",
+        "scheme": "internal",
+        "state": "active",
+        "dnsName": "front-444.elb.us-east-1.amazonaws.com",
+        "listeners": [
+          {
+            "port": 443,
+            "protocol": "TCP",
+            "rules": [
+              {
+                "priority": "default",
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/alb-tg/f6",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/net/front/4444444444444444/l443"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/internal-api",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/internal-api/2222222222222222",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "internal-api",
+      "spec": {
+        "name": "internal-api",
+        "type": "application",
+        "scheme": "internal",
+        "state": "active",
+        "dnsName": "internal-internal-api-222.us-east-1.elb.amazonaws.com",
+        "listeners": [
+          {
+            "port": 80,
+            "protocol": "HTTP",
+            "rules": [
+              {
+                "priority": "default",
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/orders/d4",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/internal-api/2222222222222222/l80"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tcp",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/net/tcp/3333333333333333",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "tcp",
+      "spec": {
+        "name": "tcp",
+        "type": "network",
+        "scheme": "internal",
+        "state": "active",
+        "dnsName": "tcp-333.elb.us-east-1.amazonaws.com",
+        "listeners": [
+          {
+            "port": 5432,
+            "protocol": "TCP",
+            "rules": [
+              {
+                "priority": "default",
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/db-proxy/e5",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/net/tcp/3333333333333333/l5432"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/alb-tg",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/alb-tg/f6",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "alb-tg",
+      "spec": {
+        "name": "alb-tg",
+        "targetType": "alb",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/net/front/4444444444444444"
+        ],
+        "targets": [
+          {
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/web/1111111111111111",
+            "id": ""
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/api",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api/a1",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api",
+      "spec": {
+        "name": "api",
+        "targetType": "ip",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/web/1111111111111111"
+        ],
+        "targets": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/canary",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/canary/c3",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "canary",
+      "spec": {
+        "name": "canary",
+        "targetType": "ip",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/web/1111111111111111"
+        ],
+        "targets": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/db-proxy",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/db-proxy/e5",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "db-proxy",
+      "spec": {
+        "name": "db-proxy",
+        "targetType": "ip",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/net/tcp/3333333333333333"
+        ],
+        "targets": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/fn",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/fn/b2",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "fn",
+      "spec": {
+        "name": "fn",
+        "targetType": "lambda",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/web/1111111111111111"
+        ],
+        "targets": [
+          {
+            "arn": "arn:aws:lambda:us-east-1:123456789012:function:fn-a",
+            "id": "lambda/fn-a"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/idle",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/idle/07",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "idle",
+      "spec": {
+        "name": "idle",
+        "targetType": "ip",
+        "loadBalancerArns": [],
+        "targets": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/tg/orders",
+      "type": "elbv2.target-group",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/orders/d4",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders",
+      "spec": {
+        "name": "orders",
+        "targetType": "ip",
+        "loadBalancerArns": [
+          "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/internal-api/2222222222222222"
+        ],
+        "targets": []
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "elb/web",
+      "type": "elbv2.load-balancer",
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/web/1111111111111111",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "web",
+      "spec": {
+        "name": "web",
+        "type": "application",
+        "scheme": "internet-facing",
+        "state": "active",
+        "dnsName": "web-111.us-east-1.elb.amazonaws.com",
+        "listeners": [
+          {
+            "port": 80,
+            "protocol": "HTTP",
+            "rules": [
+              {
+                "priority": "10",
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api/a1",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ],
+                "conditions": [
+                  {
+                    "field": "path-pattern",
+                    "values": [
+                      "/api/*"
+                    ]
+                  }
+                ]
+              },
+              {
+                "priority": "20",
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/fn/b2",
+                        "weight": 1
+                      }
+                    ]
+                  }
+                ],
+                "conditions": [
+                  {
+                    "field": "path-pattern",
+                    "values": [
+                      "/fn/*"
+                    ]
+                  }
+                ]
+              },
+              {
+                "priority": "30",
+                "actions": [
+                  {
+                    "type": "forward",
+                    "targetGroups": [
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api/a1",
+                        "weight": 90
+                      },
+                      {
+                        "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/canary/c3",
+                        "weight": 10
+                      }
+                    ]
+                  }
+                ],
+                "conditions": [
+                  {
+                    "field": "path-pattern",
+                    "values": [
+                      "/canary/*"
+                    ]
+                  }
+                ]
+              },
+              {
+                "priority": "default",
+                "actions": [
+                  {
+                    "type": "fixed-response",
+                    "fixedStatus": "404"
+                  }
+                ]
+              }
+            ],
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/web/1111111111111111/l80"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/caller-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "caller-fn",
+      "spec": {
+        "functionName": "caller-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/caller-fn-role",
+        "env": {
+          "ORDERS_URL": "http://internal-internal-api-222.us-east-1.elb.amazonaws.com/orders",
+          "DB": "tcp-333.elb.us-east-1.amazonaws.com:5432",
+          "OLD": "http://web-999.us-east-1.elb.amazonaws.com/",
+          "DS": "dualstack.web-111.us-east-1.elb.amazonaws.com"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/fn-a",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "fn-a",
+      "spec": {
+        "functionName": "fn-a",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/fn-a-role",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "elb",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "elasticloadbalancing.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:fn-a",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/fn/b2"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/stale-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "stale-fn",
+      "spec": {
+        "functionName": "stale-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/stale-fn-role",
+        "resourcePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "elb",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "elasticloadbalancing.amazonaws.com"
+              },
+              "Action": "lambda:InvokeFunction",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:stale-fn",
+              "Condition": {
+                "ArnLike": {
+                  "AWS:SourceArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/fn/b2"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    }
+  ]
+}

@@ -46,7 +46,11 @@ check("inbox is async (behind a direct SQS integration)", flow(Q+P+"-inbox") == 
 wr = nodes.get(L+P+"-webhook-receiver", {})
 check("webhook-receiver is an entrypoint: its API is not in the inventory", wr.get("flow") == "entrypoint" and any("not in the inventory" in t for t in wr.get("triggers", [])), str(wr.get("triggers")))
 check("orders-events-dlq is async (via webhook-receiver's DLQ)", flow(Q+P+"-orders-events-dlq") == "async", flow(Q+P+"-orders-events-dlq"))
-check("ECS services without load balancers are unreached", all(n["flow"] == "unreached" for n in g["nodes"] if n["type"] == "ecs.service"))
+# Said "without load balancers" and asserted it of every service; the ELBv2
+# round added one behind a load balancer, which is exactly what it excludes.
+behind_lb = {e["to"] for e in g["edges"] if e["from"].startswith("elb/")}
+check("ECS services without load balancers are unreached",
+      all(n["flow"] == "unreached" for n in g["nodes"] if n["type"] == "ecs.service" and n["id"] not in behind_lb))
 
 # --- Tier 2: configuration values
 # Written as evidence claims: Tier 3 folds a reference into the edge that states
@@ -60,6 +64,10 @@ def named(f, t, var): return any(ev["rule"] == "config.value-scan" and ev["sourc
 SVC = [n["id"] for n in g["nodes"] if n["type"] == "ecs.service"]
 API_SVC = [i for i in SVC if i.endswith("/" + P + "-orders-api")]
 NOTIF = [i for i in SVC if i.endswith(P + "-notifications") or "-filler-" in i]
+# The ELBv2 round's ce-test-web runs orders-api's task definition (:3), so it
+# holds the same environment and task role: every finding orders-api's
+# configuration raises, it raises too. TD is who runs that definition.
+TD = API_SVC + ["ecs/" + P + "-batch/" + P + "-web"]
 check("setup: orders-api runs in two clusters, notifications' task def in 12 services", len(API_SVC) == 2 and len(NOTIF) == 12, f"{API_SVC} {len(NOTIF)}")
 # The pipeline the Tier-1 round left unreached, connected by the entrypoint that names its queue.
 check("webhook-receiver names orders-events (ORDERS_QUEUE_URL)", named(L+P+"-webhook-receiver", Q+P+"-orders-events", "ORDERS_QUEUE_URL"))
@@ -69,7 +77,7 @@ check("both orders-api services name orders-events (QUEUE_URL)", all(named(s, Q+
 check("both orders-api services → payments (PAYMENTS_URL, http high)", all(conf(s, X, "http") == "high" for s in API_SVC))
 check("12 services name notifications.fifo (QUEUE_URL)", all(named(s, Q+P+"-notifications.fifo", "QUEUE_URL") for s in NOTIF))
 # The planted ambiguity: a table and a queue named ce-test-orders.
-holders = API_SVC + [L+P+"-order-processor"]
+holders = TD + [L+P+"-order-processor"]
 check("TABLE_NAME=ce-test-orders is read as the table (the key names a table)", all(named(h, D+P+"-orders", "TABLE_NAME") for h in holders))
 check("…and the queue only as a low candidate", all(conf(h, Q+P+"-orders") == "low" for h in holders), str([conf(h, Q+P+"-orders") for h in holders]))
 check("…with the ambiguity reported for each holder", sorted(f["node"] for f in findings("ambiguous", P + "-orders")) == sorted(holders))
@@ -89,8 +97,8 @@ ext = sorted(n["id"] for n in g["nodes"] if n.get("external"))
 check("exactly two third parties; no AWS host became one", ext == [X, S], str(ext))
 # With the RDS collector, only orders-api's made-up host stays unresolved;
 # order-processor's DATABASE_URL now names the real cluster (checked below).
-check("the only unresolved RDS endpoints are orders-api's",
-      sorted({f["node"] for f in findings("unresolved", ".rds.amazonaws.com")}) == sorted(API_SVC))
+check("the only unresolved RDS endpoints are orders-api's task definition's",
+      sorted({f["node"] for f in findings("unresolved", ".rds.amazonaws.com")}) == sorted(TD))
 check("the ElastiCache endpoint reported for all 12 services", len({f["node"] for f in findings("unresolved", ".cache.amazonaws.com")}) == 12)
 check("every environment was readable", not [f for f in g.get("findings", []) if f["kind"] == "unscanned" and f["rule"] == "config.value-scan"])
 refs = [e for e in g["edges"] if any(ev["rule"] == "config.value-scan" for ev in e["evidence"])]
@@ -114,7 +122,7 @@ check("the ambiguity is settled: orders-api's role cannot touch the queue ce-tes
       sorted(f["node"] for f in findings("unpermitted", Q+P+"-orders") if f["node"] in API_SVC) == sorted(API_SVC))
 check("the boundary cancels orders-api's InvokeFunction: no edge, a blocked finding each",
       not any(has(s, L+P+"-orders-fn", "invoke") for s in API_SVC)
-      and sorted(f["node"] for f in findings("blocked", "boundary") if f["target"] == L+P+"-orders-fn") == sorted(API_SVC))
+      and sorted(f["node"] for f in findings("blocked", "boundary") if f["target"] == L+P+"-orders-fn") == sorted(TD))
 check("webhook-receiver publishes to orders-events, high (ORDERS_QUEUE_URL + SendMessage)",
       conf(L+P+"-webhook-receiver", Q+P+"-orders-events", "publish") == "high")
 check("the explicit Deny cancels webhook-receiver's PutItem: no edge, a blocked finding",
@@ -167,7 +175,7 @@ check("webhook-receiver connects to the instance (LEGACY_DB_URL, password redact
       named(L+P+"-webhook-receiver", LG, "LEGACY_DB_URL") and conf(L+P+"-webhook-receiver", LG, "connect") == "high")
 check("orders-api's ce-test-db.cluster-abc123…: the cluster's name, another account's suffix — reported, not linked",
       not any(has(s, CL, "connect") for s in API_SVC)
-      and sorted({f["node"] for f in findings("unresolved", "namesake") if "cluster-abc123" in f["target"]}) == sorted(API_SVC))
+      and sorted({f["node"] for f in findings("unresolved", "namesake") if "cluster-abc123" in f["target"]}) == sorted(TD))
 check("both databases are on the request path (sync)", flow(CL) == "sync" and flow(LG) == "sync", f"{flow(CL)} {flow(LG)}")
 check("no database is called unpermitted", not [f for f in g.get("findings", []) if f["kind"] == "unpermitted" and f["target"].startswith("rds/")])
 
@@ -190,6 +198,26 @@ check("the 12 services' CACHE_HOST — the group's name, another suffix — a na
       and sorted({f["node"] for f in findings("unresolved", "namesake") if ".cache.amazonaws.com" in f["target"]}) == sorted(NOTIF))
 check("all three caches are on the request path (sync)", all(flow(i) == "sync" for i in (SG_, SL_, MC_)), str([flow(i) for i in (SG_, SL_, MC_)]))
 check("no cache is called unpermitted", not [f for f in g.get("findings", []) if f["kind"] == "unpermitted" and f["target"].startswith("cache/")])
+
+# --- ELBv2 (16-aws-elbv2-create.sh): written before the round's output was looked at
+ALB_, NLB_, WEB_SVC = "elb/" + P + "-web", "elb/" + P + "-tcp", "ecs/" + P + "-batch/" + P + "-web"
+check("ELB: both load balancers are nodes, the target groups are not",
+      nodes.get(ALB_, {}).get("type") == "elbv2.load-balancer" and nodes.get(NLB_, {}).get("type") == "elbv2.load-balancer"
+      and not any(i.startswith("elb/tg/") for i in nodes))
+check("the internet-facing ALB is an entrypoint; the internal NLB is not", flow(ALB_) == "entrypoint" and flow(NLB_) != "entrypoint")
+check("ALB → the ECS service (default rule), http certain; the service is sync and no entrypoint of its own",
+      conf(ALB_, WEB_SVC, "http") == "certain" and flow(WEB_SVC) == "sync" and not nodes.get(WEB_SVC, {}).get("triggers"))
+check("ALB → orders-fn (rule 10, Lambda target), corroborated by the function's permission for the target group",
+      conf(ALB_, L+P+"-orders-fn", "invoke") == "certain" and "lambda.resource-policy" in rules(ALB_, L+P+"-orders-fn", "invoke"),
+      str(rules(ALB_, L+P+"-orders-fn", "invoke")))
+check("orders-fn is no longer an entrypoint for 'a load balancer may invoke it'",
+      not any("load balancer" in t or "elasticloadbalancing" in t for t in nodes.get(L+P+"-orders-fn", {}).get("triggers", [])))
+check("the HTTP API reaches the ALB through its VPC link (the listener's load balancer)", conf(HTTP, ALB_, "http") == "certain")
+check("orders-fn names the ALB (WEB_URL): http high", conf(L+P+"-orders-fn", ALB_, "http") == "high" and named(L+P+"-orders-fn", ALB_, "WEB_URL"))
+check("order-processor names the NLB (TCP_BACKEND, host:port): connect high", conf(L+P+"-order-processor", NLB_, "connect") == "high")
+check("the NLB's ip targets are no ECS service's: reported", findings("unresolved", P + "-tcp-tg") and flow(NLB_) == "async", flow(NLB_))
+check("LEGACY_LB_URL — the ALB's name, another address — a namesake, not linked",
+      not has(L+P+"-webhook-receiver", ALB_, "http") and any(f["node"] == L+P+"-webhook-receiver" for f in findings("unresolved", "namesake")))
 
 # --- hygiene
 check("every edge has evidence", all(e["evidence"] for e in g["edges"]))

@@ -141,6 +141,22 @@ var services = []Service{
 		},
 	},
 	{
+		SDKID:     "Elastic Load Balancing v2",
+		IAMPrefix: "elasticloadbalancing",
+		// DescribeRules only for Application Load Balancers (the others have
+		// none); DescribeTargetHealth only for Lambda and ALB target groups,
+		// whose targets are resources rather than ephemeral addresses.
+		// Classic Load Balancers share the IAM prefix and are not collected.
+		Ops: []string{
+			"DescribeListeners",
+			"DescribeLoadBalancers",
+			"DescribeRules",
+			"DescribeTags",
+			"DescribeTargetGroups",
+			"DescribeTargetHealth",
+		},
+	},
+	{
 		SDKID:     "IAM",
 		IAMPrefix: "iam",
 		// Only the roles collected workloads assume are read, never the whole

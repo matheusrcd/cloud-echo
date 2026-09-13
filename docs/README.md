@@ -28,7 +28,7 @@ on are validated. Results and the four design changes that came out of it:
 against future Floci releases.
 
 **M1 in progress.** Discovery covers **ECS, SQS, DynamoDB, Lambda, IAM, API
-Gateway (v1 and v2), RDS and ElastiCache** — with secret-shaped values redacted before
+Gateway (v1 and v2), RDS, ElastiCache and ELBv2** — with secret-shaped values redacted before
 anything reaches disk. It has been validated against a real account — with only
 the shipped policy, and through a round trip into Floci:
 [m1-real-account-findings.md](spikes/m1-real-account-findings.md).
@@ -36,8 +36,8 @@ the shipped policy, and through a round trip into Floci:
 **The linker reads three tiers**: Tier 1 (relationships the account declares),
 Tier 2 (what configuration names) and Tier 3 (what roles permit — the only tier
 that knows *what* a workload does with what it names), plus flow classification,
-each validated against a real account. What M1 still lacks is breadth — the RDS,
-ElastiCache and supporting collectors — and the exit criterion: someone who knows
+each validated against a real account. What M1 still lacks is breadth — the
+supporting collectors (ECR, SNS, EC2, Secrets Manager, SSM) — and the exit criterion: someone who knows
 a real account confirming its graph. See [08-roadmap.md](08-roadmap.md).
 
 ## Conventions

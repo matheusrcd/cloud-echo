@@ -1,0 +1,332 @@
+{
+  "formatVersion": 1,
+  "generatedBy": "cloud-echo/golden",
+  "inventoryScanId": "elb-cases",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "nodes": [
+    {
+      "id": "apigw/api0000050",
+      "type": "apigateway.http",
+      "name": "elb-http",
+      "flow": "entrypoint",
+      "triggers": [
+        "HTTP API"
+      ]
+    },
+    {
+      "id": "apigw/api0000051",
+      "type": "apigateway.rest",
+      "name": "elb-rest",
+      "flow": "entrypoint",
+      "triggers": [
+        "REST API"
+      ]
+    },
+    {
+      "id": "ecs/main/api",
+      "type": "ecs.service",
+      "name": "api",
+      "flow": "sync"
+    },
+    {
+      "id": "ecs/main/canary",
+      "type": "ecs.service",
+      "name": "canary",
+      "flow": "sync"
+    },
+    {
+      "id": "ecs/main/idle",
+      "type": "ecs.service",
+      "name": "idle",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/main/legacy",
+      "type": "ecs.service",
+      "name": "legacy",
+      "flow": "entrypoint",
+      "triggers": [
+        "behind a load balancer (target group legacy-tg, not in the inventory: internet-facing or internal cannot be told)"
+      ]
+    },
+    {
+      "id": "ecs/main/orders",
+      "type": "ecs.service",
+      "name": "orders",
+      "flow": "sync"
+    },
+    {
+      "id": "elb/front",
+      "type": "elbv2.load-balancer",
+      "name": "front",
+      "flow": "unreached"
+    },
+    {
+      "id": "elb/internal-api",
+      "type": "elbv2.load-balancer",
+      "name": "internal-api",
+      "flow": "sync"
+    },
+    {
+      "id": "elb/tcp",
+      "type": "elbv2.load-balancer",
+      "name": "tcp",
+      "flow": "sync"
+    },
+    {
+      "id": "elb/web",
+      "type": "elbv2.load-balancer",
+      "name": "web",
+      "flow": "entrypoint",
+      "triggers": [
+        "internet-facing application load balancer"
+      ]
+    },
+    {
+      "id": "lambda/caller-fn",
+      "type": "lambda.function",
+      "name": "caller-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/fn-a",
+      "type": "lambda.function",
+      "name": "fn-a",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/stale-fn",
+      "type": "lambda.function",
+      "name": "stale-fn",
+      "flow": "unreached"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apigw/api0000050",
+      "to": "elb/internal-api",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations api0000050 i2 (route ANY /internal/{proxy+})",
+          "detail": "HTTP_PROXY ANY /internal/{proxy+} → elb/internal-api (through a VPC link, listener l80)"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000050",
+      "to": "lambda/caller-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations api0000050 i1 (route GET /call)",
+          "detail": "AWS_PROXY GET /call → caller-fn"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000051",
+      "to": "elb/tcp",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigateway:GetResources api0000051 ANY /db",
+          "detail": "HTTP_PROXY ANY /db → elb/tcp (through a VPC link)"
+        }
+      ]
+    },
+    {
+      "from": "elb/front",
+      "to": "elb/web",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeListeners front TCP:443",
+          "detail": "TCP:443 default → target group alb-tg → elb/web"
+        }
+      ]
+    },
+    {
+      "from": "elb/internal-api",
+      "to": "ecs/main/orders",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules internal-api HTTP:80 default",
+          "detail": "HTTP:80 default → target group orders → ecs/main/orders"
+        }
+      ]
+    },
+    {
+      "from": "elb/web",
+      "to": "ecs/main/api",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules web HTTP:80 10",
+          "detail": "HTTP:80 rule 10 (path-pattern /api/*) → target group api → ecs/main/api"
+        },
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules web HTTP:80 30",
+          "detail": "HTTP:80 rule 30 (path-pattern /canary/*) → target group api → ecs/main/api (weight 90)"
+        }
+      ]
+    },
+    {
+      "from": "elb/web",
+      "to": "ecs/main/canary",
+      "kind": "http",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules web HTTP:80 30",
+          "detail": "HTTP:80 rule 30 (path-pattern /canary/*) → target group canary → ecs/main/canary (weight 10)"
+        }
+      ]
+    },
+    {
+      "from": "elb/web",
+      "to": "lambda/fn-a",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "elbv2.listener",
+          "source": "elasticloadbalancing:DescribeRules web HTTP:80 20",
+          "detail": "HTTP:80 rule 20 (path-pattern /fn/*) → target group fn → lambda/fn-a"
+        },
+        {
+          "rule": "lambda.resource-policy",
+          "source": "lambda:GetPolicy fn-a elb",
+          "detail": "resource policy lets target group fn invoke it"
+        }
+      ]
+    },
+    {
+      "from": "lambda/caller-fn",
+      "to": "elb/internal-api",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions caller-fn env ORDERS_URL",
+          "detail": "ORDERS_URL reaches elb/internal-api (its DNS name)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/caller-fn",
+      "to": "elb/tcp",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions caller-fn env DB",
+          "detail": "DB reaches elb/tcp (its DNS name)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/caller-fn",
+      "to": "elb/web",
+      "kind": "http",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions caller-fn env DS",
+          "detail": "DS reaches elb/web (its DNS name)"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "unresolved",
+      "node": "apigw/api0000050",
+      "target": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/internal-api/2222222222222222/l443",
+      "rule": "apigw.integration",
+      "detail": "integration ANY /gone/{proxy+}: VPC link to listener l443, which elb/internal-api does not have (deleted): requests fail"
+    },
+    {
+      "kind": "unscanned",
+      "node": "ecs/main/api",
+      "target": "ecs/taskdef/api:1",
+      "rule": "config.value-scan",
+      "detail": "task definition not in the inventory: its configuration was not scanned"
+    },
+    {
+      "kind": "unscanned",
+      "node": "ecs/main/canary",
+      "target": "ecs/taskdef/canary:1",
+      "rule": "config.value-scan",
+      "detail": "task definition not in the inventory: its configuration was not scanned"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/idle",
+      "target": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/idle/07",
+      "rule": "ecs.load-balancer",
+      "detail": "registers in target group idle, which no load balancer forwards to: nothing reaches the service through it"
+    },
+    {
+      "kind": "unscanned",
+      "node": "ecs/main/idle",
+      "target": "ecs/taskdef/idle:1",
+      "rule": "config.value-scan",
+      "detail": "task definition not in the inventory: its configuration was not scanned"
+    },
+    {
+      "kind": "unscanned",
+      "node": "ecs/main/legacy",
+      "target": "ecs/taskdef/legacy:1",
+      "rule": "config.value-scan",
+      "detail": "task definition not in the inventory: its configuration was not scanned"
+    },
+    {
+      "kind": "unscanned",
+      "node": "ecs/main/orders",
+      "target": "ecs/taskdef/orders:1",
+      "rule": "config.value-scan",
+      "detail": "task definition not in the inventory: its configuration was not scanned"
+    },
+    {
+      "kind": "unresolved",
+      "node": "elb/tcp",
+      "target": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/db-proxy/e5",
+      "rule": "elbv2.listener",
+      "detail": "TCP:5432 default forwards to target group db-proxy, whose ip targets no ECS service registers: hosts outside the inventory"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/caller-fn",
+      "target": "web-999.us-east-1.elb.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "OLD names a load balancer called web, like elb/web in this scan, with another DNS name: a namesake (recreated, or another account's), not this one"
+    },
+    {
+      "kind": "stale-permission",
+      "node": "lambda/stale-fn",
+      "target": "elb/web",
+      "rule": "lambda.resource-policy",
+      "detail": "resource policy lets target group fn invoke this function, but it is not registered there"
+    }
+  ]
+}
