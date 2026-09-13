@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -46,6 +47,9 @@ func runScan(ctx context.Context, args []string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "scanning account %s in %s\n", session.AccountID(), session.Region())
+	if ep := session.EndpointOverride(); ep != "" {
+		fmt.Fprintf(os.Stderr, "endpoint override: %s — requests are NOT going to AWS's public endpoints\n", ep)
+	}
 
 	registry := discovery.NewRegistry()
 	inv, err := registry.Scan(ctx, session, discovery.Options{
@@ -90,6 +94,20 @@ func writeInventory(path string, inv *inventory.Inventory) error {
 }
 
 func printSummary(inv *inventory.Inventory, path string) {
+	writeSummary(os.Stderr, inv, path)
+}
+
+// writeSummary prints the scan result for a human.
+//
+// Access denials are grouped by IAM action. A warning is recorded per resource,
+// so one missing permission in an account with 200 Lambda functions is 200
+// warnings — found against a real account, where two denied actions already
+// printed ten lines of SDK error text. The person reading this needs one answer:
+// which permission to add. The full per-resource detail stays in the inventory.
+//
+// Every other warning kind is a finding about a specific resource — a role that
+// no longer exists, an environment that cannot be read — and is listed on its own.
+func writeSummary(w io.Writer, inv *inventory.Inventory, path string) {
 	byType := map[string]int{}
 	for _, r := range inv.Resources {
 		byType[r.Type]++
@@ -100,27 +118,64 @@ func printSummary(inv *inventory.Inventory, path string) {
 	}
 	sort.Strings(types)
 
-	fmt.Fprintf(os.Stderr, "\nfound %d resources:\n", len(inv.Resources))
+	fmt.Fprintf(w, "\nfound %d resources:\n", len(inv.Resources))
 	for _, t := range types {
-		fmt.Fprintf(os.Stderr, "  %-24s %d\n", t, byType[t])
+		fmt.Fprintf(w, "  %-28s %d\n", t, byType[t])
+	}
+
+	denied := map[string]int{}
+	var findings []inventory.Warning
+	for _, wn := range inv.Warnings {
+		if wn.Kind == "access-denied" {
+			denied[iamAction(wn.Service, wn.Op)]++
+			continue
+		}
+		findings = append(findings, wn)
 	}
 
 	if len(inv.Warnings) > 0 {
-		// Warnings are printed in full rather than counted. A partial inventory
-		// produces a partial graph, and a user who does not know which parts are
-		// missing will read the gaps as facts about their architecture.
-		fmt.Fprintf(os.Stderr, "\n%d warning(s) — this inventory is incomplete:\n", len(inv.Warnings))
-		for _, w := range inv.Warnings {
-			fmt.Fprintf(os.Stderr, "  [%s] %s", w.Kind, w.Service)
-			if w.Op != "" {
-				fmt.Fprintf(os.Stderr, ":%s", w.Op)
-			}
-			fmt.Fprintf(os.Stderr, " — %s\n", w.Message)
+		fmt.Fprintf(w, "\nthis inventory is incomplete:\n")
+	}
+	if len(denied) > 0 {
+		actions := make([]string, 0, len(denied))
+		for a := range denied {
+			actions = append(actions, a)
 		}
-		fmt.Fprintf(os.Stderr, "\nsee %s for the permissions cloud-echo needs\n", awsx.PolicyPath)
+		sort.Strings(actions)
+		for _, a := range actions {
+			fmt.Fprintf(w, "  [access-denied] %-32s %d call(s) refused\n", a, denied[a])
+		}
+		fmt.Fprintf(w, "  → grant %s, or accept a partial graph (policy: %s)\n",
+			strings.Join(actions, ", "), awsx.PolicyPath)
+	}
+	for _, f := range findings {
+		fmt.Fprintf(w, "  [%s] %s", f.Kind, f.Service)
+		if f.Op != "" {
+			fmt.Fprintf(w, ":%s", f.Op)
+		}
+		fmt.Fprintf(w, " — %s\n", f.Message)
 	}
 
-	fmt.Fprintf(os.Stderr, "\nwrote %s\n", path)
+	fmt.Fprintf(w, "\nwrote %s\n", path)
+}
+
+// iamAction names the permission behind a denied SDK call, using the same
+// allow-list the policy is generated from, so the hint cannot name an action the
+// shipped policy does not contain.
+func iamAction(sdkID, op string) string {
+	for _, s := range awsx.Services() {
+		if s.SDKID != sdkID {
+			continue
+		}
+		if acts, ok := s.IAMActions[op]; ok && len(acts) > 0 {
+			return strings.Join(acts, "+")
+		}
+		return s.IAMPrefix + ":" + op
+	}
+	if op == "" {
+		return sdkID
+	}
+	return sdkID + ":" + op
 }
 
 // printDryRun lists the exact API surface a scan would touch, so a security team
