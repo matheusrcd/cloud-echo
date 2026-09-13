@@ -18,7 +18,7 @@ func TestTextGroupsByFlowAndExplainsUnreached(t *testing.T) {
 		// The unreached section must say it is not a verdict of disuse.
 		"not a verdict that the resource is unused",
 		"[stale-permission] lambda/stale-fn",
-		"target group web;",
+		"target group web, not in the inventory",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("text output lacks %q", want)

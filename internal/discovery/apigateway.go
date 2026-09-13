@@ -531,8 +531,8 @@ func resolveIntegration(it *integrationSpec) {
 
 	case strings.HasPrefix(it.URI, "http://") || strings.HasPrefix(it.URI, "https://"):
 		// An external or VPC-linked HTTP backend. No inventory target: the
-		// linker turns the URL into an ext/ node (Tier 2), or follows the VPC
-		// link once ELBv2 is collected.
+		// linker turns the URL into an ext/ node, or — through a VPC link —
+		// finds the Network Load Balancer its host names.
 		it.Service = "http"
 
 	case strings.HasPrefix(it.URI, "arn:aws:elasticloadbalancing:"):

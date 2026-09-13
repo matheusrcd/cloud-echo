@@ -27,6 +27,8 @@ const (
 	TypeRDSInstance        = "rds.instance"
 	TypeRDSCluster         = "rds.cluster"
 	TypeCache              = "elasticache.cache"
+	TypeLoadBalancer       = "elbv2.load-balancer"
+	TypeTargetGroup        = "elbv2.target-group"
 )
 
 // Types lists every type a collector may emit. A test in discovery checks
@@ -36,6 +38,7 @@ var Types = []string{
 	TypeECSCluster, TypeECSService, TypeECSTaskDefinition, TypeSQSQueue, TypeDynamoDBTable,
 	TypeLambdaFunction, TypeEventSourceMapping, TypeIAMRole, TypeIAMPolicy,
 	TypeRESTAPI, TypeHTTPAPI, TypeWebSocketAPI, TypeRDSInstance, TypeRDSCluster, TypeCache,
+	TypeLoadBalancer, TypeTargetGroup,
 }
 
 type API struct {
@@ -591,4 +594,80 @@ type CacheNetwork struct {
 	SubnetGroup    string   `json:"subnetGroup,omitempty"`
 	Subnets        []string `json:"subnets,omitempty"`
 	SecurityGroups []string `json:"securityGroups,omitempty"`
+}
+
+// ELB is an Application or Network Load Balancer. It is a node, like an API:
+// it runs nothing and holds nothing, but it is where traffic enters and how it
+// is routed — an internet-facing one is an entrypoint — and its listeners are
+// its definition, which a local environment has to reproduce.
+type ELB struct {
+	Name           string        `json:"name"`
+	Type           string        `json:"type"`   // application | network
+	Scheme         string        `json:"scheme"` // internet-facing | internal
+	State          string        `json:"state"`
+	DNSName        string        `json:"dnsName"`
+	VpcID          string        `json:"vpcId,omitempty"`
+	Subnets        []string      `json:"subnets,omitempty"`
+	SecurityGroups []string      `json:"securityGroups,omitempty"`
+	Listeners      []ELBListener `json:"listeners"`
+}
+
+type ELBListener struct {
+	// ARN is what an API Gateway VPC link integration names: with two
+	// listeners, the load balancer alone does not say which one (found
+	// rebuilding the ELBv2 round's topology in Floci).
+	ARN          string   `json:"arn"`
+	Port         int32    `json:"port"`
+	Protocol     string   `json:"protocol"`
+	Certificates []string `json:"certificates,omitempty"` // ARNs
+	// Rules, highest priority first and the default last. A Network Load
+	// Balancer's listener has only its default.
+	Rules []ELBRule `json:"rules"`
+}
+
+type ELBRule struct {
+	Priority   string         `json:"priority"` // "10" … or "default"
+	Conditions []ELBCondition `json:"conditions,omitempty"`
+	Actions    []ELBAction    `json:"actions"`
+}
+
+// ELBCondition is one match of a rule. Header and query-string values are
+// redacted like env vars: a shared secret in a header is how a CDN proves to
+// the load balancer that a request came through it.
+type ELBCondition struct {
+	Field  string   `json:"field"`            // path-pattern | host-header | http-header | query-string | http-request-method | source-ip
+	Header string   `json:"header,omitempty"` // for http-header
+	Values []string `json:"values,omitempty"`
+}
+
+type ELBAction struct {
+	Type         string       `json:"type"` // forward | redirect | fixed-response | authenticate-oidc | authenticate-cognito | jwt-validation
+	TargetGroups []ELBForward `json:"targetGroups,omitempty"`
+	Redirect     string       `json:"redirect,omitempty"`
+	// A fixed response's status and content type; its body is free text and
+	// withheld, like an API Gateway mapping template.
+	FixedStatus string `json:"fixedStatus,omitempty"`
+	// Issuer names the identity provider an authenticate action sends users
+	// to; the client secret is never recorded.
+	Issuer string `json:"issuer,omitempty"`
+}
+
+type ELBForward struct {
+	ARN    string `json:"arn"`
+	Weight int32  `json:"weight,omitempty"`
+}
+
+// TargetGroup is where a load balancer sends traffic. It is configuration,
+// not a node: what receives the traffic is. ECS services name their target
+// groups themselves (ECSService.LoadBalancers); Lambda and ALB targets are
+// listed here, because only the target group knows them.
+type TargetGroup struct {
+	Name             string      `json:"name"`
+	TargetType       string      `json:"targetType"` // ip | instance | lambda | alb
+	Protocol         string      `json:"protocol,omitempty"`
+	Port             int32       `json:"port,omitempty"`
+	VpcID            string      `json:"vpcId,omitempty"`
+	HealthCheckPath  string      `json:"healthCheckPath,omitempty"`
+	LoadBalancerARNs []string    `json:"loadBalancerArns,omitempty"`
+	Targets          []TargetRef `json:"targets,omitempty"`
 }

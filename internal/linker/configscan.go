@@ -175,8 +175,8 @@ func (s *scanner) awsHost(holder string, v configValue, host, u string) {
 		s.rdsHost(holder, v, host)
 	case strings.HasSuffix(host, ".cache.amazonaws.com"):
 		s.cacheHost(holder, v, host)
-	case strings.HasSuffix(host, ".elb.amazonaws.com"):
-		report("a load balancer; linking it needs the ELBv2 collector")
+	case isELBHost(host):
+		s.elbHost(holder, v, host)
 	case strings.Contains(host, ".lambda-url."):
 		report("a Lambda Function URL; resolving it to a function needs lambda:ListFunctionUrlConfigs, which is not collected")
 	case u != "":

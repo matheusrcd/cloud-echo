@@ -20,7 +20,7 @@
       "name": "api",
       "flow": "entrypoint",
       "triggers": [
-        "behind a load balancer (target group api; internet-facing or internal needs the ELBv2 collector)"
+        "behind a load balancer (target group api, not in the inventory: internet-facing or internal cannot be told)"
       ]
     },
     {

@@ -35,7 +35,7 @@
       "name": "web",
       "flow": "entrypoint",
       "triggers": [
-        "behind a load balancer (target group web; internet-facing or internal needs the ELBv2 collector)"
+        "behind a load balancer (target group web, not in the inventory: internet-facing or internal cannot be told)"
       ]
     },
     {
@@ -348,7 +348,7 @@
       "node": "apigw/api0000001",
       "target": "http://internal-nlb.example.internal/api",
       "rule": "apigw.integration",
-      "detail": "integration GET /internal: VPC link target needs the ELBv2 collector"
+      "detail": "integration GET /internal: VPC link target is not a load balancer in the inventory"
     },
     {
       "kind": "unscanned",

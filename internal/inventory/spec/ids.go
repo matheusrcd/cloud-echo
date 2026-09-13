@@ -100,6 +100,18 @@ func IDFromARN(arn string) string {
 		if id, ok := strings.CutPrefix(res, "cluster:"); ok && id != "" {
 			return "rds/cluster/" + id
 		}
+	case "elasticloadbalancing":
+		// loadbalancer/app/<name>/<id>, listener/app/<name>/<lb-id>/<id>,
+		// targetgroup/<name>/<id>. Names are unique per account and region; a
+		// listener belongs to its load balancer. The ids drop the trailing
+		// hex, so the linker checks the full ARN before trusting a match.
+		p := strings.Split(res, "/")
+		switch {
+		case (p[0] == "loadbalancer" || p[0] == "listener") && len(p) >= 4 && (p[1] == "app" || p[1] == "net"):
+			return "elb/" + p[2]
+		case p[0] == "targetgroup" && len(p) >= 3:
+			return "elb/tg/" + p[1]
+		}
 	case "elasticache":
 		// Replication groups, cache clusters and serverless caches are three
 		// namespaces; the common case, the replication group, keeps the short id.
