@@ -2,6 +2,7 @@ package awsx
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"os"
 	"path/filepath"
@@ -71,14 +72,51 @@ func TestPolicyGrantsNoForbiddenAction(t *testing.T) {
 // going through the naming check, e.g. via an IAMActions override.
 func TestPolicyActionsAreAllReads(t *testing.T) {
 	for _, action := range AllIAMActions() {
-		_, op, ok := strings.Cut(action, ":")
-		if !ok {
-			t.Errorf("malformed action %q", action)
-			continue
+		if !IsReadAction(action) {
+			t.Errorf("policy action %q is not a read", action)
 		}
-		if !hasReadPrefix(op) {
-			t.Errorf("policy action %q is not a Describe/List/Get/BatchGet call", action)
+	}
+}
+
+// TestPolicyScopesAPIGatewayAwayFromKeyValues pins the reason API Gateway has a
+// scoped statement. apigateway:GET on "*" would allow GET /apikeys with
+// includeValues=true — reading API key values — and the policy is the artifact a
+// security team approves. The grant must name only the API definitions.
+func TestPolicyScopesAPIGatewayAwayFromKeyValues(t *testing.T) {
+	raw, err := ScannerPolicy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Statement []struct {
+			Action   []string
+			Resource any
 		}
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, st := range doc.Statement {
+		for _, a := range st.Action {
+			if a != "apigateway:GET" {
+				continue
+			}
+			found = true
+			res, ok := st.Resource.([]any)
+			if !ok {
+				t.Fatalf("apigateway:GET is granted on %v, not a scoped list", st.Resource)
+			}
+			for _, r := range res {
+				s := r.(string)
+				if !strings.Contains(s, "::/restapis") && !strings.Contains(s, "::/apis") {
+					t.Errorf("apigateway:GET reaches %s", s)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("apigateway:GET is not in the policy")
 	}
 }
 
@@ -99,6 +137,14 @@ func TestAllowListRejectsBadEdits(t *testing.T) {
 		},
 		"forbidden action": {
 			{SDKID: "Secrets Manager", IAMPrefix: "secretsmanager", Ops: []string{"GetSecretValue"}},
+		},
+		"writing verb action via override": {
+			{SDKID: "API Gateway", IAMPrefix: "apigateway", Ops: []string{"GetRestApis"},
+				IAMActions: map[string][]string{"GetRestApis": {"apigateway:POST"}}},
+		},
+		"shared action declared by only one side": {
+			{SDKID: "A", IAMPrefix: "x", Ops: []string{"GetThing"}, IAMActions: map[string][]string{"GetThing": {"x:GetThing"}}},
+			{SDKID: "B", IAMPrefix: "x", Ops: []string{"GetThing"}},
 		},
 		"override for unknown op": {
 			{SDKID: "STS", IAMPrefix: "sts", Ops: []string{"GetCallerIdentity"},

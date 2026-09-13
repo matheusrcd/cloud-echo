@@ -193,6 +193,10 @@ func printDryRun() {
 		for _, op := range ops {
 			fmt.Printf("    %s:%s\n", s.IAMPrefix, op)
 		}
+		if len(s.IAMResources) > 0 {
+			fmt.Printf("    (granted as %s, only on %s)\n",
+				strings.Join(s.IAMActionsFor(), ", "), strings.Join(s.IAMResources, ", "))
+		}
 		fmt.Println()
 	}
 
@@ -203,6 +207,8 @@ func printDryRun() {
 	fmt.Println("    generated from the same list, with a test that fails on drift.")
 	fmt.Println("  - secretsmanager:GetSecretValue is deliberately absent: secret values")
 	fmt.Println("    never leave AWS.")
+	fmt.Println("  - apigateway:GET is scoped to API definitions. API key values, usage")
+	fmt.Println("    plans, custom domains and client certificates are outside it.")
 	fmt.Println()
 	fmt.Printf("IAM actions: %s\n", strings.Join(awsx.AllIAMActions(), ", "))
 }

@@ -80,7 +80,10 @@ func assumedRoles(prior []inventory.Resource, account string, out Emitter) map[s
 			return
 		}
 		parts := strings.SplitN(arn, ":", 6)
-		if len(parts) < 6 || parts[2] != "iam" {
+		// Only roles are identities to read. API Gateway integrations also
+		// accept arn:aws:iam::*:user/* — "use the caller's credentials" — which
+		// is neither a role nor another account, and must not be reported as one.
+		if len(parts) < 6 || parts[2] != "iam" || !strings.HasPrefix(parts[5], "role/") {
 			return
 		}
 		if parts[4] != account {
@@ -110,10 +113,33 @@ func assumedRoles(prior []inventory.Resource, account string, out Emitter) map[s
 			if json.Unmarshal(r.Spec, &spec) == nil {
 				add(spec.RoleARN, r.ID)
 			}
+		case "apigateway.rest", "apigateway.http", "apigateway.websocket":
+			// The roles API Gateway assumes to call a backend directly (an SQS
+			// SendMessage integration) or to invoke an authorizer. They are what
+			// Tier 3 needs to tell that an API writes to a queue.
+			var spec apiSpec
+			if json.Unmarshal(r.Spec, &spec) == nil {
+				for _, rt := range spec.Routes {
+					if rt.Integration != nil {
+						add(rt.Integration.Credentials, r.ID)
+					}
+				}
+				for _, a := range spec.Authorizers {
+					add(a.Credentials, r.ID)
+				}
+			}
 		}
 	}
-	for n := range refs {
-		sort.Strings(refs[n])
+	// One API routes many methods through the same role; list it once.
+	for n, rs := range refs {
+		sort.Strings(rs)
+		uniq := rs[:0]
+		for i, v := range rs {
+			if i == 0 || v != rs[i-1] {
+				uniq = append(uniq, v)
+			}
+		}
+		refs[n] = uniq
 	}
 	return refs
 }

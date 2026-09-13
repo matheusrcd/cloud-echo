@@ -1,0 +1,229 @@
+[
+  {
+    "op": "GetApis",
+    "match": "nextToken=apis-2",
+    "response": {
+      "items": [
+        {
+          "apiId": "w1s2k3t4a5",
+          "name": "orders-ws",
+          "protocolType": "WEBSOCKET",
+          "apiEndpoint": "wss://w1s2k3t4a5.execute-api.us-east-1.amazonaws.com",
+          "routeSelectionExpression": "$request.body.action"
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetApis",
+    "match": "maxResults=500",
+    "response": {
+      "nextToken": "apis-2",
+      "items": [
+        {
+          "apiId": "h1t2t3p4a5",
+          "name": "orders-http",
+          "protocolType": "HTTP",
+          "apiEndpoint": "https://h1t2t3p4a5.execute-api.us-east-1.amazonaws.com",
+          "disableExecuteApiEndpoint": false,
+          "tags": {
+            "team": "orders"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetIntegrations",
+    "match": "/v2/apis/h1t2t3p4a5/integrations?maxResults=500",
+    "response": {
+      "items": [
+        {
+          "integrationId": "fnint01",
+          "integrationType": "AWS_PROXY",
+          "integrationUri": "arn:aws:lambda:us-east-1:123456789012:function:orders-fn",
+          "payloadFormatVersion": "2.0",
+          "connectionType": "INTERNET"
+        },
+        {
+          "integrationId": "sqsint1",
+          "integrationType": "AWS_PROXY",
+          "integrationSubtype": "SQS-SendMessage",
+          "credentialsArn": "arn:aws:iam::123456789012:role/apigw-integration-role",
+          "payloadFormatVersion": "1.0",
+          "connectionType": "INTERNET",
+          "requestParameters": {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789012/inbox",
+            "MessageBody": "$request.body"
+          }
+        },
+        {
+          "integrationId": "httpin1",
+          "integrationType": "HTTP_PROXY",
+          "integrationMethod": "ANY",
+          "integrationUri": "https://api.payments.example.com",
+          "payloadFormatVersion": "1.0",
+          "connectionType": "INTERNET",
+          "requestParameters": {
+            "overwrite:header.x-api-key": "not-a-real-v2-key",
+            "append:header.X-Trace": "$request.header.X-Trace"
+          }
+        },
+        {
+          "integrationId": "tmplin1",
+          "integrationType": "AWS_PROXY",
+          "integrationUri": "arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}",
+          "payloadFormatVersion": "2.0"
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetRoutes",
+    "match": "/v2/apis/h1t2t3p4a5/routes?maxResults=500&nextToken=routes-2",
+    "response": {
+      "items": [
+        {
+          "routeId": "r5",
+          "routeKey": "GET /v2",
+          "target": "integrations/tmplin1",
+          "authorizationType": "NONE"
+        },
+        {
+          "routeId": "r6",
+          "routeKey": "GET /callback",
+          "target": "integrations/fnint01",
+          "authorizationType": "CUSTOM",
+          "authorizerId": "reqauth"
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetRoutes",
+    "match": "/v2/apis/h1t2t3p4a5/routes?maxResults=500",
+    "response": {
+      "nextToken": "routes-2",
+      "items": [
+        {
+          "routeId": "r1",
+          "routeKey": "POST /orders",
+          "target": "integrations/fnint01",
+          "authorizationType": "JWT",
+          "authorizerId": "jwtauth"
+        },
+        {
+          "routeId": "r2",
+          "routeKey": "GET /orders/{id}",
+          "target": "integrations/fnint01",
+          "authorizationType": "NONE"
+        },
+        {
+          "routeId": "r3",
+          "routeKey": "POST /events",
+          "target": "integrations/sqsint1",
+          "authorizationType": "NONE"
+        },
+        {
+          "routeId": "r4",
+          "routeKey": "$default",
+          "target": "integrations/httpin1",
+          "authorizationType": "NONE"
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetStages",
+    "match": "/v2/apis/h1t2t3p4a5/stages?maxResults=500",
+    "response": {
+      "items": [
+        {
+          "stageName": "prod",
+          "stageVariables": {
+            "API_TOKEN": "not-a-real-token-123",
+            "backend": "orders-fn"
+          }
+        },
+        {
+          "stageName": "$default",
+          "autoDeploy": true
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetAuthorizers",
+    "match": "/v2/apis/h1t2t3p4a5/authorizers?maxResults=500",
+    "response": {
+      "items": [
+        {
+          "authorizerId": "reqauth",
+          "name": "request-auth",
+          "authorizerType": "REQUEST",
+          "authorizerUri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:authorizer-fn/invocations",
+          "authorizerCredentialsArn": "arn:aws:iam::123456789012:role/apigw-integration-role",
+          "identitySource": [
+            "$request.header.X-Signature"
+          ],
+          "authorizerPayloadFormatVersion": "2.0"
+        },
+        {
+          "authorizerId": "jwtauth",
+          "name": "jwt",
+          "authorizerType": "JWT",
+          "identitySource": [
+            "$request.header.Authorization"
+          ],
+          "jwtConfiguration": {
+            "audience": [
+              "orders-client"
+            ],
+            "issuer": "https://accounts.google.com"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetIntegrations",
+    "match": "/v2/apis/w1s2k3t4a5/integrations?maxResults=500",
+    "response": {
+      "items": [
+        {
+          "integrationId": "wsint01",
+          "integrationType": "AWS_PROXY",
+          "integrationUri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:ws-connect-fn/invocations"
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetRoutes",
+    "match": "/v2/apis/w1s2k3t4a5/routes?maxResults=500",
+    "response": {
+      "items": [
+        {
+          "routeId": "w1",
+          "routeKey": "$connect",
+          "target": "integrations/wsint01",
+          "authorizationType": "NONE"
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetStages",
+    "match": "/v2/apis/w1s2k3t4a5/stages?maxResults=500",
+    "response": {
+      "items": []
+    }
+  },
+  {
+    "op": "GetAuthorizers",
+    "match": "/v2/apis/w1s2k3t4a5/authorizers?maxResults=500",
+    "response": {
+      "items": []
+    }
+  }
+]

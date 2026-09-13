@@ -119,7 +119,7 @@ func (f *fixtureTransport) Do(req *http.Request) (*http.Response, error) {
 	f.mu.Unlock()
 
 	for _, ex := range f.exchanges {
-		if ex.Op != op || !strings.EqualFold(ex.service, service) {
+		if ex.Op != op || serviceKey(ex.service) != serviceKey(service) {
 			continue
 		}
 		if ex.Match != "" && !strings.Contains(haystack, ex.Match) {
@@ -132,6 +132,12 @@ func (f *fixtureTransport) Do(req *http.Request) (*http.Response, error) {
 	f.unmatched = append(f.unmatched, fmt.Sprintf("%s:%s %s body=%s", service, op, req.URL.RequestURI(), body))
 	f.mu.Unlock()
 	return nil, fmt.Errorf("no fixture for %s:%s (%s, body %s)", service, op, req.URL.RequestURI(), body)
+}
+
+// serviceKey lets a fixture file name match an SDK service id: "apigateway" is
+// the file for "API Gateway", whose id contains a space.
+func serviceKey(s string) string {
+	return strings.NewReplacer(" ", "", "-", "").Replace(strings.ToLower(s))
 }
 
 func (ex exchange) httpResponse(req *http.Request) *http.Response {

@@ -28,6 +28,19 @@
         "sqs:ListQueues"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "CloudEchoDiscoveryReadOnlyScopedApigateway",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:GET"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:*::/apis",
+        "arn:aws:apigateway:*::/apis/*",
+        "arn:aws:apigateway:*::/restapis",
+        "arn:aws:apigateway:*::/restapis/*"
+      ]
     }
   ]
 }

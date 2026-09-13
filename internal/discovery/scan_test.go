@@ -129,9 +129,9 @@ func (s staticCollector) Collect(_ context.Context, _ *awsx.Session, out Emitter
 // collector internals — those have their own tests. If this breaks, the linker's
 // golden fixtures break with it.
 func TestScanAcrossCollectorsProducesTheLinkerFixture(t *testing.T) {
-	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb", "lambda", "iam")
+	tr := loadFixtures(t, "orders", "ecs", "sqs", "dynamodb", "lambda", "apigateway", "apigatewayv2", "iam")
 	reg := &Registry{
-		collectors: []Collector{&ECS{}, &SQS{}, &DynamoDB{}, &Lambda{}},
+		collectors: []Collector{&ECS{}, &SQS{}, &DynamoDB{}, &Lambda{}, &APIGateway{}, &APIGatewayV2{}},
 		dependents: []DependentCollector{&IAM{}},
 	}
 
@@ -163,8 +163,11 @@ func TestScanAcrossCollectorsProducesTheLinkerFixture(t *testing.T) {
 		"dynamodb.table":              2,
 		"lambda.function":             4,
 		"lambda.event-source-mapping": 3,
-		"iam.role":                    5,
+		"iam.role":                    6,
 		"iam.policy":                  4,
+		"apigateway.rest":             2,
+		"apigateway.http":             1,
+		"apigateway.websocket":        1,
 	}
 	for typ, want := range counts {
 		if got := len(inv.ByType(typ)); got != want {

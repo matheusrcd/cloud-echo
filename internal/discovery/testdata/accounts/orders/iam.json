@@ -139,5 +139,25 @@
     "op": "GetPolicyVersion",
     "match": "AWSLambdaBasicExecutionRole",
     "body": "<GetPolicyVersionResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetPolicyVersionResult><PolicyVersion><Document>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%5B%22logs%3ACreateLogGroup%22%2C%20%22logs%3ACreateLogStream%22%2C%20%22logs%3APutLogEvents%22%5D%2C%20%22Resource%22%3A%20%22%2A%22%7D%5D%7D</Document><VersionId>v1</VersionId><IsDefaultVersion>true</IsDefaultVersion></PolicyVersion></GetPolicyVersionResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetPolicyVersionResponse>"
+  },
+  {
+    "op": "GetRole",
+    "match": "RoleName=apigw-integration-role&",
+    "body": "<GetRoleResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRoleResult><Role><Path>/</Path><AssumeRolePolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Principal%22%3A%20%7B%22Service%22%3A%20%22apigateway.amazonaws.com%22%7D%2C%20%22Action%22%3A%20%22sts%3AAssumeRole%22%7D%5D%7D</AssumeRolePolicyDocument><RoleId>AROAFIXTUREROLE0099</RoleId><RoleName>apigw-integration-role</RoleName><Arn>arn:aws:iam::123456789012:role/apigw-integration-role</Arn><CreateDate>2026-01-15T10:00:00Z</CreateDate></Role></GetRoleResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRoleResponse>"
+  },
+  {
+    "op": "ListRolePolicies",
+    "match": "RoleName=apigw-integration-role&",
+    "body": "<ListRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListRolePoliciesResult><PolicyNames><member>integrate</member></PolicyNames><IsTruncated>false</IsTruncated></ListRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListRolePoliciesResponse>"
+  },
+  {
+    "op": "GetRolePolicy",
+    "match": "RoleName=apigw-integration-role&",
+    "body": "<GetRolePolicyResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><GetRolePolicyResult><PolicyName>integrate</PolicyName><RoleName>apigw-integration-role</RoleName><PolicyDocument>%7B%22Version%22%3A%20%222012-10-17%22%2C%20%22Statement%22%3A%20%5B%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%22sqs%3ASendMessage%22%2C%20%22Resource%22%3A%20%22arn%3Aaws%3Asqs%3Aus-east-1%3A123456789012%3Ainbox%22%7D%2C%20%7B%22Effect%22%3A%20%22Allow%22%2C%20%22Action%22%3A%20%22lambda%3AInvokeFunction%22%2C%20%22Resource%22%3A%20%22arn%3Aaws%3Alambda%3Aus-east-1%3A123456789012%3Afunction%3Aauthorizer-fn%22%7D%5D%7D</PolicyDocument></GetRolePolicyResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></GetRolePolicyResponse>"
+  },
+  {
+    "op": "ListAttachedRolePolicies",
+    "match": "RoleName=apigw-integration-role&",
+    "body": "<ListAttachedRolePoliciesResponse xmlns=\"https://iam.amazonaws.com/doc/2010-05-08/\"><ListAttachedRolePoliciesResult><AttachedPolicies></AttachedPolicies><IsTruncated>false</IsTruncated></ListAttachedRolePoliciesResult><ResponseMetadata><RequestId>fixture</RequestId></ResponseMetadata></ListAttachedRolePoliciesResponse>"
   }
 ]

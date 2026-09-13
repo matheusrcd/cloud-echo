@@ -20,6 +20,8 @@ type Registry struct {
 func NewRegistry() *Registry {
 	return &Registry{
 		collectors: []Collector{
+			&APIGateway{},
+			&APIGatewayV2{},
 			&DynamoDB{},
 			&ECS{},
 			&Lambda{},
