@@ -261,7 +261,7 @@ for fam, revs in sorted(families.items()):
 # a Lambda permission, a VPC link integration — is re-resolved through
 # local_arn, never copied. The network is the account's: subnets, security
 # groups and the VPC map to Floci's defaults.
-local_arn = {}
+local_arn, local_dns = {}, {}
 LOCAL_SUBNETS = ["subnet-default-a", "subnet-default-b", "subnet-default-c"]
 
 def elb_actions(rid, actions):
@@ -328,6 +328,7 @@ for r in of("elbv2.load-balancer"):
     if not lb:
         continue
     local_arn[r["arn"]] = larn = lb["LoadBalancers"][0]["LoadBalancerArn"]
+    local_dns[s["dnsName"].lower()] = lb["LoadBalancers"][0]["DNSName"]
     for l in s["listeners"]:
         rules = l["rules"]
         default = next(x for x in rules if x["priority"] == "default")
@@ -353,6 +354,62 @@ for r in of("elbv2.target-group"):
         target = local_arn.get(t["arn"], t["arn"])
         aws(r["id"], f"register-targets {t.get('id') or target.rsplit('/', 2)[-2]}", "elbv2", "register-targets",
             "--target-group-arn", tg, "--targets", f"Id={target}")
+
+# ---------------------------------------------------------------- SNS
+# Topic ARNs are built from the name, so they are the scanned ones locally, and
+# so are the queue and function policies naming them. What is rewritten: an
+# HTTP endpoint's host (a load balancer's DNS name is minted locally) and its
+# withheld credentials and query values, which are dropped — the planner will
+# substitute local ones. A person's email or phone number is never subscribed.
+def local_endpoint(rid, url):
+    scheme, rest = url.split("://", 1)
+    authority, sep, tail = rest.partition("/")
+    if "@" in authority:
+        gap(rid, "an HTTP endpoint's credentials are withheld by design; seeded without them")
+        authority = authority.rsplit("@", 1)[1]
+    host = authority.split(":")[0].lower()
+    if host in local_dns:
+        authority = authority.lower().replace(host, local_dns[host])
+    if "?" in tail:
+        path, q = tail.split("?", 1)
+        kept = [kv for kv in q.split("&") if "<redacted:" not in kv]
+        if len(kept) != len(q.split("&")):
+            gap(rid, "an HTTP endpoint's secret query values are withheld; seeded without them")
+        tail = path + ("?" + "&".join(kept) if kept else "")
+    return scheme + "://" + authority + sep + tail
+
+for r in of("sns.topic"):
+    s = r["spec"]
+    attrs = {}
+    if s.get("fifo"):
+        attrs["FifoTopic"] = "true"
+        attrs["ContentBasedDeduplication"] = "true" if s.get("contentBasedDeduplication") else "false"
+    if s.get("policy"):
+        attrs["Policy"] = json.dumps(s["policy"])
+    if s.get("deliveryPolicy"):
+        attrs["DeliveryPolicy"] = json.dumps(s["deliveryPolicy"])
+    t = aws(r["id"], "create-topic", "sns", "create-topic", "--name", s["topicName"], *(["--attributes", json.dumps(attrs)] if attrs else []))
+    if not t:
+        continue
+    for sub in s.get("subscriptions") or []:
+        proto, endpoint = sub["protocol"], sub.get("endpoint", "")
+        if proto in ("email", "email-json", "sms"):
+            gap(r["id"], "a person's email or phone subscription is never seeded")
+            continue
+        if proto in ("http", "https"):
+            endpoint = local_endpoint(r["id"], endpoint)
+        sa = {}
+        if sub.get("rawDelivery"):
+            sa["RawMessageDelivery"] = "true"
+        if sub.get("filterPolicy"):
+            sa["FilterPolicy"] = sub["filterPolicy"]
+            sa["FilterPolicyScope"] = sub.get("filterScope") or "MessageAttributes"
+        if sub.get("deadLetter"):
+            sa["RedrivePolicy"] = json.dumps({"deadLetterTargetArn": sub["deadLetter"]["arn"]})
+        if sub.get("roleArn"):
+            sa["SubscriptionRoleArn"] = sub["roleArn"]
+        aws(r["id"], f"subscribe {proto}", "sns", "subscribe", "--topic-arn", t["TopicArn"], "--protocol", proto,
+            "--notification-endpoint", endpoint, "--return-subscription-arn", *(["--attributes", json.dumps(sa)] if sa else []))
 
 for r in of("ecs.service"):
     s = r["spec"]
