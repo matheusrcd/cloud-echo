@@ -43,6 +43,30 @@
       ]
     },
     {
+      "id": "cache/carts",
+      "type": "elasticache.cache",
+      "name": "carts",
+      "flow": "unreached"
+    },
+    {
+      "id": "cache/cluster/memo",
+      "type": "elasticache.cache",
+      "name": "memo",
+      "flow": "unreached"
+    },
+    {
+      "id": "cache/serverless/ratelimit",
+      "type": "elasticache.cache",
+      "name": "ratelimit",
+      "flow": "unreached"
+    },
+    {
+      "id": "cache/sessions",
+      "type": "elasticache.cache",
+      "name": "sessions",
+      "flow": "unreached"
+    },
+    {
       "id": "ddb/orders",
       "type": "dynamodb.table",
       "name": "orders",
@@ -307,6 +331,19 @@
           "rule": "iam.policy-resource",
           "source": "iam:GetRolePolicy orders-api-task orders-data",
           "detail": "role orders-api-task: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:orders-events (inline policy orders-data)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/notifications",
+      "to": "cache/sessions",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition notifications:7 container worker env CACHE_HOST",
+          "detail": "CACHE_HOST connects to cache/sessions (its primary endpoint)"
         }
       ]
     },
@@ -627,6 +664,13 @@
       "node": "apigw/h1t2t3p4a5",
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
+      "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "apigw/h1t2t3p4a5",
+      "target": "lambda/orders-fn",
+      "rule": "apigw.integration",
       "detail": "AWS_PROXY GET /orders/{id} → orders-fn (target is not in the inventory)"
     },
     {
@@ -635,13 +679,6 @@
       "target": "lambda/orders-fn",
       "rule": "apigw.integration",
       "detail": "AWS_PROXY POST /orders → orders-fn (target is not in the inventory)"
-    },
-    {
-      "kind": "unresolved",
-      "node": "apigw/h1t2t3p4a5",
-      "target": "lambda/orders-fn",
-      "rule": "apigw.integration",
-      "detail": "AWS_PROXY GET /callback → orders-fn (target is not in the inventory)"
     },
     {
       "kind": "unresolved",
@@ -670,13 +707,6 @@
       "target": "sqs/orders",
       "rule": "iam.policy-resource",
       "detail": "its configuration names sqs/orders, but its role orders-api-task grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
-    },
-    {
-      "kind": "unresolved",
-      "node": "ecs/main/notifications",
-      "target": "sessions.abc123.ng.0001.use1.cache.amazonaws.com",
-      "rule": "config.value-scan",
-      "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
     },
     {
       "kind": "broad-access",

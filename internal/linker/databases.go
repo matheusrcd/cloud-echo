@@ -20,12 +20,17 @@ type dbIndex struct {
 	hosts   map[string]dbHost
 	secrets map[string]string // master secret ARN, without a key/stage suffix → node
 	names   map[string]string // identifier (cluster, instance, member) → node, to explain a near miss
+
+	// Caches, kept apart so a near miss is only ever explained by a cache.
+	cacheHosts map[string]dbHost
+	cacheNames map[string]string
 }
 
 type dbHost struct{ id, what string }
 
 func newDBIndex(c *Context) *dbIndex {
-	d := &dbIndex{hosts: map[string]dbHost{}, secrets: map[string]string{}, names: map[string]string{}}
+	d := &dbIndex{hosts: map[string]dbHost{}, secrets: map[string]string{}, names: map[string]string{},
+		cacheHosts: map[string]dbHost{}, cacheNames: map[string]string{}}
 	host := func(h, id, what string) {
 		if h != "" {
 			d.hosts[strings.ToLower(h)] = dbHost{id, what}
@@ -59,7 +64,56 @@ func newDBIndex(c *Context) *dbIndex {
 			d.secrets[secretBase(in.MasterSecretARN)] = r.ID
 		}
 	})
+	Each(c, spec.TypeCache, func(r inventory.Resource, ca *spec.Cache) {
+		if !c.HasNode(r.ID) {
+			return
+		}
+		add := func(h, what string) {
+			// A serverless cache's reader is its primary's host on another
+			// port; the host alone names the cache, not the role.
+			if h != "" && d.cacheHosts[strings.ToLower(h)].id == "" {
+				d.cacheHosts[strings.ToLower(h)] = dbHost{r.ID, what}
+			}
+		}
+		add(ca.PrimaryEndpoint, "primary endpoint")
+		add(ca.ReaderEndpoint, "reader endpoint")
+		add(ca.ConfigurationEndpoint, "configuration endpoint")
+		d.cacheNames[ca.Identifier] = r.ID
+		for _, n := range ca.Nodes {
+			add(n.Endpoint, "node "+n.ID)
+			d.cacheNames[n.ID] = r.ID
+		}
+	})
 	return d
+}
+
+// cacheHost links an ElastiCache hostname to its cache, exactly, like
+// rdsHost. The endpoint shapes vary — master.<rg>.<suffix>…,
+// <rg>-001.<rg>.<suffix>…, <name>.<suffix>.cfg…, <name>-<suffix>.serverless… —
+// so a near miss is recognised by any label naming a cache of this scan.
+func (s *scanner) cacheHost(holder string, v configValue, host string) {
+	if d, ok := s.db.cacheHosts[host]; ok {
+		if d.id != holder {
+			s.c.Edge(holder, d.id, KindConnect, High, Active, v.Source,
+				fmt.Sprintf("%s connects to %s (its %s)", v.Label, d.id, d.what))
+		}
+		return
+	}
+	labels := strings.Split(strings.TrimSuffix(host, ".cache.amazonaws.com"), ".")
+	for i, l := range labels {
+		name := l
+		if i == 0 && len(labels) > 1 && labels[1] == "serverless" {
+			if j := strings.LastIndex(l, "-"); j > 0 {
+				name = l[:j] // <name>-<suffix>
+			}
+		}
+		if id := s.db.cacheNames[name]; id != "" {
+			s.c.Unresolved(holder, host, fmt.Sprintf("%s names an endpoint of a cache called %s, like %s in this scan, with another account's suffix: a namesake, not this cache",
+				v.Label, name, id))
+			return
+		}
+	}
+	s.c.Unresolved(holder, host, fmt.Sprintf("%s names an ElastiCache endpoint that matches no cache in the inventory (deleted, or in another account)", v.Label))
 }
 
 // secretBase drops what may follow a secret's ARN where it is consumed — ECS

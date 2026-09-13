@@ -304,6 +304,117 @@
       }
     },
     {
+      "id": "cache/ce-test-sessions",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-2:123456789012:replicationgroup:ce-test-sessions",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-sessions",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "kind": "replication-group",
+        "identifier": "ce-test-sessions",
+        "engine": "valkey",
+        "engineVersion": "9.1.0",
+        "status": "available",
+        "nodeType": "cache.t4g.micro",
+        "primaryEndpoint": "master.ce-test-sessions.fk0001.use2.cache.amazonaws.com",
+        "readerEndpoint": "replica.ce-test-sessions.fk0001.use2.cache.amazonaws.com",
+        "port": 6379,
+        "nodes": [
+          {
+            "id": "ce-test-sessions-001",
+            "role": "primary",
+            "endpoint": "ce-test-sessions-001.ce-test-sessions.fk0001.use2.cache.amazonaws.com"
+          }
+        ],
+        "transitEncryption": true,
+        "network": {
+          "subnetGroup": "ce-test-cache-subnets"
+        }
+      },
+      "source": {
+        "api": "elasticache:DescribeReplicationGroups",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/cluster/ce-test-memo",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-2:123456789012:cluster:ce-test-memo",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-memo",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "kind": "cache-cluster",
+        "identifier": "ce-test-memo",
+        "engine": "memcached",
+        "engineVersion": "1.6.22",
+        "status": "available",
+        "nodeType": "cache.t4g.micro",
+        "configurationEndpoint": "ce-test-memo.fk0001.cfg.use2.cache.amazonaws.com",
+        "port": 11211,
+        "nodes": [
+          {
+            "id": "0001",
+            "endpoint": "ce-test-memo.fk0001.0001.use2.cache.amazonaws.com"
+          }
+        ],
+        "network": {
+          "subnetGroup": "ce-test-cache-subnets"
+        }
+      },
+      "source": {
+        "api": "elasticache:DescribeCacheClusters",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "cache/serverless/ce-test-ratelimit",
+      "type": "elasticache.cache",
+      "arn": "arn:aws:elasticache:us-east-2:123456789012:serverlesscache:ce-test-ratelimit",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-ratelimit",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "kind": "serverless",
+        "identifier": "ce-test-ratelimit",
+        "engine": "valkey",
+        "engineVersion": "9.0",
+        "status": "available",
+        "primaryEndpoint": "ce-test-ratelimit-fk0001.serverless.use2.cache.amazonaws.com",
+        "readerEndpoint": "ce-test-ratelimit-fk0001.serverless.use2.cache.amazonaws.com",
+        "port": 6379,
+        "transitEncryption": true,
+        "limits": {
+          "maxStorageGb": 1,
+          "maxEcpuPerSecond": 1000
+        },
+        "network": {
+          "subnets": [
+            "subnet-fake0001",
+            "subnet-fake0002",
+            "subnet-fake0003"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ]
+        }
+      },
+      "source": {
+        "api": "elasticache:DescribeServerlessCaches",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
       "id": "ddb/ce-test-orders",
       "type": "dynamodb.table",
       "arn": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders",
@@ -418,8 +529,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -455,8 +566,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -492,8 +603,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -529,8 +640,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -566,8 +677,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -603,8 +714,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -640,8 +751,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -677,8 +788,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -714,8 +825,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -751,8 +862,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -788,8 +899,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -825,8 +936,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -862,8 +973,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -899,8 +1010,8 @@
         "roleArn": "arn:aws:iam::123456789012:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
         "network": {
           "subnets": [
-            "subnet-fake0001",
-            "subnet-fake0002"
+            "subnet-fake0003",
+            "subnet-fake0001"
           ],
           "securityGroups": [
             "sg-fake0001"
@@ -1502,6 +1613,19 @@
             }
           },
           {
+            "name": "tier3-cache",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "elasticache:Connect",
+                  "Resource": "arn:aws:elasticache:us-east-2:123456789012:replicationgroup:ce-test-sessions"
+                }
+              ]
+            }
+          },
+          {
             "name": "tier3-rds",
             "document": {
               "Version": "2012-10-17",
@@ -1830,6 +1954,7 @@
         "env": {
           "DATABASE_URL": "postgres://app:<redacted:url-credentials>@ce-test-db.cluster-fakesfx0001.us-east-2.rds.amazonaws.com:5432/orders",
           "PAYMENTS_TOKEN": "<redacted:key-name>",
+          "SESSIONS_URL": "rediss://master.ce-test-sessions.fk0001.use2.cache.amazonaws.com:6379/0",
           "SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/T-FAKE/B-FAKE/<redacted:url-path>",
           "TABLE_NAME": "ce-test-orders"
         },
@@ -1869,7 +1994,9 @@
           "DB_READER_HOST": "ce-test-db.cluster-ro-fakesfx0001.us-east-2.rds.amazonaws.com",
           "DB_SECRET_ARN": "arn:aws:secretsmanager:us-east-2:123456789012:secret:rds!db-fakesecret-0001",
           "PARTNER_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/999999999999/ce-test-orders-events",
-          "PUBLIC_API_URL": "https://fakeapi0001.execute-api.us-east-2.amazonaws.com/prod"
+          "PUBLIC_API_URL": "https://fakeapi0001.execute-api.us-east-2.amazonaws.com/prod",
+          "RATE_LIMIT_HOST": "ce-test-ratelimit-fk0001.serverless.use2.cache.amazonaws.com",
+          "SESSIONS_READER": "replica.ce-test-sessions.fk0001.use2.cache.amazonaws.com"
         },
         "logGroup": "/aws/lambda/ce-test-orders-fn",
         "resourcePolicy": {
@@ -1933,6 +2060,7 @@
         "roleId": "iam/role/ce-test-webhook-receiver-role",
         "env": {
           "LEGACY_DB_URL": "postgres://app:<redacted:url-credentials>@ce-test-legacy-db.fakesfx0001.us-east-2.rds.amazonaws.com:5432/legacy",
+          "MEMO_SERVERS": "ce-test-memo.fk0001.cfg.use2.cache.amazonaws.com:11211",
           "ORDERS_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders-events"
         },
         "redacted": [
@@ -2083,9 +2211,9 @@
           "vpcId": "vpc-fake0001",
           "subnetGroup": "default",
           "subnets": [
+            "subnet-fake0001",
             "subnet-fake0002",
-            "subnet-fake0003",
-            "subnet-fake0001"
+            "subnet-fake0003"
           ],
           "securityGroups": [
             "sg-fake0001"

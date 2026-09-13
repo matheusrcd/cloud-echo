@@ -167,8 +167,8 @@ func nameSegment(entry string) string {
 		}
 		name, _, _ := strings.Cut(rest, ":")
 		return name
-	case "rds", "secretsmanager":
-		// cluster:<id>, db:<id>, secret:<name>
+	case "rds", "secretsmanager", "elasticache":
+		// cluster:<id>, db:<id>, secret:<name>, replicationgroup:<id>
 		_, name, ok := strings.Cut(res, ":")
 		if !ok {
 			return "*"

@@ -174,7 +174,7 @@ func (s *scanner) awsHost(holder string, v configValue, host, u string) {
 	case strings.HasSuffix(host, ".rds.amazonaws.com"):
 		s.rdsHost(holder, v, host)
 	case strings.HasSuffix(host, ".cache.amazonaws.com"):
-		report("an ElastiCache endpoint; linking it needs the ElastiCache collector")
+		s.cacheHost(holder, v, host)
 	case strings.HasSuffix(host, ".elb.amazonaws.com"):
 		report("a load balancer; linking it needs the ELBv2 collector")
 	case strings.Contains(host, ".lambda-url."):

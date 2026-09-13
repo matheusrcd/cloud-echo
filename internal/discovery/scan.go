@@ -24,6 +24,7 @@ func NewRegistry() *Registry {
 			&APIGatewayV2{},
 			&DynamoDB{},
 			&ECS{},
+			&ElastiCache{},
 			&Lambda{},
 			&RDS{},
 			&SQS{},

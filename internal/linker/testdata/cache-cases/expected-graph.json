@@ -1,0 +1,213 @@
+{
+  "formatVersion": 1,
+  "generatedBy": "cloud-echo/golden",
+  "inventoryScanId": "cache-cases",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "nodes": [
+    {
+      "id": "apigw/api0000040",
+      "type": "apigateway.http",
+      "name": "cache-http",
+      "flow": "entrypoint",
+      "triggers": [
+        "HTTP API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "cache/carts",
+      "type": "elasticache.cache",
+      "name": "carts",
+      "flow": "unreached"
+    },
+    {
+      "id": "cache/cluster/memo",
+      "type": "elasticache.cache",
+      "name": "memo",
+      "flow": "unreached"
+    },
+    {
+      "id": "cache/serverless/ratelimit",
+      "type": "elasticache.cache",
+      "name": "ratelimit",
+      "flow": "sync"
+    },
+    {
+      "id": "cache/sessions",
+      "type": "elasticache.cache",
+      "name": "sessions",
+      "flow": "sync"
+    },
+    {
+      "id": "ecs/main/api",
+      "type": "ecs.service",
+      "name": "api",
+      "flow": "entrypoint",
+      "triggers": [
+        "behind a load balancer (target group api; internet-facing or internal needs the ELBv2 collector)"
+      ]
+    },
+    {
+      "id": "ecs/main/worker",
+      "type": "ecs.service",
+      "name": "worker",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/admin-fn",
+      "type": "lambda.function",
+      "name": "admin-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/api-fn",
+      "type": "lambda.function",
+      "name": "api-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/probe-fn",
+      "type": "lambda.function",
+      "name": "probe-fn",
+      "flow": "unreached"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apigw/api0000040",
+      "to": "lambda/api-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations api0000040 i1 (route GET /cart)",
+          "detail": "AWS_PROXY GET /cart → api-fn"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/worker",
+      "to": "cache/carts",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env CARTS",
+          "detail": "CARTS connects to cache/carts (its configuration endpoint)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/worker",
+      "to": "cache/cluster/memo",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env MEMCACHED_SERVERS",
+          "detail": "MEMCACHED_SERVERS connects to cache/cluster/memo (its node 0001)"
+        },
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env MEMCACHED_SERVERS",
+          "detail": "MEMCACHED_SERVERS connects to cache/cluster/memo (its node 0002)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/worker",
+      "to": "cache/sessions",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env CACHE_ARN",
+          "detail": "CACHE_ARN holds the ARN of cache/sessions"
+        },
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env NODE",
+          "detail": "NODE connects to cache/sessions (its node sessions-002)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "cache/serverless/ratelimit",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions api-fn env RATE_HOST",
+          "detail": "RATE_HOST connects to cache/serverless/ratelimit (its primary endpoint)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "cache/sessions",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions api-fn env SESSIONS_URL",
+          "detail": "SESSIONS_URL connects to cache/sessions (its primary endpoint)"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role cache",
+          "detail": "role api-fn-role: Allow elasticache:Connect on arn:aws:elasticache:us-east-1:123456789012:replicationgroup:sessions (inline policy cache)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/probe-fn",
+      "to": "cache/serverless/ratelimit",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions probe-fn env CACHE_ARN",
+          "detail": "CACHE_ARN holds the ARN of cache/serverless/ratelimit"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/api",
+      "target": "nothere.fix002.cfg.use1.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "GONE names an ElastiCache endpoint that matches no cache in the inventory (deleted, or in another account)"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/api",
+      "target": "ratelimit-zzz999.serverless.use1.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "RATE_OTHER names an endpoint of a cache called ratelimit, like cache/serverless/ratelimit in this scan, with another account's suffix: a namesake, not this cache"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/api",
+      "target": "sessions.other9.ng.0001.use1.cache.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "CACHE_HOST names an endpoint of a cache called sessions, like cache/sessions in this scan, with another account's suffix: a namesake, not this cache"
+    },
+    {
+      "kind": "broad-access",
+      "node": "lambda/admin-fn",
+      "target": "elasticache",
+      "rule": "iam.policy-resource",
+      "detail": "role admin-role may use every elasticache resource (elasticache:Connect on *, inline policy cache): a grant this wide links to nothing in particular, so it draws no edge"
+    }
+  ]
+}
