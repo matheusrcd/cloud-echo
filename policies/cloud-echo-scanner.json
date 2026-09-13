@@ -23,6 +23,8 @@
         "lambda:GetPolicy",
         "lambda:ListEventSourceMappings",
         "lambda:ListFunctions",
+        "rds:DescribeDBClusters",
+        "rds:DescribeDBInstances",
         "sqs:GetQueueAttributes",
         "sqs:ListQueueTags",
         "sqs:ListQueues"

@@ -499,7 +499,7 @@
       "node": "ecs/main/api",
       "target": "ledger-db.cluster-abc123.us-east-1.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DATABASE_URL names an RDS endpoint that matches no database in the inventory (deleted, or in another account)"
     },
     {
       "kind": "ambiguous",
@@ -548,7 +548,7 @@
       "node": "lambda/front-fn",
       "target": "ledger-db.cluster-abc123.us-east-1.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DB_HOST names an RDS endpoint that matches no database in the inventory (deleted, or in another account)"
     },
     {
       "kind": "ambiguous",

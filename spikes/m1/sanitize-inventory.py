@@ -38,6 +38,20 @@ for r in keep:
             if st.get("deploymentId"): fake(st["deploymentId"], "dep")
     if r["type"] == "lambda.event-source-mapping":
         fake(s["uuid"], "00000000-0000-4000-8000-00000000")
+    if r["type"] in ("rds.cluster", "rds.instance"):
+        # The endpoint suffix belongs to the account and region, and appears in
+        # other resources' configuration too; resource ids and managed secret
+        # names are account-specific as well.
+        for e in [s.get("endpoint"), s.get("readerEndpoint")] + [m.get("endpoint") for m in s.get("members") or []]:
+            m = re.search(r"\.(?:cluster-(?:ro-|custom-)?)?([a-z0-9]{12})\.[a-z0-9-]+\.rds\.amazonaws\.com$", e or "")
+            if m:
+                fake(m.group(1), "fakesfx")
+        if s.get("resourceId"):
+            kind, _, orig = s["resourceId"].partition("-")
+            fake(orig, "FAKERESOURCEID")
+        m = re.search(r":secret:(rds![a-z]+-[0-9a-f-]+-[A-Za-z0-9]{6})$", s.get("masterSecretArn", ""))
+        if m:
+            fake(m.group(1), "rds!db-fakesecret-")
 text = json.dumps({**inv, "resources": keep, "scanId": "real-m1", "generatedBy": "sanitized from a real scan",
                    "scannedAt": "2026-09-13T00:00:00Z"}, indent=2)
 for orig in re.findall(r"\b(?:subnet|sg|vpc)-[0-9a-f]{8,17}\b", text):

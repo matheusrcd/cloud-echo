@@ -385,6 +385,45 @@ for r in of("apigateway.http"):
             sargs += ["--stage-variables", ",".join(f"{k}={v}" for k, v in sorted(st["variables"].items()))]
         aws(r["id"], f"create-stage {st['name']}", *sargs)
 
+# ---------------------------------------------------------------- RDS
+# Built from the spec alone. The master password is never in the inventory —
+# RDS does not return it, and cloud-echo would not keep it — so a local one is
+# made up here, the way the materializer will (docs/07-security.md).
+LOCAL_PW = "local-only-not-a-secret"
+def db_auth(s):
+    user = s.get("masterUsername") or "postgres"
+    if s.get("masterSecretArn"):
+        return ["--master-username", user, "--manage-master-user-password"]
+    return ["--master-username", user, "--master-user-password", LOCAL_PW]
+
+for r in of("rds.cluster"):
+    s = r["spec"]
+    args = ["rds", "create-db-cluster", "--db-cluster-identifier", s["identifier"], "--engine", s["engine"],
+            "--engine-version", s["engineVersion"], *db_auth(s)]
+    if s.get("dbName"):
+        args += ["--database-name", s["dbName"]]
+    if sv := s.get("serverless"):
+        args += ["--serverless-v2-scaling-configuration", f"MinCapacity={sv['minAcu']},MaxCapacity={sv['maxAcu']}"]
+    if aws(r["id"], "create-db-cluster", *args) is None:
+        continue
+    for m in s.get("members") or []:
+        aws(r["id"], f"create-db-instance {m['identifier']}", "rds", "create-db-instance", "--db-instance-identifier", m["identifier"],
+            "--db-cluster-identifier", s["identifier"], "--engine", s["engine"], "--db-instance-class", m.get("instanceClass") or "db.serverless")
+    if s.get("dataApi"):
+        aws(r["id"], "enable-http-endpoint", "rds", "enable-http-endpoint", "--resource-arn", r["arn"])
+
+for r in of("rds.instance"):
+    s = r["spec"]
+    args = ["rds", "create-db-instance", "--db-instance-identifier", s["identifier"], "--engine", s["engine"],
+            "--engine-version", s["engineVersion"], "--db-instance-class", s["instanceClass"], *db_auth(s)]
+    if s.get("dbName"):
+        args += ["--db-name", s["dbName"]]
+    if s.get("allocatedGb"):
+        args += ["--allocated-storage", str(s["allocatedGb"])]
+    if s.get("iamAuth"):
+        args += ["--enable-iam-database-authentication"]
+    aws(r["id"], "create-db-instance", *args)
+
 # ---------------------------------------------------------------- report
 report = {"ok": len(ok), "failed": [dict(zip(("id", "step", "error"), f)) for f in failed],
           "specGaps": [dict(zip(("id", "gap"), g)) for g in gaps]}

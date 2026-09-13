@@ -18,6 +18,11 @@
       "op": "ListFunctions",
       "kind": "unreadable",
       "message": "legacy-report: environment not readable (KMSAccessDeniedException): Lambda was unable to decrypt the environment variables because KMS access was denied."
+    },
+    {
+      "service": "RDS",
+      "kind": "out-of-scope",
+      "message": "cluster docs-db is DocumentDB, listed by the RDS API; cloud-echo has no DocumentDB collector"
     }
   ],
   "resources": [
@@ -1490,6 +1495,165 @@
       },
       "source": {
         "api": "lambda:ListFunctions",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "rds/cluster/orders-db",
+      "type": "rds.cluster",
+      "arn": "arn:aws:rds:us-east-1:123456789012:cluster:orders-db",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders-db",
+      "tags": {
+        "team": "orders"
+      },
+      "spec": {
+        "identifier": "orders-db",
+        "engine": "aurora-postgresql",
+        "engineVersion": "16.4",
+        "engineMode": "provisioned",
+        "status": "available",
+        "endpoint": "orders-db.cluster-abc123.us-east-1.rds.amazonaws.com",
+        "readerEndpoint": "orders-db.cluster-ro-abc123.us-east-1.rds.amazonaws.com",
+        "customEndpoints": [
+          "orders-analytics.cluster-custom-abc123.us-east-1.rds.amazonaws.com"
+        ],
+        "port": 5432,
+        "dbName": "orders",
+        "members": [
+          {
+            "identifier": "orders-db-reader",
+            "instanceClass": "db.serverless",
+            "status": "available",
+            "endpoint": "orders-db-reader.abc123.us-east-1.rds.amazonaws.com"
+          },
+          {
+            "identifier": "orders-db-writer",
+            "instanceClass": "db.serverless",
+            "writer": true,
+            "status": "available",
+            "endpoint": "orders-db-writer.abc123.us-east-1.rds.amazonaws.com"
+          }
+        ],
+        "masterUsername": "orders_admin",
+        "masterSecretArn": "arn:aws:secretsmanager:us-east-1:123456789012:secret:rds!cluster-0fixture-AbCdEf",
+        "resourceId": "cluster-FIXTURERESOURCE0000000001",
+        "iamAuth": true,
+        "dataApi": true,
+        "serverless": {
+          "minAcu": 0.5,
+          "maxAcu": 4
+        },
+        "multiAz": true,
+        "encrypted": true,
+        "network": {
+          "vpcId": "vpc-0fixture0000000a",
+          "subnetGroup": "orders-db-subnets",
+          "subnets": [
+            "subnet-0fixture000000a",
+            "subnet-0fixture000000b"
+          ],
+          "securityGroups": [
+            "sg-0fixture00000000db"
+          ]
+        }
+      },
+      "source": {
+        "api": "rds:DescribeDBClusters",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "rds/legacy-db",
+      "type": "rds.instance",
+      "arn": "arn:aws:rds:us-east-1:123456789012:db:legacy-db",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "legacy-db",
+      "tags": {
+        "team": "billing"
+      },
+      "spec": {
+        "identifier": "legacy-db",
+        "engine": "postgres",
+        "engineVersion": "16.4",
+        "instanceClass": "db.t4g.micro",
+        "status": "available",
+        "endpoint": "legacy-db.abc123.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "dbName": "legacy",
+        "masterUsername": "legacy_admin",
+        "masterSecretArn": "arn:aws:secretsmanager:us-east-1:123456789012:secret:rds!db-0fixture-GhIjKl",
+        "resourceId": "db-FIXTURERESOURCE0000000000002",
+        "iamAuth": true,
+        "storageType": "gp3",
+        "allocatedGb": 20,
+        "encrypted": true,
+        "network": {
+          "vpcId": "vpc-0fixture0000000a",
+          "subnetGroup": "orders-db-subnets",
+          "subnets": [
+            "subnet-0fixture000000a",
+            "subnet-0fixture000000b"
+          ],
+          "securityGroups": [
+            "sg-0fixture00000000db",
+            "sg-0fixture0000000adm"
+          ]
+        }
+      },
+      "source": {
+        "api": "rds:DescribeDBInstances",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "rds/legacy-db-replica",
+      "type": "rds.instance",
+      "arn": "arn:aws:rds:us-east-1:123456789012:db:legacy-db-replica",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "legacy-db-replica",
+      "spec": {
+        "identifier": "legacy-db-replica",
+        "engine": "postgres",
+        "engineVersion": "16.4",
+        "instanceClass": "db.t4g.micro",
+        "status": "available",
+        "endpoint": "legacy-db-replica.abc123.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "replicaOf": "legacy-db",
+        "network": {
+          "vpcId": "vpc-0fixture0000000a",
+          "subnetGroup": "orders-db-subnets",
+          "subnets": [
+            "subnet-0fixture000000a",
+            "subnet-0fixture000000b"
+          ]
+        }
+      },
+      "source": {
+        "api": "rds:DescribeDBInstances",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "rds/reports-db",
+      "type": "rds.instance",
+      "arn": "arn:aws:rds:us-east-1:123456789012:db:reports-db",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "reports-db",
+      "spec": {
+        "identifier": "reports-db",
+        "engine": "mysql",
+        "engineVersion": "",
+        "instanceClass": "db.t4g.micro",
+        "status": "creating"
+      },
+      "source": {
+        "api": "rds:DescribeDBInstances",
         "collectedAt": "2026-09-13T00:00:00Z"
       }
     },

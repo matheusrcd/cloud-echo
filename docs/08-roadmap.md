@@ -53,7 +53,9 @@ default and we scope a metadata shim.
       Lambda ✅ · IAM ✅** (IAM as a second-phase collector over the others).
 - [x] API Gateway v1 and v2, validated against a real account
       ([findings](spikes/m1-real-account-findings.md#api-gateway-round)).
-- [ ] Remaining collectors: RDS, ElastiCache, plus supporting ECR, SNS, EC2,
+- [x] **RDS** — collector and linking, validated against a real account
+      ([findings](spikes/m1-real-account-findings.md#rds-round)).
+- [ ] Remaining collectors: ElastiCache, plus supporting ECR, SNS, EC2,
       ELBv2, Secrets Manager, SSM.
 - [x] Secret-shaped value redaction at collection time (Guarantee 2).
 - [x] Validated against a real account, including a scan with only the shipped
@@ -71,7 +73,7 @@ default and we scope a metadata shim.
       Tier 4 (network reachability) waits for the EC2 collector.
 - [x] `graph --format=text|json|mermaid`, `graph --explain <from> <to>`. (`dot`
       deferred: Mermaid renders on GitHub, which covers the need.)
-- [x] Golden-test harness with five fixture accounts, including negative cases.
+- [x] Golden-test harness with six fixture accounts, including negative cases.
 
 **Sequencing note.** Lambda and IAM are prioritised over the remaining primary
 services because they are what the linker needs, not because they are next

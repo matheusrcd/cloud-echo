@@ -1241,6 +1241,21 @@
             }
           ]
         },
+        "inlinePolicies": [
+          {
+            "name": "tier3-rds",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "secretsmanager:GetSecretValue",
+                  "Resource": "arn:aws:secretsmanager:us-east-2:123456789012:secret:rds!db-fakesecret-0001"
+                }
+              ]
+            }
+          }
+        ],
         "attachedPolicies": [
           {
             "arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
@@ -1482,6 +1497,19 @@
                   "Effect": "Allow",
                   "Action": "dynamodb:UpdateItem",
                   "Resource": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders"
+                }
+              ]
+            }
+          },
+          {
+            "name": "tier3-rds",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "rds-data:ExecuteStatement",
+                  "Resource": "arn:aws:rds:us-east-2:123456789012:cluster:ce-test-db"
                 }
               ]
             }
@@ -1800,7 +1828,7 @@
         "roleArn": "arn:aws:iam::123456789012:role/ce-test-order-processor-role",
         "roleId": "iam/role/ce-test-order-processor-role",
         "env": {
-          "DATABASE_URL": "postgres://app:<redacted:url-credentials>@ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com:5432/orders",
+          "DATABASE_URL": "postgres://app:<redacted:url-credentials>@ce-test-db.cluster-fakesfx0001.us-east-2.rds.amazonaws.com:5432/orders",
           "PAYMENTS_TOKEN": "<redacted:key-name>",
           "SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/T-FAKE/B-FAKE/<redacted:url-path>",
           "TABLE_NAME": "ce-test-orders"
@@ -1838,6 +1866,8 @@
         "roleId": "iam/role/ce-test-apigw-fn-role",
         "env": {
           "AUDIT_TABLE_ARN": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders-audit",
+          "DB_READER_HOST": "ce-test-db.cluster-ro-fakesfx0001.us-east-2.rds.amazonaws.com",
+          "DB_SECRET_ARN": "arn:aws:secretsmanager:us-east-2:123456789012:secret:rds!db-fakesecret-0001",
           "PARTNER_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/999999999999/ce-test-orders-events",
           "PUBLIC_API_URL": "https://fakeapi0001.execute-api.us-east-2.amazonaws.com/prod"
         },
@@ -1902,8 +1932,12 @@
         "roleArn": "arn:aws:iam::123456789012:role/ce-test-webhook-receiver-role",
         "roleId": "iam/role/ce-test-webhook-receiver-role",
         "env": {
+          "LEGACY_DB_URL": "postgres://app:<redacted:url-credentials>@ce-test-legacy-db.fakesfx0001.us-east-2.rds.amazonaws.com:5432/legacy",
           "ORDERS_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/123456789012/ce-test-orders-events"
         },
+        "redacted": [
+          "env:LEGACY_DB_URL"
+        ],
         "deadLetter": {
           "arn": "arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq",
           "id": "sqs/ce-test-orders-events-dlq"
@@ -2017,6 +2051,93 @@
       },
       "source": {
         "api": "lambda:ListEventSourceMappings",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "rds/ce-test-legacy-db",
+      "type": "rds.instance",
+      "arn": "arn:aws:rds:us-east-2:123456789012:db:ce-test-legacy-db",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-legacy-db",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "identifier": "ce-test-legacy-db",
+        "engine": "postgres",
+        "engineVersion": "18.3",
+        "instanceClass": "db.t4g.micro",
+        "status": "available",
+        "endpoint": "ce-test-legacy-db.fakesfx0001.us-east-2.rds.amazonaws.com",
+        "port": 5432,
+        "dbName": "legacy",
+        "masterUsername": "legacy_admin",
+        "masterSecretArn": "arn:aws:secretsmanager:us-east-2:123456789012:secret:rds!db-fakesecret-0001",
+        "resourceId": "db-FAKERESOURCEID0001",
+        "iamAuth": true,
+        "storageType": "gp3",
+        "allocatedGb": 20,
+        "network": {
+          "vpcId": "vpc-fake0001",
+          "subnetGroup": "default",
+          "subnets": [
+            "subnet-fake0002",
+            "subnet-fake0003",
+            "subnet-fake0001"
+          ],
+          "securityGroups": [
+            "sg-fake0001"
+          ]
+        }
+      },
+      "source": {
+        "api": "rds:DescribeDBInstances",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "rds/cluster/ce-test-db",
+      "type": "rds.cluster",
+      "arn": "arn:aws:rds:us-east-2:123456789012:cluster:ce-test-db",
+      "region": "us-east-2",
+      "accountId": "123456789012",
+      "name": "ce-test-db",
+      "tags": {
+        "cloud-echo-test": "m1"
+      },
+      "spec": {
+        "identifier": "ce-test-db",
+        "engine": "aurora-postgresql",
+        "engineVersion": "17.7",
+        "engineMode": "provisioned",
+        "status": "available",
+        "endpoint": "ce-test-db.cluster-fakesfx0001.us-east-2.rds.amazonaws.com",
+        "readerEndpoint": "ce-test-db.cluster-ro-fakesfx0001.us-east-2.rds.amazonaws.com",
+        "port": 5432,
+        "members": [
+          {
+            "identifier": "ce-test-db-instance-1",
+            "instanceClass": "db.serverless",
+            "writer": true,
+            "status": "available",
+            "endpoint": "ce-test-db-instance-1.fakesfx0001.us-east-2.rds.amazonaws.com"
+          }
+        ],
+        "masterUsername": "postgres",
+        "resourceId": "cluster-FAKERESOURCEID0002",
+        "iamAuth": true,
+        "dataApi": true,
+        "serverless": {
+          "minAcu": 0,
+          "maxAcu": 1,
+          "autoPauseSecs": 300
+        },
+        "internetAccessGateway": true
+      },
+      "source": {
+        "api": "rds:DescribeDBClusters",
         "collectedAt": "2026-09-13T00:00:00Z"
       }
     },

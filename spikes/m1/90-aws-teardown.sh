@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Removes everything 10-aws-create.sh and 11-aws-scanner-roles.sh created, and the
-# local Floci. Touches only names starting with ce-test- in the configured
+# Removes everything the 1x-aws-*.sh scripts created, and the local Floci. Touches only names starting with ce-test- in the configured
 # account and region, lists them first, and asks before deleting anything.
 #
 # Left in place on purpose: the ECS service-linked role (AWSServiceRoleForECS),
@@ -17,13 +16,23 @@ policies=$(aws iam list-policies --scope Local --query "Policies[?starts_with(Po
 restapis=$(aws apigateway get-rest-apis --query "items[?starts_with(name,'$P-')].id" --output text)
 httpapis=$(aws apigatewayv2 get-apis --query "Items[?starts_with(Name,'$P-')].ApiId" --output text)
 apikeys=$(aws apigateway get-api-keys --query "items[?starts_with(name,'$P-')].id" --output text)
+dbinstances=$(aws rds describe-db-instances --query "DBInstances[?starts_with(DBInstanceIdentifier,'$P-')].DBInstanceIdentifier" --output text)
+dbclusters=$(aws rds describe-db-clusters --query "DBClusters[?starts_with(DBClusterIdentifier,'$P-')].DBClusterIdentifier" --output text)
 
 log "will delete (account $(echo "$ACCT" | redact), region $AWS_REGION)"
-printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  apigw:    rest=%s http=%s keys=%s\n  local:    ce-m1 Floci containers, network, volume\n' \
-  "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$restapis" "$httpapis" "$apikeys"
+printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  apigw:    rest=%s http=%s keys=%s\n  rds:      instances=%s clusters=%s (no final snapshot)\n  local:    ce-m1 Floci containers, network, volume\n' \
+  "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$restapis" "$httpapis" "$apikeys" "$dbinstances" "$dbclusters"
 if [ "${1:-}" != "--yes" ]; then
   read -r -p "type DELETE to continue: " ans; [ "$ans" = "DELETE" ] || { echo "aborted"; exit 1; }
 fi
+
+log "rds (started first: deleting a database takes minutes)"
+# Instances go first — a cluster cannot be deleted while it has members — and
+# with no final snapshot: these hold nothing. RDS deletes the managed master
+# secrets with them.
+for d in $dbinstances; do
+  aws rds delete-db-instance --db-instance-identifier "$d" --skip-final-snapshot --delete-automated-backups >/dev/null && echo "  instance $d (deleting)"
+done
 
 log "api gateway"
 # API Gateway throttles deletes hard (a few per minute for REST APIs); pace them.
@@ -69,6 +78,13 @@ for r in $roles; do
   aws iam delete-role --role-name "$r" && echo "  role $r"
 done
 for p in $policies; do aws iam delete-policy --policy-arn "$p" && echo "  policy ${p##*/}"; done
+
+log "rds clusters (after their instances are gone)"
+for d in $dbinstances; do aws rds wait db-instance-deleted --db-instance-identifier "$d" && echo "  instance $d deleted"; done
+for c in $dbclusters; do
+  aws rds delete-db-cluster --db-cluster-identifier "$c" --skip-final-snapshot >/dev/null && echo "  cluster $c (deleting)"
+done
+for c in $dbclusters; do aws rds wait db-cluster-deleted --db-cluster-identifier "$c" && echo "  cluster $c deleted"; done
 
 log "local Floci"
 # Only containers on this suite's network: Floci's children join it. A broader

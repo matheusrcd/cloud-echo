@@ -91,6 +91,15 @@ func IDFromARN(arn string) string {
 		if name, _ := FunctionFromARN(arn); name != "" {
 			return "lambda/" + name
 		}
+	case "rds":
+		// Instance and cluster identifiers are separate namespaces in RDS: an
+		// instance and a cluster may share a name, so their ids must not.
+		if id, ok := strings.CutPrefix(res, "db:"); ok && id != "" {
+			return "rds/" + id
+		}
+		if id, ok := strings.CutPrefix(res, "cluster:"); ok && id != "" {
+			return "rds/cluster/" + id
+		}
 	}
 	return ""
 }

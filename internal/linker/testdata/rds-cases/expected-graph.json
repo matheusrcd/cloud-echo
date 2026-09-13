@@ -1,0 +1,182 @@
+{
+  "formatVersion": 1,
+  "generatedBy": "cloud-echo/golden",
+  "inventoryScanId": "rds-cases",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "nodes": [
+    {
+      "id": "apigw/api0000030",
+      "type": "apigateway.http",
+      "name": "rds-http",
+      "flow": "entrypoint",
+      "triggers": [
+        "HTTP API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "ecs/main/api",
+      "type": "ecs.service",
+      "name": "api",
+      "flow": "entrypoint",
+      "triggers": [
+        "behind a load balancer (target group api; internet-facing or internal needs the ELBv2 collector)"
+      ]
+    },
+    {
+      "id": "ecs/main/worker",
+      "type": "ecs.service",
+      "name": "worker",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/api-fn",
+      "type": "lambda.function",
+      "name": "api-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/report-fn",
+      "type": "lambda.function",
+      "name": "report-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "rds/cluster/orders-db",
+      "type": "rds.cluster",
+      "name": "orders-db",
+      "flow": "sync"
+    },
+    {
+      "id": "rds/legacy-db",
+      "type": "rds.instance",
+      "name": "legacy-db",
+      "flow": "sync"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apigw/api0000030",
+      "to": "lambda/api-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations api0000030 i1 (route GET /orders)",
+          "detail": "AWS_PROXY GET /orders → api-fn"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/api",
+      "to": "rds/legacy-db",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition api:1 container app secrets DB_PASSWORD",
+          "detail": "secret DB_PASSWORD holds the master secret of rds/legacy-db"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/worker",
+      "to": "rds/cluster/orders-db",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env ANALYTICS_HOST",
+          "detail": "ANALYTICS_HOST connects to rds/cluster/orders-db (its custom endpoint)"
+        },
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env MEMBER_HOST",
+          "detail": "MEMBER_HOST connects to rds/cluster/orders-db (its member orders-db-2)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/worker",
+      "to": "rds/legacy-db",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env LEGACY_ARN",
+          "detail": "LEGACY_ARN holds the ARN of rds/legacy-db"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "rds/cluster/orders-db",
+      "kind": "connect",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions api-fn env DB_HOST",
+          "detail": "DB_HOST connects to rds/cluster/orders-db (its reader endpoint)"
+        },
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions api-fn env DB_SECRET_ARN",
+          "detail": "DB_SECRET_ARN holds the master secret of rds/cluster/orders-db"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role data",
+          "detail": "role api-fn-role: Allow rds-data:ExecuteStatement on arn:aws:rds:us-east-1:123456789012:cluster:orders-db (inline policy data)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/report-fn",
+      "to": "rds/legacy-db",
+      "kind": "connect",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy report-role secrets",
+          "detail": "role report-role: Allow secretsmanager:GetSecretValue on arn:aws:secretsmanager:us-east-1:123456789012:secret:rds!db-0bbbb-GhIjKl (inline policy secrets)"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/api",
+      "target": "orders-db.cluster-other9.us-east-1.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DATABASE_URL names an endpoint called orders-db, like rds/cluster/orders-db in this scan, with another account's suffix: a namesake, not this database"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/worker",
+      "target": "eu-db.fix001.eu-west-1.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "EU_DB names an RDS endpoint in region eu-west-1, outside this scan"
+    },
+    {
+      "kind": "unresolved",
+      "node": "ecs/main/worker",
+      "target": "orders-proxy.proxy-fix001.us-east-1.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "PROXY_HOST names an RDS Proxy endpoint; resolving it needs rds:DescribeDBProxies, which is not collected"
+    },
+    {
+      "kind": "broad-access",
+      "node": "lambda/report-fn",
+      "target": "secretsmanager",
+      "rule": "iam.policy-resource",
+      "detail": "role report-role may use every secretsmanager resource (secretsmanager:GetSecretValue on *, inline policy secrets): a grant this wide links to nothing in particular, so it draws no edge"
+    }
+  ]
+}

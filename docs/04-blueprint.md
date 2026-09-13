@@ -54,6 +54,10 @@ because their values differ per environment by construction (measured in
 - `${ref:sqs/x.url}` — the URL embeds the endpoint (`https://sqs.<region>…` in
   AWS, `http://floci:4566/…` locally).
 - `${ref:ddb/x.streamArn}` — the stream label is its creation timestamp.
+- `${ref:rds/x.host}` **and** `${ref:rds/x.port}` — Floci proxies each database
+  on a port of its own (7001, 7003… in the RDS round), not the engine's 5432.
+- `${ref:rds/x.masterSecretArn}` — a managed master secret is re-created per
+  environment, with a new ARN.
 
 API Gateway APIs are identified by API id in the inventory, because names are not
 unique; the `apigw/public` in the example below is shorthand the planner derives
