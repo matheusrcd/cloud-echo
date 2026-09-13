@@ -164,7 +164,13 @@ catches by key name or entropy but that matches no vendor format
 The fixture transport identifies requests by the service and operation the SDK
 puts on the request context, so it works for every protocol. JSON services answer
 with a `response` object; Query-protocol services like IAM answer XML through a
-`body` string. IAM policy documents are URL-encoded exactly as AWS returns them —
+`body` string. **Write fixtures from the wire format, not from CLI output.** The CLI prints
+output *member* names, which can differ from what travels over HTTP: API Gateway
+v1 lists are `item` on the wire and `items` in the CLI, and a fixture copied from
+the CLI deserializes to an empty list without an error. When in doubt, the key
+names are in the SDK's generated `deserializers.go`.
+
+IAM policy documents are URL-encoded exactly as AWS returns them —
 encode with `python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.stdin.read(),safe=""))'`.
 
 Your fixtures must exercise **every** operation you added to the allow-list. The

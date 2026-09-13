@@ -55,6 +55,10 @@ because their values differ per environment by construction (measured in
   AWS, `http://floci:4566/…` locally).
 - `${ref:ddb/x.streamArn}` — the stream label is its creation timestamp.
 
+API Gateway APIs are identified by API id in the inventory, because names are not
+unique; the `apigw/public` in the example below is shorthand the planner derives
+from the name, disambiguating when two APIs share one.
+
 Event sources on a function are keyed by `from:` (and the function's qualifier),
 never by the mapping's UUID, which is minted per environment.
 

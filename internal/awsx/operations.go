@@ -37,6 +37,14 @@ type Service struct {
 	// A nil value (present key, no actions) means the operation requires no IAM
 	// action at all.
 	IAMActions map[string][]string
+
+	// IAMResources scopes this service's actions to specific resource ARNs
+	// instead of "*". Needed where the IAM action is coarser than the
+	// operations: API Gateway grants every read as apigateway:GET, and on "*"
+	// that would include GET /apikeys?includeValues=true — reading API key
+	// values. The guard never makes that call, but the policy is what a
+	// security team approves, and it must not grant it either.
+	IAMResources []string
 }
 
 // services is the allow-list. Alphabetical by SDKID; keep it that way.
@@ -45,6 +53,52 @@ type Service struct {
 // convention is checked separately as defence in depth (see guard.go), but the
 // convention is not the control — this list is.
 var services = []Service{
+	{
+		// API Gateway v1 (REST APIs). GetResources with embed=methods returns
+		// every method with its integration, so there is no per-method
+		// GetMethod/GetIntegration: two calls per method saved on a control
+		// plane that throttles at a few requests per second per account.
+		SDKID:     "API Gateway",
+		IAMPrefix: "apigateway",
+		Ops: []string{
+			"GetAuthorizers",
+			"GetResources",
+			"GetRestApis",
+			"GetStages",
+		},
+		IAMActions: map[string][]string{
+			"GetAuthorizers": {"apigateway:GET"},
+			"GetResources":   {"apigateway:GET"},
+			"GetRestApis":    {"apigateway:GET"},
+			"GetStages":      {"apigateway:GET"},
+		},
+		IAMResources: []string{
+			"arn:aws:apigateway:*::/restapis",
+			"arn:aws:apigateway:*::/restapis/*",
+		},
+	},
+	{
+		SDKID:     "ApiGatewayV2",
+		IAMPrefix: "apigateway",
+		Ops: []string{
+			"GetApis",
+			"GetAuthorizers",
+			"GetIntegrations",
+			"GetRoutes",
+			"GetStages",
+		},
+		IAMActions: map[string][]string{
+			"GetApis":         {"apigateway:GET"},
+			"GetAuthorizers":  {"apigateway:GET"},
+			"GetIntegrations": {"apigateway:GET"},
+			"GetRoutes":       {"apigateway:GET"},
+			"GetStages":       {"apigateway:GET"},
+		},
+		IAMResources: []string{
+			"arn:aws:apigateway:*::/apis",
+			"arn:aws:apigateway:*::/apis/*",
+		},
+	},
 	{
 		SDKID:     "DynamoDB",
 		IAMPrefix: "dynamodb",
@@ -148,6 +202,10 @@ var forbidden = map[string]string{
 	"sts:GetSessionToken":           "mints credentials",
 	"ec2:GetPasswordData":           "returns an encrypted administrator password",
 	"sqs:ReceiveMessage":            "hides messages from the real consumer",
+	"apigateway:POST":               "creates API Gateway resources",
+	"apigateway:PUT":                "replaces API Gateway resources",
+	"apigateway:PATCH":              "modifies API Gateway resources",
+	"apigateway:DELETE":             "deletes API Gateway resources",
 }
 
 // allowed is the flattened "SDKID:Operation" set, built once at init.
@@ -197,21 +255,41 @@ func (s Service) IAMActionsFor() []string {
 	return out
 }
 
-// AllIAMActions returns every action the scanner policy must grant, sorted.
+// AllIAMActions returns every action the scanner policy must grant, sorted and
+// de-duplicated — API Gateway v1 and v2 share apigateway:GET.
 func AllIAMActions() []string {
-	var out []string
+	seen := map[string]struct{}{}
 	for _, s := range services {
-		out = append(out, s.IAMActionsFor()...)
+		for _, a := range s.IAMActionsFor() {
+			seen[a] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for a := range seen {
+		out = append(out, a)
 	}
 	sort.Strings(out)
 	return out
+}
+
+// readOnlyVerbActions are IAM actions named by HTTP verb rather than by
+// operation. Only GET is a read; the others are on the forbidden list.
+var readOnlyVerbActions = map[string]bool{"apigateway:GET": true}
+
+// IsReadAction reports whether an IAM action reads, by name.
+func IsReadAction(action string) bool {
+	if readOnlyVerbActions[action] {
+		return true
+	}
+	_, op, ok := strings.Cut(action, ":")
+	return ok && hasReadPrefix(op)
 }
 
 // validateAllowList is called from init so a bad edit fails at process start
 // rather than mid-scan against a production account.
 func validateAllowList() error {
 	seenSDK := make(map[string]struct{})
-	seenIAM := make(map[string]struct{})
+	seenIAM := make(map[string]bool) // action → declared explicitly
 	for _, s := range services {
 		if _, dup := seenSDK[s.SDKID]; dup {
 			return fmt.Errorf("duplicate SDKID %q", s.SDKID)
@@ -238,13 +316,31 @@ func validateAllowList() error {
 				return fmt.Errorf("%s: IAMActions override for %q, which is not in Ops", s.SDKID, op)
 			}
 		}
+		declared := map[string]bool{}
+		for _, acts := range s.IAMActions {
+			for _, a := range acts {
+				declared[a] = true
+			}
+		}
 		for _, a := range s.IAMActionsFor() {
-			if _, dup := seenIAM[a]; dup {
+			// A derived action (prefix:Operation) granted twice is a copy-paste
+			// mistake. An explicitly declared coarse action — apigateway:GET
+			// for both API Gateway versions — is legitimately shared, but
+			// only if every service that grants it declares it.
+			if prev, dup := seenIAM[a]; dup && !(prev && declared[a]) {
 				return fmt.Errorf("IAM action %q granted by two services", a)
 			}
-			seenIAM[a] = struct{}{}
+			seenIAM[a] = declared[a]
 			if reason, bad := forbidden[a]; bad {
 				return fmt.Errorf("forbidden action %q on the allow-list: %s", a, reason)
+			}
+			if !IsReadAction(a) {
+				return fmt.Errorf("%s: IAM action %q does not read", s.SDKID, a)
+			}
+		}
+		for _, r := range s.IAMResources {
+			if !strings.HasPrefix(r, "arn:") {
+				return fmt.Errorf("%s: IAM resource %q is not an ARN", s.SDKID, r)
 			}
 		}
 	}

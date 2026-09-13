@@ -15,6 +15,9 @@ ignore_raw = "--ignore-raw" in sys.argv
 def load(p):
     inv = json.load(open(p))
     res = {}
+    # API ids are minted per environment; pair APIs by type and name, and
+    # rewrite references to them (IAM assumedBy) the same way.
+    api_name = {r["id"]: f"apigw[{r['type']}:{r['name']}]" for r in inv["resources"] if r["type"].startswith("apigateway.")}
     for r in inv["resources"]:
         r = dict(r)
         r.get("source", {}).pop("collectedAt", None)
@@ -32,6 +35,22 @@ def load(p):
             s.pop("uuid", None)
             if s.get("sourceType") == "dynamodb-stream":
                 s["source"].pop("arn", None)  # stream label is a creation timestamp
+        if r["type"].startswith("apigateway."):
+            key = api_name[r["id"]]
+            for k in ("id", "arn"):
+                r.pop(k, None)
+            s = r["spec"]
+            for k in ("apiId", "endpoint"):
+                s.pop(k, None)
+            for rt in s.get("routes") or []:
+                rt.pop("authorizerId", None)
+                (rt.get("integration") or {}).pop("id", None)
+            for a in s.get("authorizers") or []:
+                a.pop("id", None)
+            for st in s.get("stages") or []:
+                st.pop("deploymentId", None)
+        if r["type"] == "iam.role":
+            r["spec"]["assumedBy"] = sorted(api_name.get(x, x) for x in r["spec"].get("assumedBy") or [])
         res[key] = r
     top = {k: v for k, v in inv.items() if k not in VOLATILE_TOP and k != "resources"}
     return top, res

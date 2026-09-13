@@ -1,0 +1,278 @@
+[
+  {
+    "op": "GetRestApis",
+    "match": "position=apis-2",
+    "response": {
+      "item": [
+        {
+          "id": "f6g7h8i9j0",
+          "name": "orders-rest",
+          "endpointConfiguration": {
+            "types": [
+              "EDGE"
+            ]
+          },
+          "disableExecuteApiEndpoint": true
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetRestApis",
+    "match": "limit=500",
+    "response": {
+      "position": "apis-2",
+      "item": [
+        {
+          "id": "a1b2c3d4e5",
+          "name": "orders-rest",
+          "endpointConfiguration": {
+            "types": [
+              "REGIONAL"
+            ]
+          },
+          "policy": "{\\\"Version\\\":\\\"2012-10-17\\\",\\\"Statement\\\":[{\\\"Effect\\\":\\\"Allow\\\",\\\"Principal\\\":\\\"*\\\",\\\"Action\\\":\\\"execute-api:Invoke\\\",\\\"Resource\\\":\\\"arn:aws:execute-api:us-east-1:123456789012:a1b2c3d4e5\\/*\\\"}]}",
+          "tags": {
+            "team": "orders"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetResources",
+    "match": "/restapis/a1b2c3d4e5/resources?embed=methods&limit=500&position=res-2",
+    "response": {
+      "item": [
+        {
+          "id": "hlt001",
+          "parentId": "root01",
+          "pathPart": "health",
+          "path": "/health",
+          "resourceMethods": {
+            "GET": {
+              "httpMethod": "GET",
+              "authorizationType": "NONE",
+              "apiKeyRequired": false,
+              "methodIntegration": {
+                "type": "MOCK",
+                "requestTemplates": {
+                  "application/json": "{\"statusCode\": 200}"
+                },
+                "timeoutInMillis": 29000
+              }
+            }
+          }
+        },
+        {
+          "id": "leg001",
+          "parentId": "root01",
+          "pathPart": "legacy",
+          "path": "/legacy",
+          "resourceMethods": {
+            "GET": {
+              "httpMethod": "GET",
+              "authorizationType": "NONE",
+              "apiKeyRequired": false,
+              "methodIntegration": {
+                "type": "HTTP_PROXY",
+                "httpMethod": "GET",
+                "uri": "https://api.payments.example.com/v1/legacy",
+                "connectionType": "INTERNET",
+                "timeoutInMillis": 29000
+              }
+            }
+          }
+        },
+        {
+          "id": "rpt001",
+          "parentId": "root01",
+          "pathPart": "reports",
+          "path": "/reports",
+          "resourceMethods": {
+            "GET": {
+              "httpMethod": "GET",
+              "authorizationType": "AWS_IAM",
+              "apiKeyRequired": false,
+              "methodIntegration": {
+                "type": "AWS",
+                "httpMethod": "POST",
+                "uri": "arn:aws:apigateway:us-east-1:dynamodb:action/Query",
+                "credentials": "arn:aws:iam::*:user/*",
+                "timeoutInMillis": 29000
+              }
+            }
+          }
+        },
+        {
+          "id": "v2t001",
+          "parentId": "root01",
+          "pathPart": "v2",
+          "path": "/v2",
+          "resourceMethods": {
+            "ANY": {
+              "httpMethod": "ANY",
+              "authorizationType": "NONE",
+              "apiKeyRequired": false,
+              "methodIntegration": {
+                "type": "AWS_PROXY",
+                "httpMethod": "POST",
+                "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:${stageVariables.fn}/invocations",
+                "timeoutInMillis": 29000
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetResources",
+    "match": "/restapis/a1b2c3d4e5/resources?embed=methods&limit=500",
+    "response": {
+      "position": "res-2",
+      "item": [
+        {
+          "id": "root01",
+          "path": "/"
+        },
+        {
+          "id": "ord001",
+          "parentId": "root01",
+          "pathPart": "orders",
+          "path": "/orders",
+          "resourceMethods": {
+            "GET": {
+              "httpMethod": "GET",
+              "authorizationType": "CUSTOM",
+              "apiKeyRequired": false,
+              "authorizerId": "auth01",
+              "methodIntegration": {
+                "type": "AWS_PROXY",
+                "httpMethod": "POST",
+                "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:orders-fn/invocations",
+                "timeoutInMillis": 29000,
+                "requestParameters": {
+                  "integration.request.header.Authorization": "method.request.header.Authorization"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ord002",
+          "parentId": "ord001",
+          "pathPart": "{id}",
+          "path": "/orders/{id}",
+          "resourceMethods": {
+            "GET": {
+              "httpMethod": "GET",
+              "authorizationType": "NONE",
+              "apiKeyRequired": false,
+              "methodIntegration": {
+                "type": "AWS_PROXY",
+                "httpMethod": "POST",
+                "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:orders-fn:live/invocations",
+                "timeoutInMillis": 29000
+              }
+            }
+          }
+        },
+        {
+          "id": "whk001",
+          "parentId": "root01",
+          "pathPart": "webhooks",
+          "path": "/webhooks",
+          "resourceMethods": {
+            "POST": {
+              "httpMethod": "POST",
+              "authorizationType": "NONE",
+              "apiKeyRequired": true,
+              "methodIntegration": {
+                "type": "AWS",
+                "httpMethod": "POST",
+                "uri": "arn:aws:apigateway:us-east-1:sqs:path/123456789012/inbox",
+                "credentials": "arn:aws:iam::123456789012:role/apigw-integration-role",
+                "requestParameters": {
+                  "integration.request.header.Content-Type": "'application/x-www-form-urlencoded'",
+                  "integration.request.header.x-api-key": "'not-a-real-upstream-key'",
+                  "integration.request.header.X-Trace": "method.request.header.X-Trace"
+                },
+                "requestTemplates": {
+                  "application/json": "Action=SendMessage&MessageBody=$util.urlEncode($input.body)"
+                },
+                "integrationResponses": {
+                  "200": {
+                    "statusCode": "200",
+                    "responseTemplates": {
+                      "application/json": "{\"ok\": true}"
+                    }
+                  }
+                },
+                "timeoutInMillis": 29000
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetResources",
+    "match": "/restapis/f6g7h8i9j0/resources",
+    "response": {
+      "item": [
+        {
+          "id": "rootxx",
+          "path": "/"
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetStages",
+    "match": "/restapis/a1b2c3d4e5/stages",
+    "response": {
+      "item": [
+        {
+          "stageName": "prod",
+          "deploymentId": "dep001",
+          "variables": {
+            "backend": "orders-fn",
+            "DB_PASSWORD": "not-a-real-password"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetStages",
+    "match": "/restapis/f6g7h8i9j0/stages",
+    "response": {
+      "item": []
+    }
+  },
+  {
+    "op": "GetAuthorizers",
+    "match": "/restapis/a1b2c3d4e5/authorizers",
+    "response": {
+      "item": [
+        {
+          "id": "auth01",
+          "name": "token-auth",
+          "type": "TOKEN",
+          "authorizerUri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:authorizer-fn/invocations",
+          "identitySource": "method.request.header.Authorization",
+          "authorizerResultTtlInSeconds": 300
+        }
+      ]
+    }
+  },
+  {
+    "op": "GetAuthorizers",
+    "match": "/restapis/f6g7h8i9j0/authorizers",
+    "response": {
+      "item": []
+    }
+  }
+]

@@ -10,6 +10,8 @@ types = {}
 for p in (a, b):
     for r in json.load(open(p))["resources"]:
         types[r["id"]] = r["type"]
+        if r["type"].startswith("apigateway."):  # the diff pairs APIs by type and name
+            types[f"apigw[{r['type']}:{r['name']}]"] = r["type"]
 groups = defaultdict(list)
 lines = out.splitlines()
 i = 0

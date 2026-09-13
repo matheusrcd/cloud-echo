@@ -51,8 +51,10 @@ default and we scope a metadata shim.
 
 - [x] The minimum collector set the linker needs: **ECS ✅ · SQS ✅ · DynamoDB ✅ ·
       Lambda ✅ · IAM ✅** (IAM as a second-phase collector over the others).
-- [ ] Remaining collectors: RDS, ElastiCache, API Gateway v1/v2, plus supporting
-      ECR, SNS, EC2, ELBv2, Secrets Manager, SSM.
+- [x] API Gateway v1 and v2, validated against a real account
+      ([findings](spikes/m1-real-account-findings.md#api-gateway-round)).
+- [ ] Remaining collectors: RDS, ElastiCache, plus supporting ECR, SNS, EC2,
+      ELBv2, Secrets Manager, SSM.
 - [x] Secret-shaped value redaction at collection time (Guarantee 2).
 - [x] Validated against a real account, including a scan with only the shipped
       policy and a round trip through Floci —

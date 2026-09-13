@@ -73,6 +73,25 @@ in a busier account.
 
 ---
 
+### Q15 — API Gateway: deployed definition and custom domains
+
+**Raised by the API Gateway collector.** Two things it deliberately does not do:
+
+- **Deployed vs current definition.** Routes come from the API's current
+  definition. A REST stage serves a *deployment* snapshot, which lags behind
+  undeployed console edits. `GetExport` per stage would return what is actually
+  live, at the cost of parsing an OpenAPI document per stage.
+- **Custom domains.** `https://api.company.com` in another service's env var
+  links to an API only through a domain mapping (`GetDomainNames` +
+  `GetBasePathMappings` / `GetApiMappings`). Those paths are outside the scoped
+  policy ([ADR-0008](adr/0008-scope-coarse-iam-actions.md)); collecting them means
+  widening it to `/domainnames*` on purpose.
+
+Leaning: custom domains first — internal callers commonly use them, and the
+Tier-2 link is otherwise invisible — with the scope widened explicitly.
+
+---
+
 ### Q2 — Stateful mocks
 
 Sequence-dependent responses ("first poll returns `pending`, second returns

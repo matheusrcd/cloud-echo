@@ -6,8 +6,9 @@ Scans your AWS account and rebuilds it as a containerized local environment usin
 [Floci](https://floci.io/).
 
 > **Status: early. Not usable yet.** The architecture is designed and validated
-> ([M0 spike](docs/spikes/m0-findings.md)), and the discovery foundation is built —
-> read-only guard, inventory model, and the first collector (ECS). Everything
+> ([M0 spike](docs/spikes/m0-findings.md)), and discovery is built and validated
+> against a real account — read-only guard, inventory model, collectors for six
+> services. The linker, which infers what talks to what, is next. Everything
 > below marked ⬚ does not exist. Feedback on the design is still the most useful
 > contribution.
 
@@ -18,7 +19,7 @@ account, infers what talks to what, and rebuilds a runnable slice of that topolo
 locally — with every outgoing integration visible and mockable in real time.
 
 ```bash
-cloud-echo scan                                    # ◐ read-only discovery (ECS only so far)
+cloud-echo scan                                    # ◐ read-only discovery (6 services so far)
 cloud-echo graph --explain ecs/orders-api          # ⬚ what does it talk to, and why?
 cloud-echo plan --seed ecs/orders-api --depth 2    # ⬚ → cloud-echo.yaml
 cloud-echo up                                      # ⬚ Floci + your containers, running
@@ -26,8 +27,8 @@ cloud-echo ui                                      # ⬚ graph + live traffic + 
 ```
 
 What works today: `cloud-echo scan --dry-run` prints the exact API surface a scan
-would touch, and `cloud-echo scan` reads ECS clusters, services, and task
-definitions into a normalized inventory.
+would touch, and `cloud-echo scan` reads ECS, SQS, DynamoDB, Lambda, IAM and API
+Gateway into a normalized inventory, validated against a real account.
 
 Your ECS service runs the exact image from ECR with the exact task definition.
 Its DynamoDB tables, SQS queues, Postgres, and Valkey are real and local. The
@@ -67,7 +68,9 @@ cloud-echo scan --dry-run    # every API call it would make, without credentials
 [`policies/cloud-echo-scanner.json`](policies/cloud-echo-scanner.json) grants
 exactly those actions and is generated from the same list, with a test that fails
 on drift. `secretsmanager:GetSecretValue` is deliberately absent — secret values
-never leave AWS.
+never leave AWS — and API Gateway's coarse `apigateway:GET` is scoped to API
+definitions, so the role cannot read API key values
+([ADR-0008](docs/adr/0008-scope-coarse-iam-actions.md)).
 
 ## Building
 
