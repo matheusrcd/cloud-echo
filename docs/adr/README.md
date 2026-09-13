@@ -15,3 +15,4 @@ Format: Context → Decision → Consequences → Alternatives rejected.
 | [0005](0005-single-egress-chokepoint.md) | Single egress choke point (Echo Gateway) | Accepted | 2026-08-27 |
 | [0006](0006-read-only-by-construction.md) | Read-only by construction | Accepted | 2026-08-27 |
 | [0007](0007-allow-list-over-name-prefix.md) | An explicit allow-list, not a name prefix | Accepted · refines 0006 | 2026-08-27 |
+| [0008](0008-scope-coarse-iam-actions.md) | Coarse IAM actions are resource-scoped | Accepted · builds on 0007 | 2026-09-13 |

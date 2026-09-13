@@ -87,6 +87,7 @@ make the name unique:
 | `ddb/orders` | table — unique per account-region |
 | `lambda/order-processor` | function — unique per account-region |
 | `lambda/esm/<uuid>` | event source mapping — its own resource, see below |
+| `apigw/a1b2c3d4e5` | API — the **API id**, not the name (names are not unique) |
 | `iam/role/orders-api-task` | role — unique per account **regardless of path** |
 | `iam/policy/orders-rw` | customer-managed policy |
 | `iam/aws-policy/AmazonSQSFullAccess` | AWS-managed policy — a customer policy may reuse the name, so they must not share an id |
@@ -117,8 +118,8 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 | **SQS** ✅ | `ListQueues`, `GetQueueAttributes`, `ListQueueTags` | `RedrivePolicy` (→ DLQ), `VisibilityTimeout`, `Policy` (→ who can send), `FifoQueue` |
 | **DynamoDB** ✅ | `ListTables`, `DescribeTable`, `DescribeTimeToLive`, `ListTagsOfResource` | key schema, GSIs/LSIs, `StreamSpecification` |
 | **RDS** | `DescribeDBInstances`, `DescribeDBClusters`, `DescribeDBSubnetGroups` | `Engine`, `EngineVersion`, `Endpoint`, `Port`, `DBName`, `VpcSecurityGroups` |
-| **API Gateway v1** | `GetRestApis`, `GetResources`, `GetMethod`, `GetIntegration`, `GetStages`, `GetAuthorizers` | integration `uri`, `type`, `connectionId` |
-| **API Gateway v2** | `GetApis`, `GetRoutes`, `GetIntegrations`, `GetStages`, `GetAuthorizers` | same |
+| **API Gateway v1** ✅ | `GetRestApis`, `GetResources` (`embed=methods`), `GetStages`, `GetAuthorizers` | integration `uri`, `type`, `credentials`, `connectionId`; authorizer function; stage variables |
+| **API Gateway v2** ✅ | `GetApis`, `GetRoutes`, `GetIntegrations`, `GetStages`, `GetAuthorizers` | integration `uri`/subtype + `QueueUrl`; JWT issuer; authorizer function |
 | **ElastiCache** | `DescribeReplicationGroups` (Redis/Valkey), `DescribeCacheClusters` (memcached only) | `Engine`, `EngineVersion`, endpoint, port |
 
 > **Tags come from `Include`, not a second call.** Every ECS `Describe*` accepts
@@ -142,6 +143,31 @@ called is a permission we ask users for and waste, which is its own kind of bug.
 > rejects them locally. TTL is not in `DescribeTable` at all — it needs
 > `DescribeTimeToLive`, and without it a local table keeps rows the real one
 > would have expired.
+
+> **API Gateway, checked against a real account before the collector was
+> written:**
+>
+> - `GetResources` with `embed=methods` returns every method *with its
+>   integration*, so the per-method `GetMethod`/`GetIntegration` the table once
+>   listed are gone — two calls per method saved on a control plane that
+>   throttles at a few requests per second.
+> - API names are **not unique** (`create-rest-api` with an existing name makes a
+>   second API), so ids are API ids. v1 and v2 ids share one namespace — the
+>   `{id}.execute-api` hostname.
+> - v2 has the SQS trap: no `NextToken` unless `MaxResults` is sent.
+> - A REST API's resource policy arrives as the *body of a JSON string literal*
+>   (`{\"Version\"…\/*…}`); `strconv.Unquote` cannot read `\/`, so it is decoded
+>   as a JSON string.
+> - v2 service integrations (SQS-SendMessage) have no URI; the queue is in
+>   `requestParameters.QueueUrl`.
+> - Stage variables and literal parameter mappings are redacted; mapping
+>   expressions (`method.request.header.Authorization`, `$request.body`) are
+>   references and kept. Mapping templates are free text and withheld entirely —
+>   only their content types are recorded.
+> - IAM for all of it is `apigateway:GET`, scoped to API definitions so it cannot
+>   reach API key values — [ADR-0008](adr/0008-scope-coarse-iam-actions.md).
+> - Known gap: routes are the API's *current definition*; a REST stage serves a
+>   deployment snapshot that can lag behind undeployed edits.
 
 > **`ListQueues` needs `MaxResults` to paginate at all.** Without it AWS returns up
 > to 1000 queues and no `NextToken` — silent truncation, confirmed against the

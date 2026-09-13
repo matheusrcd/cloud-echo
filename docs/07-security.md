@@ -44,6 +44,12 @@ Properties that make this worth doing:
   that an error comes back.
 - There is **no flag to disable it.** Not `--force`, not an env var. The moment an
   escape hatch exists, the guarantee is gone.
+- Where an IAM action is coarser than the operations — API Gateway's single
+  `apigateway:GET` — the shipped policy **scopes it by resource** to what the
+  collectors read, so the role itself cannot read API key values, usage plans or
+  domain names. Proven with the scanner's own credentials in
+  [`spikes/m1/22-probe-scope.sh`](../spikes/m1/22-probe-scope.sh);
+  [ADR-0008](adr/0008-scope-coarse-iam-actions.md).
 
 The materializer uses a *separate* client whose endpoint is hardcoded to the local
 Floci instance, and which refuses to resolve any endpoint outside `localhost` /
@@ -69,6 +75,9 @@ they are different types.
   hint is recoverable, a leaked credential is not. This is a heuristic and will
   miss things, so `inventory.json` stays gitignored and sensitive regardless.
   Rules and their tests: [`internal/discovery/redact.go`](../internal/discovery/redact.go).
+  API Gateway adds three sources: stage variables and literal parameter mappings
+  are redacted (mapping *expressions* are references and kept), and mapping
+  templates — free-text VTL — are withheld wholesale, content type only.
 - The blueprint is scanned before write for high-entropy strings and
   secret-shaped key names (`*_SECRET`, `*_TOKEN`, `*_PASSWORD`, `*_KEY`,
   `AKIA*`, PEM headers). A hit is a **hard error**, not a warning.

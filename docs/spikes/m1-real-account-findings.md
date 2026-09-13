@@ -154,6 +154,56 @@ verify by exercising (run the task, send the message), not by describing.
 - `--out /dev/stdout` does not work: the atomic write stages a temp file in the
   target's directory.
 
+## API Gateway round
+
+**Date:** 2026-09-13 (second round) · The same method, applied to the API
+Gateway collectors: real payloads read *before* the collector was written, then
+a real-account scan, a least-privilege comparison, a scope probe, and a Floci
+round trip. Topology: one REST API and one HTTP API, each fronting a Lambda (one
+route through an alias), a direct SQS integration with a role, a mock and an
+external HTTP backend, plus a TOKEN and a JWT authorizer and stages with
+variables.
+
+| Check | Result |
+| --- | --- |
+| Scan, admin | 9 resources, 4 s, no warnings |
+| Field-level checker ([`check-apigw.py`](../../spikes/m1/check-apigw.py)) | **29 / 29** |
+| Scan with only the shipped policy vs admin | **0 differences** |
+| Scope probe with the scanner's credentials ([`22-probe-scope.sh`](../../spikes/m1/22-probe-scope.sh)) | **7 / 7** — definitions readable; API key values, usage plans, domains, client certificates refused |
+| Round trip: seed Floci | 43 calls, 0 failures |
+
+What reading real payloads first changed, before any code existed:
+
+- **`embed=methods` works** on `GetResources`, so `GetMethod`/`GetIntegration`
+  per method were dropped from the design.
+- **API names are not unique**; ids are API ids.
+- **v2 repeats the SQS pagination trap**: no `NextToken` without `MaxResults`.
+- **The REST resource policy is doubly escaped**, including `\/`, which
+  `strconv.Unquote` cannot read.
+- **JWT authorizers require a real OIDC issuer** — API Gateway fetches its
+  discovery document at creation.
+- **`apigateway:GET` on `"*"` would grant API key values** → scoped policy,
+  [ADR-0008](../adr/0008-scope-coarse-iam-actions.md).
+
+Found and fixed during the round:
+
+- **Stages and authorizers were in arrival order.** The same HTTP API scanned from
+  AWS and from Floci listed its stages in opposite orders. Both are now sorted,
+  with a test that serves them reversed. Comparing two implementations of one API
+  is what exposed an order dependency no single-source test could.
+- **A fixture written from CLI output deserialized to nothing.** API Gateway v1
+  lists are `item` on the wire and `items` in the CLI; recorded in CONTRIBUTING.
+- **IAM would have reported `arn:aws:iam::*:user/*`** — "use the caller's
+  credentials" — as a role in another account. Non-role ARNs are now skipped.
+
+Floci fidelity for API Gateway: it accepts the whole control plane but
+**does not implement `embed=methods`** (methods are stored — `GetMethod` returns
+them — just not embedded), **drops integration `credentials`** in v1 and v2 and
+the **v2 integration subtype**, and **does not store the REST resource policy**.
+None of it touches the graph, which is built from the AWS inventory; all of it
+means a local SQS direct integration will not work as in AWS, and that a scan of
+Floci cannot verify what was built.
+
 ## Reproducing
 
 ```bash
@@ -165,6 +215,9 @@ go build -o .work/cloud-echo ../../cmd/cloud-echo
 python3 check-inventory.py .work/inventory-aws.json
 ./21-scan-as.sh ce-test-scanner .work/inventory-least.json
 python3 diff-inventory.py .work/inventory-aws.json .work/inventory-least.json
+./12-aws-apigw-create.sh     # API Gateway topology
+python3 check-apigw.py .work/inventory-aws.json
+./22-probe-scope.sh          # the policy cannot read API key values
 ./30-floci-roundtrip.sh      # seed Floci, scan it, compare
 python3 group-diff.py .work/inventory-aws.json .work/inventory-floci.json
 ./90-aws-teardown.sh         # lists, asks, then removes every ce-test- resource

@@ -27,8 +27,8 @@ on are validated. Results and the four design changes that came out of it:
 [`spikes/m0/`](../spikes/m0/) runs in ~60 s and doubles as a regression test
 against future Floci releases.
 
-**M1 in progress.** Discovery covers the minimum set the linker needs — **ECS,
-SQS, DynamoDB, Lambda, and IAM** — with secret-shaped values redacted before
+**M1 in progress.** Discovery covers **ECS, SQS, DynamoDB, Lambda, IAM and API
+Gateway (v1 and v2)** — with secret-shaped values redacted before
 anything reaches disk. It has been validated against a real account — with only
 the shipped policy, and through a round trip into Floci:
 [m1-real-account-findings.md](spikes/m1-real-account-findings.md).

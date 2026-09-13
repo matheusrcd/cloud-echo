@@ -14,13 +14,22 @@ queues=$(aws sqs list-queues --queue-name-prefix "$P-" --query QueueUrls --outpu
 clusters="$P-main $P-batch"
 roles=$(aws iam list-roles --query "Roles[?starts_with(RoleName,'$P-')].RoleName" --output text)
 policies=$(aws iam list-policies --scope Local --query "Policies[?starts_with(PolicyName,'$P-')].Arn" --output text)
+restapis=$(aws apigateway get-rest-apis --query "items[?starts_with(name,'$P-')].id" --output text)
+httpapis=$(aws apigatewayv2 get-apis --query "Items[?starts_with(Name,'$P-')].ApiId" --output text)
+apikeys=$(aws apigateway get-api-keys --query "items[?starts_with(name,'$P-')].id" --output text)
 
 log "will delete (account $(echo "$ACCT" | redact), region $AWS_REGION)"
-printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  local:    ce-m1 Floci containers, network, volume\n' \
-  "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')"
+printf '  lambda:   %s\n  dynamodb: %s\n  sqs:      %s\n  ecs:      %s (all services)\n  iam role: %s\n  iam pol:  %s\n  apigw:    rest=%s http=%s keys=%s\n  local:    ce-m1 Floci containers, network, volume\n' \
+  "$fns" "$tables" "$(echo "$queues" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$clusters" "$roles" "$(echo "$policies" | tr '\t' '\n' | sed 's#.*/##' | tr '\n' ' ')" "$restapis" "$httpapis" "$apikeys"
 if [ "${1:-}" != "--yes" ]; then
   read -r -p "type DELETE to continue: " ans; [ "$ans" = "DELETE" ] || { echo "aborted"; exit 1; }
 fi
+
+log "api gateway"
+# API Gateway throttles deletes hard (a few per minute for REST APIs); pace them.
+for a in $restapis; do aws apigateway delete-rest-api --rest-api-id "$a" && echo "  rest $a"; sleep 31; done
+for a in $httpapis; do aws apigatewayv2 delete-api --api-id "$a" && echo "  http $a"; done
+for k in $apikeys; do aws apigateway delete-api-key --api-key "$k" && echo "  key $k"; done
 
 log "lambda (mappings first)"
 for f in $fns; do

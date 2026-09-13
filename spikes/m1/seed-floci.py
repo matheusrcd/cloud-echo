@@ -261,6 +261,130 @@ for r in of("ecs.service"):
         args += ["--network-configuration", json.dumps({"awsvpcConfiguration": {"subnets": n.get("subnets") or [], "securityGroups": n.get("securityGroups") or [], "assignPublicIp": n.get("assignPublicIp") or "DISABLED"}})]
     aws(r["id"], "create-service", *args)
 
+# ---------------------------------------------------------------- API Gateway
+def invoke_uri(fn_arn):
+    return f"arn:aws:apigateway:{REGION}:lambda:path/2015-03-31/functions/{fn_arn}/invocations"
+
+def seed_param(v):
+    # REST APIs quote literals. A redaction marker was a quoted literal before it
+    # was withheld, so it is re-quoted to stay a valid mapping.
+    return f"'{v}'" if v.startswith("<redacted:") else v
+
+for r in of("apigateway.rest"):
+    s = r["spec"]
+    args = ["apigateway", "create-rest-api", "--name", s["name"]]
+    if s.get("endpointType"):
+        args += ["--endpoint-configuration", f"types={s['endpointType']}"]
+    if s.get("resourcePolicy"):
+        args += ["--policy", json.dumps(s["resourcePolicy"])]
+    api = aws(r["id"], "create-rest-api", *args)
+    if not api:
+        continue
+    aid = api["id"]
+    root = aws(r["id"], "get-resources (root)", "apigateway", "get-resources", "--rest-api-id", aid)
+    ids = {"/": next(x["id"] for x in root["items"] if x["path"] == "/")}
+    auth_map = {}
+    for a in s.get("authorizers") or []:
+        aargs = ["apigateway", "create-authorizer", "--rest-api-id", aid, "--name", a["name"], "--type", a["type"]]
+        if a.get("function"):
+            aargs += ["--authorizer-uri", invoke_uri(a["function"]["arn"])]
+            gap(r["id"], "authorizer invoke URI rebuilt from the function ARN — the spec keeps the function, not the URI")
+        if a.get("identitySource"):
+            aargs += ["--identity-source", ",".join(a["identitySource"])]
+        na = aws(r["id"], f"create-authorizer {a['name']}", *aargs)
+        if na:
+            auth_map[a["id"]] = na["id"]
+    for rt in sorted(s["routes"], key=lambda x: x["path"].count("/")):
+        path = rt["path"]
+        parent = "/"
+        for seg in [p for p in path.split("/") if p]:
+            cur = (parent.rstrip("/") + "/" + seg)
+            if cur not in ids:
+                nr = aws(r["id"], f"create-resource {cur}", "apigateway", "create-resource", "--rest-api-id", aid,
+                         "--parent-id", ids[parent], "--path-part", seg)
+                if not nr:
+                    break
+                ids[cur] = nr["id"]
+            parent = cur
+        rid = ids.get(path)
+        if not rid:
+            continue
+        margs = ["apigateway", "put-method", "--rest-api-id", aid, "--resource-id", rid, "--http-method", rt["method"],
+                 "--authorization-type", rt.get("authorization") or "NONE"]
+        if rt.get("authorizerId") in auth_map:
+            margs += ["--authorizer-id", auth_map[rt["authorizerId"]]]
+        if rt.get("apiKeyRequired"):
+            margs += ["--api-key-required"]
+        if aws(r["id"], f"put-method {rt['routeKey']}", *margs) is None:
+            continue
+        it = rt.get("integration")
+        if not it:
+            continue
+        iargs = ["apigateway", "put-integration", "--rest-api-id", aid, "--resource-id", rid, "--http-method", rt["method"], "--type", it["type"]]
+        if it.get("uri"):
+            iargs += ["--uri", it["uri"]]
+        if it.get("httpMethod"):
+            iargs += ["--integration-http-method", it["httpMethod"]]
+        if it.get("credentials"):
+            iargs += ["--credentials", it["credentials"]]
+        if it.get("requestParameters"):
+            iargs += ["--request-parameters", json.dumps({k: seed_param(v) for k, v in it["requestParameters"].items()})]
+        if it.get("templateContentTypes"):
+            gap(r["id"], "mapping templates are withheld by design; a placeholder template is seeded")
+            iargs += ["--request-templates", json.dumps({ct: "{}" for ct in it["templateContentTypes"]})]
+        aws(r["id"], f"put-integration {rt['routeKey']}", *iargs)
+    for st in s.get("stages") or []:
+        dargs = ["apigateway", "create-deployment", "--rest-api-id", aid, "--stage-name", st["name"]]
+        if st.get("variables"):
+            dargs += ["--variables", ",".join(f"{k}={v}" for k, v in sorted(st["variables"].items()))]
+        aws(r["id"], f"create-deployment {st['name']}", *dargs)
+
+for r in of("apigateway.http"):
+    s = r["spec"]
+    api = aws(r["id"], "create-api", "apigatewayv2", "create-api", "--name", s["name"], "--protocol-type", s["protocol"])
+    if not api:
+        continue
+    aid = api["ApiId"]
+    int_map, auth_map = {}, {}
+    for rt in s["routes"]:
+        it = rt.get("integration")
+        if not it or it.get("id") in int_map:
+            continue
+        iargs = ["apigatewayv2", "create-integration", "--api-id", aid, "--integration-type", it["type"]]
+        for flag, key in [("--integration-uri", "uri"), ("--integration-subtype", "subtype"), ("--integration-method", "httpMethod"),
+                          ("--credentials-arn", "credentials"), ("--payload-format-version", "payloadFormatVersion")]:
+            if it.get(key):
+                iargs += [flag, it[key]]
+        if it.get("requestParameters"):
+            iargs += ["--request-parameters", json.dumps(it["requestParameters"])]
+        ni = aws(r["id"], f"create-integration {it.get('id')}", *iargs)
+        if ni:
+            int_map[it["id"]] = ni["IntegrationId"]
+    for a in s.get("authorizers") or []:
+        aargs = ["apigatewayv2", "create-authorizer", "--api-id", aid, "--name", a["name"], "--authorizer-type", a["type"],
+                 "--identity-source", *(a.get("identitySource") or [])]
+        if a.get("jwtIssuer"):
+            aargs += ["--jwt-configuration", json.dumps({"Issuer": a["jwtIssuer"], "Audience": a.get("jwtAudience") or []})]
+        na = aws(r["id"], f"create-authorizer {a['name']}", *aargs)
+        if na:
+            auth_map[a["id"]] = na["AuthorizerId"]
+    for rt in s["routes"]:
+        rargs = ["apigatewayv2", "create-route", "--api-id", aid, "--route-key", rt["routeKey"]]
+        if rt.get("integration") and rt["integration"].get("id") in int_map:
+            rargs += ["--target", "integrations/" + int_map[rt["integration"]["id"]]]
+        if rt.get("authorization") and rt["authorization"] != "NONE":
+            rargs += ["--authorization-type", rt["authorization"]]
+            if rt.get("authorizerId") in auth_map:
+                rargs += ["--authorizer-id", auth_map[rt["authorizerId"]]]
+        aws(r["id"], f"create-route {rt['routeKey']}", *rargs)
+    for st in s.get("stages") or []:
+        sargs = ["apigatewayv2", "create-stage", "--api-id", aid, "--stage-name", st["name"]]
+        if st.get("autoDeploy"):
+            sargs += ["--auto-deploy"]
+        if st.get("variables"):
+            sargs += ["--stage-variables", ",".join(f"{k}={v}" for k, v in sorted(st["variables"].items()))]
+        aws(r["id"], f"create-stage {st['name']}", *sargs)
+
 # ---------------------------------------------------------------- report
 report = {"ok": len(ok), "failed": [dict(zip(("id", "step", "error"), f)) for f in failed],
           "specGaps": [dict(zip(("id", "gap"), g)) for g in gaps]}

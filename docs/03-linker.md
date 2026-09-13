@@ -43,13 +43,19 @@ The account literally states the relationship. No inference.
 | --- | --- | --- |
 | `lambda.event-source-mapping` | `ListEventSourceMappings` | SQS/DynamoDB Stream/Kinesis/MSK → Lambda (`consume`) |
 | `sns.subscription` | `ListSubscriptionsByTopic` | SNS → SQS/Lambda/HTTP (`publish`) |
-| `apigw.integration` | `GetIntegration` | API GW → Lambda (`invoke`) / HTTP (`http`) / VPC Link → ALB |
+| `apigw.integration` | route `integration` (v1 `GetResources` embedded, v2 `GetIntegrations`) | API GW → Lambda (`invoke`) / SQS direct (`publish`) / HTTP (`http`) / VPC Link → ALB |
+| `apigw.authorizer` | route `authorizerId` → authorizer `function` | API GW → authorizer Lambda (`invoke`, synchronous — it is in the request path) |
+| `apigw.credentials` | integration `credentials` | API GW assumes a role to call the target; feeds Tier 3 |
 | `sqs.redrive` | `RedrivePolicy` | queue → DLQ (`publish`) |
 | `elbv2.target-group` | ECS service `loadBalancers[]` | ALB → ECS service (`http`) |
 | `ecs.image` | task def `containers[].image` | ECS service → ECR repo |
 | `ecs.secrets` | task def `containers[].secrets[]` | ECS service → Secrets Manager / SSM (`read`) |
 | `lambda.resource-policy` | `GetPolicy` principals | caller → Lambda (`invoke`) |
 | `dynamodb.stream` | `StreamSpecification` | table → stream (materialized as one node) |
+
+An integration marked `templated` (its URI names `${stageVariables.x}`) has no
+static target. The rule resolves it **per stage** from that stage's variables, and
+emits nothing when a variable is missing rather than guessing.
 
 If Tier 1 covers your architecture, the graph is essentially free. It rarely
 covers more than half.
