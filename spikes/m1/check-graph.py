@@ -171,6 +171,26 @@ check("orders-api's ce-test-db.cluster-abc123…: the cluster's name, another ac
 check("both databases are on the request path (sync)", flow(CL) == "sync" and flow(LG) == "sync", f"{flow(CL)} {flow(LG)}")
 check("no database is called unpermitted", not [f for f in g.get("findings", []) if f["kind"] == "unpermitted" and f["target"].startswith("rds/")])
 
+# --- ElastiCache (15-aws-elasticache-create.sh): written before the round's output was looked at
+SG_, SL_, MC_ = "cache/" + P + "-sessions", "cache/serverless/" + P + "-ratelimit", "cache/cluster/" + P + "-memo"
+check("caches: one node per API, the group's member is not one",
+      all(nodes.get(i, {}).get("type") == "elasticache.cache" for i in (SG_, SL_, MC_)) and not any(i.endswith("-sessions-001") for i in nodes))
+check("order-processor connects to the group, high: SESSIONS_URL (rediss://, primary) + elasticache:Connect",
+      conf(L+P+"-order-processor", SG_, "connect") == "high" and rules(L+P+"-order-processor", SG_, "connect") == ["config.value-scan", IAM],
+      str(rules(L+P+"-order-processor", SG_, "connect")))
+check("orders-fn connects to the group through its reader endpoint (SESSIONS_READER)",
+      named(L+P+"-orders-fn", SG_, "SESSIONS_READER") and conf(L+P+"-orders-fn", SG_, "connect") == "high"
+      and any("reader endpoint" in ev["detail"] for ev in edges.get((L+P+"-orders-fn", SG_, "connect"), {}).get("evidence", [])))
+check("orders-fn connects to the serverless cache (RATE_LIMIT_HOST)", named(L+P+"-orders-fn", SL_, "RATE_LIMIT_HOST")
+      and conf(L+P+"-orders-fn", SL_, "connect") == "high")
+check("webhook-receiver connects to memcached through its configuration endpoint (MEMO_SERVERS, host:port)",
+      named(L+P+"-webhook-receiver", MC_, "MEMO_SERVERS") and conf(L+P+"-webhook-receiver", MC_, "connect") == "high")
+check("the 12 services' CACHE_HOST — the group's name, another suffix — a namesake each, never linked",
+      not any(has(s, SG_, "connect") for s in NOTIF)
+      and sorted({f["node"] for f in findings("unresolved", "namesake") if ".cache.amazonaws.com" in f["target"]}) == sorted(NOTIF))
+check("all three caches are on the request path (sync)", all(flow(i) == "sync" for i in (SG_, SL_, MC_)), str([flow(i) for i in (SG_, SL_, MC_)]))
+check("no cache is called unpermitted", not [f for f in g.get("findings", []) if f["kind"] == "unpermitted" and f["target"].startswith("cache/")])
+
 # --- hygiene
 check("every edge has evidence", all(e["evidence"] for e in g["edges"]))
 check("no edge touches a non-node", all(e["from"] in nodes and e["to"] in nodes for e in g["edges"]))
