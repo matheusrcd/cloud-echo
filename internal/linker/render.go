@@ -14,8 +14,9 @@ var flowNote = map[Flow]string{
 	Sync:       "on a synchronous path from an entrypoint — the request path",
 	Async:      "reached only across a queue or stream — runs beside the request path",
 	Scheduled:  "reached only from a schedule",
-	Unreached: "no path from an entrypoint was found. The linker reads declared relationships and configuration, " +
-		"not IAM yet, so a producer that finds its target any other way is not visible — this is not a verdict that the resource is unused",
+	Unreached: "no path from an entrypoint was found. The linker reads what the account declares, configures and permits, " +
+		"not its traffic, so a caller it cannot see — a schedule, a client outside AWS, a grant too broad to link — " +
+		"leaves this open; it is not a verdict that the resource is unused",
 }
 
 // WriteText renders the graph for a terminal: nodes grouped by flow, each with

@@ -1,0 +1,492 @@
+{
+  "formatVersion": 1,
+  "generatedBy": "cloud-echo/golden",
+  "inventoryScanId": "tier3-cases",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "nodes": [
+    {
+      "id": "apigw/api0000020",
+      "type": "apigateway.http",
+      "name": "t3-http",
+      "flow": "entrypoint",
+      "triggers": [
+        "HTTP API (REGIONAL)"
+      ]
+    },
+    {
+      "id": "ddb/audit",
+      "type": "dynamodb.table",
+      "name": "audit",
+      "flow": "unreached"
+    },
+    {
+      "id": "ddb/ledger",
+      "type": "dynamodb.table",
+      "name": "ledger",
+      "flow": "sync"
+    },
+    {
+      "id": "ddb/orders",
+      "type": "dynamodb.table",
+      "name": "orders",
+      "flow": "sync"
+    },
+    {
+      "id": "ddb/profiles",
+      "type": "dynamodb.table",
+      "name": "profiles",
+      "flow": "sync"
+    },
+    {
+      "id": "ecs/main/blind",
+      "type": "ecs.service",
+      "name": "blind",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/main/gated",
+      "type": "ecs.service",
+      "name": "gated",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/main/partial",
+      "type": "ecs.service",
+      "name": "partial",
+      "flow": "unreached"
+    },
+    {
+      "id": "ecs/main/worker",
+      "type": "ecs.service",
+      "name": "worker",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/api-fn",
+      "type": "lambda.function",
+      "name": "api-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/notify-fn",
+      "type": "lambda.function",
+      "name": "notify-fn",
+      "flow": "sync"
+    },
+    {
+      "id": "lambda/orphan-fn",
+      "type": "lambda.function",
+      "name": "orphan-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "lambda/poller-fn",
+      "type": "lambda.function",
+      "name": "poller-fn",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/events",
+      "type": "sqs.queue",
+      "name": "events",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/inbox",
+      "type": "sqs.queue",
+      "name": "inbox",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/jobs-a",
+      "type": "sqs.queue",
+      "name": "jobs-a",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/jobs-b",
+      "type": "sqs.queue",
+      "name": "jobs-b",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/orders",
+      "type": "sqs.queue",
+      "name": "orders",
+      "flow": "unreached"
+    },
+    {
+      "id": "sqs/reports",
+      "type": "sqs.queue",
+      "name": "reports",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/single-q",
+      "type": "sqs.queue",
+      "name": "single-q",
+      "flow": "async"
+    },
+    {
+      "id": "sqs/work",
+      "type": "sqs.queue",
+      "name": "work",
+      "flow": "unreached"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apigw/api0000020",
+      "to": "lambda/api-fn",
+      "kind": "invoke",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations api0000020 i1 (route POST /jobs)",
+          "detail": "AWS_PROXY POST /jobs → api-fn"
+        }
+      ]
+    },
+    {
+      "from": "apigw/api0000020",
+      "to": "sqs/inbox",
+      "kind": "publish",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "rule": "apigw.integration",
+          "source": "apigatewayv2:GetIntegrations api0000020 i2 (route POST /inbox)",
+          "detail": "AWS_PROXY POST /inbox → sqs/inbox"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy apigw-role send",
+          "detail": "role apigw-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:inbox (inline policy send)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/blind",
+      "to": "sqs/events",
+      "kind": "publish",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy blind-task app",
+          "detail": "role blind-task: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:events (inline policy app) — the permissions boundary could not be read"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/gated",
+      "to": "sqs/events",
+      "kind": "publish",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy gated-task app",
+          "detail": "role gated-task: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:events (inline policy app)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/partial",
+      "to": "sqs/events",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition partial:1 container app env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/events"
+        }
+      ]
+    },
+    {
+      "from": "ecs/main/worker",
+      "to": "ddb/ledger",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env TARGET_TABLE",
+          "detail": "TARGET_TABLE = \"ledger\", the name of ddb/ledger — the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "ddb/ledger",
+      "kind": "read",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role data",
+          "detail": "role api-fn-role: Allow dynamodb:GetItem on arn:aws:dynamodb:us-east-1:123456789012:table/ledger (inline policy data)"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role data",
+          "detail": "role api-fn-role: Allow dynamodb:Query on arn:aws:dynamodb:us-east-1:123456789012:table/ledger/index/* (inline policy data)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "ddb/orders",
+      "kind": "write",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions api-fn env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of ddb/orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role data",
+          "detail": "role api-fn-role: Allow dynamodb:PutItem on arn:aws:dynamodb:us-east-1:123456789012:table/orders (inline policy data)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "ddb/profiles",
+      "kind": "references",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role data",
+          "detail": "role api-fn-role: Allow dynamodb:GetItem, dynamodb:BatchGetItem, dynamodb:Query, dynamodb:Scan, dynamodb:PartiQLSelect, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:BatchWriteItem, dynamodb:PartiQLInsert, dynamodb:PartiQLUpdate, dynamodb:PartiQLDelete on arn:aws:dynamodb:us-east-1:123456789012:table/profiles (inline policy data) — every action, so no intent"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "lambda/notify-fn",
+      "kind": "invoke",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role calls",
+          "detail": "role api-fn-role: Allow lambda:InvokeFunction on arn:aws:lambda:us-east-1:123456789012:function:notify-fn (inline policy calls)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "sqs/events",
+      "kind": "publish",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role queues",
+          "detail": "role api-fn-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:events (inline policy queues)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "sqs/jobs-a",
+      "kind": "publish",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role queues",
+          "detail": "role api-fn-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:jobs-* (inline policy queues) — a pattern that matches several resources"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "sqs/jobs-b",
+      "kind": "publish",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role queues",
+          "detail": "role api-fn-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:jobs-* (inline policy queues) — a pattern that matches several resources"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "sqs/orders",
+      "kind": "references",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions api-fn env TABLE_NAME",
+          "detail": "TABLE_NAME = \"orders\", the name of sqs/orders — a candidate only: the key names a table"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "sqs/reports",
+      "kind": "references",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions api-fn env REPORT_QUEUE_URL",
+          "detail": "REPORT_QUEUE_URL holds the URL of sqs/reports"
+        }
+      ]
+    },
+    {
+      "from": "lambda/api-fn",
+      "to": "sqs/single-q",
+      "kind": "publish",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy api-fn-role queues",
+          "detail": "role api-fn-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-1:123456789012:single-* (inline policy queues)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/events",
+      "to": "lambda/poller-fn",
+      "kind": "consume",
+      "confidence": "certain",
+      "status": "disabled",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy poller-role poll",
+          "detail": "role poller-role: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-1:123456789012:events (inline policy poll)"
+        },
+        {
+          "rule": "lambda.event-source-mapping",
+          "source": "lambda:ListEventSourceMappings m-events",
+          "detail": "sqs events → poller-fn, state Disabled, batch 10"
+        }
+      ]
+    },
+    {
+      "from": "sqs/work",
+      "to": "ecs/main/worker",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition worker:1 container app env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/work"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy worker-task poll",
+          "detail": "role worker-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-1:123456789012:work (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/work",
+      "to": "lambda/poller-fn",
+      "kind": "consume",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy poller-role poll",
+          "detail": "role poller-role: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-1:123456789012:work (inline policy poll) — a function receives through an event source mapping, and none links these two"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "unscanned",
+      "node": "ecs/main/blind",
+      "target": "iam/role/blind-task",
+      "rule": "iam.policy-resource",
+      "detail": "role blind-task: its permissions boundary blind-boundary could not be read, so nothing the role allows can be confirmed; its edges are low"
+    },
+    {
+      "kind": "blocked",
+      "node": "ecs/main/gated",
+      "target": "ddb/orders",
+      "rule": "iam.policy-resource",
+      "detail": "its role allows dynamodb:PutItem on it (inline policy app), but the permissions boundary gated-boundary does not allow it: no edge"
+    },
+    {
+      "kind": "unscanned",
+      "node": "ecs/main/partial",
+      "target": "iam/role/partial-task",
+      "rule": "iam.policy-resource",
+      "detail": "role partial-task: could not read inline policy app; its permissions were evaluated without them"
+    },
+    {
+      "kind": "broad-access",
+      "node": "ecs/main/worker",
+      "target": "dynamodb",
+      "rule": "iam.policy-resource",
+      "detail": "role worker-task may use every dynamodb resource (dynamodb:GetItem on *, AWS managed policy AmazonDynamoDBReadOnlyAccess): a grant this wide links to nothing in particular, so it draws no edge"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/api-fn",
+      "target": "arn:aws:sqs:us-east-1:123456789012:deleted-q",
+      "rule": "iam.policy-resource",
+      "detail": "role api-fn-role allows sqs:SendMessage (inline policy queues): the target is not in the inventory"
+    },
+    {
+      "kind": "unresolved",
+      "node": "lambda/api-fn",
+      "target": "arn:aws:sqs:us-east-1:999999999999:jobs-a",
+      "rule": "iam.policy-resource",
+      "detail": "role api-fn-role allows sqs:SendMessage (inline policy queues): target is in account 999999999999, outside this scan"
+    },
+    {
+      "kind": "blocked",
+      "node": "lambda/api-fn",
+      "target": "ddb/audit",
+      "rule": "iam.policy-resource",
+      "detail": "its role allows dynamodb:DeleteItem on it (inline policy data), but an explicit Deny in inline policy data cancels it: no edge"
+    },
+    {
+      "kind": "ambiguous",
+      "node": "lambda/api-fn",
+      "target": "orders",
+      "rule": "config.value-scan",
+      "detail": "TABLE_NAME = \"orders\" names ddb/orders and sqs/orders; the key points at ddb/orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "lambda/api-fn",
+      "target": "sqs/orders",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sqs/orders, but its role api-fn-role grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "unscanned",
+      "node": "lambda/orphan-fn",
+      "target": "iam/role/gone-role",
+      "rule": "iam.policy-resource",
+      "detail": "role not in the inventory: its permissions were not evaluated"
+    },
+    {
+      "kind": "broad-access",
+      "node": "lambda/poller-fn",
+      "target": "dynamodb",
+      "rule": "iam.policy-resource",
+      "detail": "role poller-role may use every dynamodb resource (dynamodb:Query on arn:aws:dynamodb:us-east-1:123456789012:table/*, inline policy poll): a grant this wide links to nothing in particular, so it draws no edge"
+    }
+  ]
+}

@@ -256,6 +256,11 @@
           "rule": "apigw.integration",
           "source": "apigatewayv2:GetIntegrations fakeapi0001 int0003 (route POST /events)",
           "detail": "AWS_PROXY POST /events → sqs/ce-test-inbox"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-apigw-sqs-role send",
+          "detail": "role ce-test-apigw-sqs-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-inbox (inline policy send)"
         }
       ]
     },
@@ -328,6 +333,11 @@
           "rule": "apigw.integration",
           "source": "apigateway:GetResources fakeapi0002 POST /webhooks",
           "detail": "AWS POST /webhooks → sqs/ce-test-inbox"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-apigw-sqs-role send",
+          "detail": "role ce-test-apigw-sqs-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-inbox (inline policy send)"
         }
       ]
     },
@@ -338,6 +348,11 @@
       "confidence": "certain",
       "evidence": [
         {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-audit-writer-role audit",
+          "detail": "role ce-test-audit-writer-role: Allow dynamodb:GetRecords on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders/stream/* (inline policy audit)"
+        },
+        {
           "rule": "lambda.event-source-mapping",
           "source": "lambda:ListEventSourceMappings 00000000-0000-4000-8000-000000000002",
           "detail": "dynamodb-stream 59.103 → ce-test-audit-writer, state Enabled, batch 100"
@@ -347,13 +362,41 @@
     {
       "from": "ecs/ce-test-batch/ce-test-orders-api",
       "to": "ddb/ce-test-orders",
-      "kind": "references",
-      "confidence": "medium",
+      "kind": "read",
+      "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
           "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow dynamodb:GetItem, dynamodb:Query on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders (inline policy orders-data)"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow dynamodb:Query on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders/index/* (inline policy orders-data)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-batch/ce-test-orders-api",
+      "to": "ddb/ce-test-orders",
+      "kind": "write",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow dynamodb:PutItem, dynamodb:UpdateItem on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders (inline policy orders-data)"
         }
       ]
     },
@@ -386,182 +429,59 @@
     {
       "from": "ecs/ce-test-batch/ce-test-orders-api",
       "to": "sqs/ce-test-orders-events",
-      "kind": "references",
+      "kind": "publish",
       "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env QUEUE_URL",
           "detail": "QUEUE_URL holds the URL of sqs/ce-test-orders-events"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-01",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
+        },
         {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-02",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-03",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-04",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-05",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-06",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-07",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-08",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-09",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-10",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-filler-11",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
-        }
-      ]
-    },
-    {
-      "from": "ecs/ce-test-main/ce-test-notifications",
-      "to": "sqs/ce-test-notifications.fifo",
-      "kind": "references",
-      "confidence": "high",
-      "evidence": [
-        {
-          "rule": "config.value-scan",
-          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
-          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow sqs:SendMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events (inline policy orders-data)"
         }
       ]
     },
     {
       "from": "ecs/ce-test-main/ce-test-orders-api",
       "to": "ddb/ce-test-orders",
-      "kind": "references",
-      "confidence": "medium",
+      "kind": "read",
+      "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
           "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow dynamodb:GetItem, dynamodb:Query on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders (inline policy orders-data)"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow dynamodb:Query on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders/index/* (inline policy orders-data)"
+        }
+      ]
+    },
+    {
+      "from": "ecs/ce-test-main/ce-test-orders-api",
+      "to": "ddb/ce-test-orders",
+      "kind": "write",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow dynamodb:PutItem, dynamodb:UpdateItem on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders (inline policy orders-data)"
         }
       ]
     },
@@ -594,26 +514,36 @@
     {
       "from": "ecs/ce-test-main/ce-test-orders-api",
       "to": "sqs/ce-test-orders-events",
-      "kind": "references",
+      "kind": "publish",
       "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "ecs:DescribeTaskDefinition ce-test-orders-api:3 container app env QUEUE_URL",
           "detail": "QUEUE_URL holds the URL of sqs/ce-test-orders-events"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-orders-api-task orders-data",
+          "detail": "role ce-test-orders-api-task: Allow sqs:SendMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events (inline policy orders-data)"
         }
       ]
     },
     {
       "from": "lambda/ce-test-audit-writer",
       "to": "ddb/ce-test-orders-audit",
-      "kind": "references",
-      "confidence": "medium",
+      "kind": "write",
+      "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions ce-test-audit-writer env AUDIT_TABLE",
           "detail": "AUDIT_TABLE = \"ce-test-orders-audit\", the name of ddb/ce-test-orders-audit — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-audit-writer-role audit",
+          "detail": "role ce-test-audit-writer-role: Allow dynamodb:PutItem on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders-audit (inline policy audit)"
         }
       ]
     },
@@ -624,6 +554,11 @@
       "confidence": "certain",
       "evidence": [
         {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-audit-writer-role audit",
+          "detail": "role ce-test-audit-writer-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq (inline policy audit)"
+        },
+        {
           "rule": "lambda.event-source-mapping",
           "source": "lambda:ListEventSourceMappings 00000000-0000-4000-8000-000000000002",
           "detail": "records that fail ce-test-audit-writer go to ce-test-orders-events-dlq"
@@ -633,13 +568,49 @@
     {
       "from": "lambda/ce-test-order-processor",
       "to": "ddb/ce-test-orders",
-      "kind": "references",
+      "kind": "read",
       "confidence": "medium",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions ce-test-order-processor env TABLE_NAME",
           "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-order-processor-role tier3-read",
+          "detail": "role ce-test-order-processor-role: Allow dynamodb:GetItem on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders* (inline policy tier3-read) — a pattern that matches several resources"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-order-processor",
+      "to": "ddb/ce-test-orders",
+      "kind": "write",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "lambda:ListFunctions ce-test-order-processor env TABLE_NAME",
+          "detail": "TABLE_NAME = \"ce-test-orders\", the name of ddb/ce-test-orders — the key names a table"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-order-processor-role process",
+          "detail": "role ce-test-order-processor-role: Allow dynamodb:UpdateItem on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders (inline policy process)"
+        }
+      ]
+    },
+    {
+      "from": "lambda/ce-test-order-processor",
+      "to": "ddb/ce-test-orders-audit",
+      "kind": "read",
+      "confidence": "low",
+      "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-order-processor-role tier3-read",
+          "detail": "role ce-test-order-processor-role: Allow dynamodb:GetItem on arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders* (inline policy tier3-read) — a pattern that matches several resources"
         }
       ]
     },
@@ -698,13 +669,18 @@
     {
       "from": "lambda/ce-test-webhook-receiver",
       "to": "sqs/ce-test-orders-events",
-      "kind": "references",
+      "kind": "publish",
       "confidence": "high",
       "evidence": [
         {
           "rule": "config.value-scan",
           "source": "lambda:ListFunctions ce-test-webhook-receiver env ORDERS_QUEUE_URL",
           "detail": "ORDERS_QUEUE_URL holds the URL of sqs/ce-test-orders-events"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-webhook-receiver-role enqueue",
+          "detail": "role ce-test-webhook-receiver-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events (inline policy enqueue)"
         }
       ]
     },
@@ -715,9 +691,230 @@
       "confidence": "certain",
       "evidence": [
         {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-webhook-receiver-role enqueue",
+          "detail": "role ce-test-webhook-receiver-role: Allow sqs:SendMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events-dlq (inline policy enqueue)"
+        },
+        {
           "rule": "lambda.dead-letter",
           "source": "lambda:ListFunctions ce-test-webhook-receiver",
           "detail": "DeadLetterConfig: failed asynchronous invocations go to ce-test-orders-events-dlq"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-01",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-02",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-03",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-04",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-05",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-06",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-07",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-08",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-09",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-10",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-filler-11",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
+        }
+      ]
+    },
+    {
+      "from": "sqs/ce-test-notifications.fifo",
+      "to": "ecs/ce-test-main/ce-test-notifications",
+      "kind": "consume",
+      "confidence": "high",
+      "evidence": [
+        {
+          "rule": "config.value-scan",
+          "source": "ecs:DescribeTaskDefinition ce-test-notifications:3 container worker env QUEUE_URL",
+          "detail": "QUEUE_URL holds the URL of sqs/ce-test-notifications.fifo"
+        },
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-notifications-task poll",
+          "detail": "role ce-test-notifications-task: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo (inline policy poll)"
         }
       ]
     },
@@ -728,6 +925,11 @@
       "confidence": "certain",
       "status": "disabled",
       "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-order-processor-role process",
+          "detail": "role ce-test-order-processor-role: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-orders (inline policy process)"
+        },
         {
           "rule": "lambda.event-source-mapping",
           "source": "lambda:ListEventSourceMappings 00000000-0000-4000-8000-000000000001",
@@ -741,6 +943,11 @@
       "kind": "consume",
       "confidence": "certain",
       "evidence": [
+        {
+          "rule": "iam.policy-resource",
+          "source": "iam:GetRolePolicy ce-test-order-processor-role process",
+          "detail": "role ce-test-order-processor-role: Allow sqs:ReceiveMessage on arn:aws:sqs:us-east-2:123456789012:ce-test-orders-events (inline policy process)"
+        },
         {
           "rule": "lambda.event-source-mapping",
           "source": "lambda:ListEventSourceMappings 00000000-0000-4000-8000-000000000003",
@@ -768,14 +975,14 @@
       "node": "ecs/ce-test-batch/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
     },
     {
       "kind": "unresolved",
       "node": "ecs/ce-test-batch/ce-test-orders-api",
       "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
       "rule": "config.value-scan",
-      "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
+      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
     },
     {
       "kind": "ambiguous",
@@ -783,6 +990,20 @@
       "target": "ce-test-orders",
       "rule": "config.value-scan",
       "detail": "TABLE_NAME = \"ce-test-orders\" names ddb/ce-test-orders and sqs/ce-test-orders; the key points at ddb/ce-test-orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "blocked",
+      "node": "ecs/ce-test-batch/ce-test-orders-api",
+      "target": "lambda/ce-test-orders-fn",
+      "rule": "iam.policy-resource",
+      "detail": "its role allows lambda:InvokeFunction on it (inline policy tier3-invoke), but the permissions boundary ce-test-boundary does not allow it: no edge"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "ecs/ce-test-batch/ce-test-orders-api",
+      "target": "sqs/ce-test-orders",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sqs/ce-test-orders, but its role ce-test-orders-api-task grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
     },
     {
       "kind": "unresolved",
@@ -792,11 +1013,25 @@
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
     },
     {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-01",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
+    },
+    {
       "kind": "unresolved",
       "node": "ecs/ce-test-main/ce-test-filler-02",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-02",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
     },
     {
       "kind": "unresolved",
@@ -806,11 +1041,25 @@
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
     },
     {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-03",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
+    },
+    {
       "kind": "unresolved",
       "node": "ecs/ce-test-main/ce-test-filler-04",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-04",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
     },
     {
       "kind": "unresolved",
@@ -820,11 +1069,25 @@
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
     },
     {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-05",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
+    },
+    {
       "kind": "unresolved",
       "node": "ecs/ce-test-main/ce-test-filler-06",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-06",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
     },
     {
       "kind": "unresolved",
@@ -834,11 +1097,25 @@
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
     },
     {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-07",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
+    },
+    {
       "kind": "unresolved",
       "node": "ecs/ce-test-main/ce-test-filler-08",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-08",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
     },
     {
       "kind": "unresolved",
@@ -848,11 +1125,25 @@
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
     },
     {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-09",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
+    },
+    {
       "kind": "unresolved",
       "node": "ecs/ce-test-main/ce-test-filler-10",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
       "rule": "config.value-scan",
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
+    },
+    {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-10",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
     },
     {
       "kind": "unresolved",
@@ -862,6 +1153,13 @@
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
     },
     {
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-filler-11",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
+    },
+    {
       "kind": "unresolved",
       "node": "ecs/ce-test-main/ce-test-notifications",
       "target": "ce-test-sessions.abc123.ng.0001.use2.cache.amazonaws.com",
@@ -869,11 +1167,11 @@
       "detail": "CACHE_HOST names an ElastiCache endpoint; linking it needs the ElastiCache collector"
     },
     {
-      "kind": "unresolved",
-      "node": "ecs/ce-test-main/ce-test-orders-api",
-      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
-      "rule": "config.value-scan",
-      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+      "kind": "broad-access",
+      "node": "ecs/ce-test-main/ce-test-notifications",
+      "target": "sqs",
+      "rule": "iam.policy-resource",
+      "detail": "role ce-test-notifications-task may use every sqs resource (sqs:* on *, AWS managed policy AmazonSQSFullAccess): a grant this wide links to nothing in particular, so it draws no edge"
     },
     {
       "kind": "unresolved",
@@ -883,11 +1181,39 @@
       "detail": "DB_HOST names an RDS endpoint; linking it needs the RDS collector"
     },
     {
+      "kind": "unresolved",
+      "node": "ecs/ce-test-main/ce-test-orders-api",
+      "target": "ce-test-db.cluster-abc123.us-east-2.rds.amazonaws.com",
+      "rule": "config.value-scan",
+      "detail": "DATABASE_URL names an RDS endpoint; linking it needs the RDS collector"
+    },
+    {
       "kind": "ambiguous",
       "node": "ecs/ce-test-main/ce-test-orders-api",
       "target": "ce-test-orders",
       "rule": "config.value-scan",
       "detail": "TABLE_NAME = \"ce-test-orders\" names ddb/ce-test-orders and sqs/ce-test-orders; the key points at ddb/ce-test-orders (medium); the others are low-confidence candidates"
+    },
+    {
+      "kind": "blocked",
+      "node": "ecs/ce-test-main/ce-test-orders-api",
+      "target": "lambda/ce-test-orders-fn",
+      "rule": "iam.policy-resource",
+      "detail": "its role allows lambda:InvokeFunction on it (inline policy tier3-invoke), but the permissions boundary ce-test-boundary does not allow it: no edge"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "ecs/ce-test-main/ce-test-orders-api",
+      "target": "sqs/ce-test-orders",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names sqs/ce-test-orders, but its role ce-test-orders-api-task grants no sqs action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "unscanned",
+      "node": "lambda/ce-test-legacy-report",
+      "target": "iam/role/ce-test-legacy-report-role",
+      "rule": "iam.policy-resource",
+      "detail": "role not in the inventory: its permissions were not evaluated"
     },
     {
       "kind": "unresolved",
@@ -909,6 +1235,20 @@
       "target": "arn:aws:sqs:us-east-2:999999999999:ce-test-orders-events",
       "rule": "config.value-scan",
       "detail": "PARTNER_QUEUE_URL: target is in account 999999999999, outside this scan"
+    },
+    {
+      "kind": "unpermitted",
+      "node": "lambda/ce-test-orders-fn",
+      "target": "ddb/ce-test-orders-audit",
+      "rule": "iam.policy-resource",
+      "detail": "its configuration names ddb/ce-test-orders-audit, but its role ce-test-apigw-fn-role grants no dynamodb action on it, and no resource policy names the role: dead configuration, or access granted where cloud-echo does not look"
+    },
+    {
+      "kind": "blocked",
+      "node": "lambda/ce-test-webhook-receiver",
+      "target": "ddb/ce-test-orders",
+      "rule": "iam.policy-resource",
+      "detail": "its role allows dynamodb:PutItem on it (inline policy tier3-write), but an explicit Deny in inline policy enqueue cancels it: no edge"
     }
   ]
 }

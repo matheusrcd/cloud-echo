@@ -1,0 +1,1050 @@
+{
+  "formatVersion": 1,
+  "scanId": "tier3-cases",
+  "generatedBy": "hand-written",
+  "accountId": "123456789012",
+  "region": "us-east-1",
+  "scannedAt": "2026-09-13T00:00:00Z",
+  "resources": [
+    {
+      "id": "apigw/api0000020",
+      "type": "apigateway.http",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "t3-http",
+      "spec": {
+        "apiId": "api0000020",
+        "name": "t3-http",
+        "protocol": "HTTP",
+        "endpointType": "REGIONAL",
+        "endpoint": "https://api0000020.execute-api.us-east-1.amazonaws.com",
+        "routes": [
+          {
+            "routeKey": "POST /jobs",
+            "method": "POST",
+            "path": "/jobs",
+            "authorization": "NONE",
+            "integration": {
+              "id": "i1",
+              "type": "AWS_PROXY",
+              "service": "lambda",
+              "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:api-fn/invocations",
+              "target": {
+                "arn": "arn:aws:lambda:us-east-1:123456789012:function:api-fn",
+                "id": "lambda/api-fn"
+              }
+            }
+          },
+          {
+            "routeKey": "POST /inbox",
+            "method": "POST",
+            "path": "/inbox",
+            "authorization": "NONE",
+            "integration": {
+              "id": "i2",
+              "type": "AWS_PROXY",
+              "subtype": "SQS-SendMessage",
+              "service": "sqs",
+              "action": "SendMessage",
+              "credentials": "arn:aws:iam::123456789012:role/apigw-role",
+              "target": {
+                "arn": "arn:aws:sqs:us-east-1:123456789012:inbox",
+                "id": "sqs/inbox"
+              }
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/audit",
+      "type": "dynamodb.table",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "audit",
+      "spec": {
+        "tableName": "audit",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/ledger",
+      "type": "dynamodb.table",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "ledger",
+      "spec": {
+        "tableName": "ledger",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          }
+        ],
+        "globalSecondaryIndexes": [
+          {
+            "name": "by-date",
+            "keySchema": [
+              {
+                "name": "g",
+                "type": "S",
+                "role": "HASH"
+              }
+            ]
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/orders",
+      "type": "dynamodb.table",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders",
+      "spec": {
+        "tableName": "orders",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ddb/profiles",
+      "type": "dynamodb.table",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "profiles",
+      "spec": {
+        "tableName": "profiles",
+        "keySchema": [
+          {
+            "name": "pk",
+            "type": "S",
+            "role": "HASH"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/blind",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "blind",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "blind",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "blind:1",
+        "taskDefinitionId": "ecs/taskdef/blind:1"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/gated",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "gated",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "gated",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "gated:1",
+        "taskDefinitionId": "ecs/taskdef/gated:1"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/partial",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "partial",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "partial",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "partial:1",
+        "taskDefinitionId": "ecs/taskdef/partial:1"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/main/worker",
+      "type": "ecs.service",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "worker",
+      "spec": {
+        "cluster": "main",
+        "serviceName": "worker",
+        "desiredCount": 1,
+        "runningCount": 1,
+        "taskDefinition": "worker:1",
+        "taskDefinitionId": "ecs/taskdef/worker:1"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/blind:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "blind:1",
+      "spec": {
+        "family": "blind",
+        "revision": 1,
+        "taskRoleArn": "arn:aws:iam::123456789012:role/blind-task",
+        "taskRoleId": "iam/role/blind-task",
+        "containers": [
+          {
+            "name": "app",
+            "image": "blind:1",
+            "essential": true
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/gated:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "gated:1",
+      "spec": {
+        "family": "gated",
+        "revision": 1,
+        "taskRoleArn": "arn:aws:iam::123456789012:role/gated-task",
+        "taskRoleId": "iam/role/gated-task",
+        "containers": [
+          {
+            "name": "app",
+            "image": "gated:1",
+            "essential": true
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/partial:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "partial:1",
+      "spec": {
+        "family": "partial",
+        "revision": 1,
+        "taskRoleArn": "arn:aws:iam::123456789012:role/partial-task",
+        "taskRoleId": "iam/role/partial-task",
+        "containers": [
+          {
+            "name": "app",
+            "image": "partial:1",
+            "essential": true,
+            "env": {
+              "QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/events"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "ecs/taskdef/worker:1",
+      "type": "ecs.taskdefinition",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "worker:1",
+      "spec": {
+        "family": "worker",
+        "revision": 1,
+        "taskRoleArn": "arn:aws:iam::123456789012:role/worker-task",
+        "taskRoleId": "iam/role/worker-task",
+        "containers": [
+          {
+            "name": "app",
+            "image": "worker:1",
+            "essential": true,
+            "env": {
+              "QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/work",
+              "TARGET_TABLE": "ledger"
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/aws-policy/AmazonDynamoDBReadOnlyAccess",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "AmazonDynamoDBReadOnlyAccess",
+      "spec": {
+        "policyName": "AmazonDynamoDBReadOnlyAccess",
+        "awsManaged": true,
+        "defaultVersion": "v1",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "dynamodb:BatchGetItem",
+                "dynamodb:Describe*",
+                "dynamodb:List*",
+                "dynamodb:GetItem",
+                "dynamodb:Query",
+                "dynamodb:Scan"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/policy/gated-boundary",
+      "type": "iam.policy",
+      "arn": "arn:aws:iam::123456789012:policy/gated-boundary",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "gated-boundary",
+      "spec": {
+        "policyName": "gated-boundary",
+        "awsManaged": false,
+        "defaultVersion": "v1",
+        "document": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": "sqs:*",
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/api-fn-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/api-fn-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "api-fn-role",
+      "spec": {
+        "roleName": "api-fn-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/api-fn"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "data",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:PutItem",
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/orders"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:GetItem",
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/ledger"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:GetItem",
+                    "dynamodb:Query"
+                  ],
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/ledger/index/*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:*",
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/profiles"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:DeleteItem",
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/audit"
+                },
+                {
+                  "Effect": "Deny",
+                  "Action": "dynamodb:Delete*",
+                  "Resource": "*"
+                }
+              ]
+            }
+          },
+          {
+            "name": "queues",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:jobs-*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:single-*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:events"
+                },
+                {
+                  "Effect": "Deny",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "*",
+                  "Condition": {
+                    "Bool": {
+                      "aws:SecureTransport": "false"
+                    }
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:999999999999:jobs-a"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:deleted-q"
+                }
+              ]
+            }
+          },
+          {
+            "name": "calls",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "lambda:InvokeFunction",
+                  "Resource": "arn:aws:lambda:us-east-1:123456789012:function:notify-fn"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/apigw-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/apigw-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "apigw-role",
+      "spec": {
+        "roleName": "apigw-role",
+        "path": "/",
+        "assumedBy": [
+          "apigw/api0000020"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "send",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:inbox"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:PutItem",
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/ledger"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/blind-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/blind-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "blind-task",
+      "spec": {
+        "roleName": "blind-task",
+        "path": "/",
+        "assumedBy": [
+          "ecs/taskdef/blind:1"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "app",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:events"
+                }
+              ]
+            }
+          }
+        ],
+        "permissionsBoundary": {
+          "arn": "arn:aws:iam::123456789012:policy/blind-boundary",
+          "id": "iam/policy/blind-boundary"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/gated-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/gated-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "gated-task",
+      "spec": {
+        "roleName": "gated-task",
+        "path": "/",
+        "assumedBy": [
+          "ecs/taskdef/gated:1"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "app",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:PutItem",
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/orders"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:SendMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:events"
+                }
+              ]
+            }
+          }
+        ],
+        "permissionsBoundary": {
+          "arn": "arn:aws:iam::123456789012:policy/gated-boundary",
+          "id": "iam/policy/gated-boundary"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/notify-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/notify-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "notify-role",
+      "spec": {
+        "roleName": "notify-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/notify-fn"
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/partial-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/partial-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "partial-task",
+      "spec": {
+        "roleName": "partial-task",
+        "path": "/",
+        "assumedBy": [
+          "ecs/taskdef/partial:1"
+        ],
+        "unread": [
+          "inline policy app"
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/poller-role",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/poller-role",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "poller-role",
+      "spec": {
+        "roleName": "poller-role",
+        "path": "/",
+        "assumedBy": [
+          "lambda/poller-fn"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "poll",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:ReceiveMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:work"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sqs:ReceiveMessage",
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:events"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:Query",
+                  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/*"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "iam/role/worker-task",
+      "type": "iam.role",
+      "arn": "arn:aws:iam::123456789012:role/worker-task",
+      "region": "global",
+      "accountId": "123456789012",
+      "name": "worker-task",
+      "spec": {
+        "roleName": "worker-task",
+        "path": "/",
+        "assumedBy": [
+          "ecs/taskdef/worker:1"
+        ],
+        "inlinePolicies": [
+          {
+            "name": "poll",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:ChangeMessageVisibility"
+                  ],
+                  "Resource": "arn:aws:sqs:us-east-1:123456789012:work"
+                }
+              ]
+            }
+          }
+        ],
+        "attachedPolicies": [
+          {
+            "arn": "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess",
+            "id": "iam/aws-policy/AmazonDynamoDBReadOnlyAccess"
+          }
+        ]
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/api-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "api-fn",
+      "spec": {
+        "functionName": "api-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/api-fn-role",
+        "roleId": "iam/role/api-fn-role",
+        "env": {
+          "TABLE_NAME": "orders",
+          "REPORT_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/reports"
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/esm/m-events",
+      "type": "lambda.event-source-mapping",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "m-events",
+      "spec": {
+        "uuid": "m-events",
+        "state": "Disabled",
+        "enabled": false,
+        "batchSize": 10,
+        "source": {
+          "arn": "arn:aws:sqs:us-east-1:123456789012:events",
+          "id": "sqs/events"
+        },
+        "sourceType": "sqs",
+        "functionArn": "arn:aws:lambda:us-east-1:123456789012:function:poller-fn",
+        "functionId": "lambda/poller-fn"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/notify-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "notify-fn",
+      "spec": {
+        "functionName": "notify-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/notify-role",
+        "roleId": "iam/role/notify-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/orphan-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orphan-fn",
+      "spec": {
+        "functionName": "orphan-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/gone-role",
+        "roleId": "iam/role/gone-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "lambda/poller-fn",
+      "type": "lambda.function",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "poller-fn",
+      "spec": {
+        "functionName": "poller-fn",
+        "runtime": "python3.12",
+        "handler": "app.handler",
+        "memoryMb": 128,
+        "timeoutSec": 3,
+        "roleArn": "arn:aws:iam::123456789012:role/poller-role",
+        "roleId": "iam/role/poller-role"
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/events",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "events",
+      "spec": {
+        "queueName": "events",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/events",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/inbox",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "inbox",
+      "spec": {
+        "queueName": "inbox",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/inbox",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/jobs-a",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "jobs-a",
+      "spec": {
+        "queueName": "jobs-a",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/jobs-a",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/jobs-b",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "jobs-b",
+      "spec": {
+        "queueName": "jobs-b",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/jobs-b",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/orders",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "orders",
+      "spec": {
+        "queueName": "orders",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/orders",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/reports",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "reports",
+      "spec": {
+        "queueName": "reports",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/reports",
+        "visibilityTimeout": 30,
+        "policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::123456789012:role/api-fn-role"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": "arn:aws:sqs:us-east-1:123456789012:reports"
+            }
+          ]
+        }
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/single-q",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "single-q",
+      "spec": {
+        "queueName": "single-q",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/single-q",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    },
+    {
+      "id": "sqs/work",
+      "type": "sqs.queue",
+      "arn": "",
+      "region": "us-east-1",
+      "accountId": "123456789012",
+      "name": "work",
+      "spec": {
+        "queueName": "work",
+        "url": "https://sqs.us-east-1.amazonaws.com/123456789012/work",
+        "visibilityTimeout": 30
+      },
+      "source": {
+        "api": "fixture",
+        "collectedAt": "2026-09-13T00:00:00Z"
+      }
+    }
+  ]
+}

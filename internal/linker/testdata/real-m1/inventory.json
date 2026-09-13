@@ -1401,6 +1401,25 @@
             }
           ]
         },
+        "inlinePolicies": [
+          {
+            "name": "poll",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:ChangeMessageVisibility"
+                  ],
+                  "Resource": "arn:aws:sqs:us-east-2:123456789012:ce-test-notifications.fifo"
+                }
+              ]
+            }
+          }
+        ],
         "attachedPolicies": [
           {
             "arn": "arn:aws:iam::aws:policy/AmazonSQSFullAccess",
@@ -1463,6 +1482,19 @@
                   "Effect": "Allow",
                   "Action": "dynamodb:UpdateItem",
                   "Resource": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders"
+                }
+              ]
+            }
+          },
+          {
+            "name": "tier3-read",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:GetItem",
+                  "Resource": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders*"
                 }
               ]
             }
@@ -1540,6 +1572,19 @@
                 }
               ]
             }
+          },
+          {
+            "name": "tier3-invoke",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "lambda:InvokeFunction",
+                  "Resource": "arn:aws:lambda:us-east-2:123456789012:function:ce-test-orders-fn"
+                }
+              ]
+            }
           }
         ],
         "attachedPolicies": [
@@ -1604,6 +1649,19 @@
                   "Effect": "Deny",
                   "Action": "dynamodb:*",
                   "Resource": "*"
+                }
+              ]
+            }
+          },
+          {
+            "name": "tier3-write",
+            "document": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "dynamodb:PutItem",
+                  "Resource": "arn:aws:dynamodb:us-east-2:123456789012:table/ce-test-orders"
                 }
               ]
             }
